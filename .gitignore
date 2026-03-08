@@ -6,7 +6,6 @@ node_modules/
 dist/
 */dist/
 build/
-*/node_modules/
 
 
 # 环境配置
