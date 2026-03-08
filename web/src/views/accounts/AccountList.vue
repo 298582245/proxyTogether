@@ -257,33 +257,45 @@ const loadData = async () => {
 
 // 加载网站参数提示
 const handleSiteChange = async (siteId) => {
+  // 重置参数
+  paramHints.extractParams = []
+  paramHints.balanceParams = []
+  paramHints.durationParams = []
+  paramHints.formatParams = []
+  dialog.form.extractParamValues = {}
+  dialog.form.balanceParamValues = {}
+  dialog.form.extractParamsStr = ''
+  dialog.form.balanceParamsStr = ''
+
   if (!siteId) {
-    paramHints.extractParams = []
-    paramHints.balanceParams = []
-    paramHints.durationParams = []
-    paramHints.formatParams = []
     return
   }
 
   try {
     const res = await getSiteParamHints(siteId)
+    console.log('参数提示:', res.data)
+
     paramHints.extractParams = res.data.extractParams || []
     paramHints.balanceParams = res.data.balanceParams || []
     paramHints.durationParams = res.data.durationParams || []
     paramHints.formatParams = res.data.formatParams || []
 
     // 初始化参数值对象
-    dialog.form.extractParamValues = {}
-    dialog.form.balanceParamValues = {}
+    const extractValues = {}
+    const balanceValues = {}
     paramHints.extractParams.forEach(p => {
-      dialog.form.extractParamValues[p] = ''
+      extractValues[p] = ''
     })
     paramHints.balanceParams.forEach(p => {
-      dialog.form.balanceParamValues[p] = ''
+      balanceValues[p] = ''
     })
-    dialog.form.extractParamsStr = ''
-    dialog.form.balanceParamsStr = ''
+    dialog.form.extractParamValues = extractValues
+    dialog.form.balanceParamValues = balanceValues
+
+    console.log('提取参数:', paramHints.extractParams)
+    console.log('余额参数:', paramHints.balanceParams)
   } catch (error) {
+    console.error('获取参数提示失败:', error)
     // 错误已处理
   }
 }

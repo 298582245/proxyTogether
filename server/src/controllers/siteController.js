@@ -318,6 +318,9 @@ const extractParamNames = (url) => {
   return params;
 };
 
+// 需要过滤的常见无关字段（通常是接口返回字段，不是输入参数）
+const IGNORED_FIELDS = ['code', 'data', 'status', 'message', 'msg', 'result', 'success', 'error', 'total', 'list', 'items', 'page', 'size', 'limit', 'offset'];
+
 /**
  * 获取网站的参数提示（用于添加账号时智能提示）
  */
@@ -337,7 +340,7 @@ const getParamHints = async (req, res) => {
     const extractParams = extractParamNames(site.extractUrlTemplate);
 
     // 从余额URL提取参数
-    const balanceParams = extractParamNames(site.balanceUrl);
+    const balanceUrlParams = extractParamNames(site.balanceUrl);
 
     // 从余额参数模板中提取
     let templateParams = [];
@@ -352,9 +355,9 @@ const getParamHints = async (req, res) => {
       }
     }
 
-    // 合并并去重
-    const allExtractParams = [...new Set([...extractParams])];
-    const allBalanceParams = [...new Set([...balanceParams, ...templateParams])];
+    // 合并并去重，过滤掉常见无关字段
+    const allExtractParams = [...new Set([...extractParams])].filter(p => !IGNORED_FIELDS.includes(p));
+    const allBalanceParams = [...new Set([...balanceUrlParams, ...templateParams])].filter(p => !IGNORED_FIELDS.includes(p));
 
     res.json({
       success: true,
