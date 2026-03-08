@@ -77,7 +77,6 @@ services:
       - JWT_EXPIRES_IN=7d
       - NODE_ENV=production
     volumes:
-      - ./server/.env:/app/.env:ro
       - jwt_keys:/app/keys
     networks:
       - proxy-network
