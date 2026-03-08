@@ -69,10 +69,19 @@ const getList = async (req, res) => {
       ],
     });
 
+    // 转换字段名确保前端能正确显示
+    const list = rows.map((log) => {
+      const logJson = log.toJSON();
+      return {
+        ...logJson,
+        createdAt: logJson.created_at || logJson.createdAt,
+      };
+    });
+
     res.json({
       success: true,
       data: {
-        list: rows,
+        list,
         total: count,
         page: parseInt(page, 10),
         pageSize: limit,
@@ -118,9 +127,13 @@ const getDetail = async (req, res) => {
       });
     }
 
+    const logJson = log.toJSON();
     res.json({
       success: true,
-      data: log,
+      data: {
+        ...logJson,
+        createdAt: logJson.created_at || logJson.createdAt,
+      },
     });
   } catch (error) {
     logger.error('获取日志详情失败:', error);

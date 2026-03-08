@@ -3,6 +3,17 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+
+const authStore = useAuthStore()
+
+onMounted(async () => {
+  // 应用启动时验证 token
+  if (authStore.token) {
+    await authStore.verify()
+  }
+})
 </script>
 
 <style>
