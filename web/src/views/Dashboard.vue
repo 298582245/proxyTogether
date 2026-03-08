@@ -124,7 +124,7 @@ const logStats = reactive({
 })
 
 const refreshing = ref(false)
-const proxyUrl = ref(`${window.location.origin}/proxy/get?duration=1&format=txt`)
+const proxyUrl = ref(`${window.location.origin}/api/proxy/get?times=1&format=txt`)
 
 const loadStats = async () => {
   try {
