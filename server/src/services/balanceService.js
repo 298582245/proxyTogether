@@ -118,7 +118,9 @@ const queryAccountBalance = async (account, site) => {
       logger.info(`POST请求体: ${JSON.stringify(params)}`);
       response = await post(balanceUrl, params);
     } else {
-      response = await get(balanceUrl, params);
+      // GET请求，参数已经在URL中了，不需要额外传params
+      logger.info(`GET请求URL: ${balanceUrl}`);
+      response = await get(balanceUrl);
     }
 
     logger.info(`响应数据: ${JSON.stringify(response).substring(0, 500)}`);
