@@ -133,7 +133,7 @@
               {{ item.label }} ({{ item.times }}分钟)
             </el-tag>
           </div>
-          <div class="form-tip">调用代理接口时使用 times={{ item.times }} 参数选择对应时长</div>
+          <div class="form-tip">调用代理接口时使用 times 参数选择对应时长，如 times=1 表示1分钟</div>
         </template>
 
         <el-divider content-position="left">高级设置</el-divider>
