@@ -32,7 +32,7 @@
         </el-table-column>
         <el-table-column prop="balance" label="余额" width="120" align="right">
           <template #default="{ row }">
-            <span :class="{ 'low-balance': row.balance < 10 }">{{ row.balance?.toFixed(2) || '0.00' }}</span>
+            <span :class="{ 'low-balance': Number(row.balance) < 10 }">{{ Number(row.balance || 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="failCount" label="失败次数" width="100" align="center">
