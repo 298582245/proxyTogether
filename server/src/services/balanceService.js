@@ -100,30 +100,45 @@ const queryAccountBalance = async (account, site) => {
     // 替换URL中的参数占位符
     let balanceUrl = replaceUrlParams(site.balanceUrl, params);
 
+    // 详细日志
+    logger.info(`===== 余额查询开始 =====`);
+    logger.info(`账号: ${account.name}, 网站: ${site.name}`);
+    logger.info(`原始URL: ${site.balanceUrl}`);
+    logger.info(`余额参数模板: ${JSON.stringify(site.balanceParamsTemplate)}`);
+    logger.info(`账号余额参数: ${JSON.stringify(account.balanceParams)}`);
+    logger.info(`合并后参数: ${JSON.stringify(params)}`);
+    logger.info(`最终URL: ${balanceUrl}`);
+    logger.info(`请求方法: ${site.balanceMethod || 'GET'}`);
+
     // 发起请求
     let response;
     const method = (site.balanceMethod || 'GET').toUpperCase();
 
     if (method === 'POST') {
+      logger.info(`POST请求体: ${JSON.stringify(params)}`);
       response = await post(balanceUrl, params);
     } else {
       response = await get(balanceUrl, params);
     }
 
+    logger.info(`响应数据: ${JSON.stringify(response).substring(0, 500)}`);
+
     // 解析余额字段
     const balance = getValueByPath(response, site.balanceField || 'data.balance');
 
     if (balance === undefined || balance === null) {
-      logger.warn(`账号 ${account.name} 余额解析失败，响应:`, response);
+      logger.warn(`账号 ${account.name} 余额解析失败，字段路径: ${site.balanceField}`);
       return { success: false, balance: null, error: '余额字段解析失败' };
     }
 
     const balanceNum = parseFloat(balance);
     logger.info(`账号 ${account.name}(${site.name}) 余额: ${balanceNum}`);
+    logger.info(`===== 余额查询结束 =====`);
 
     return { success: true, balance: balanceNum, error: null };
   } catch (error) {
     logger.error(`查询账号 ${account.name} 余额失败:`, error.message);
+    logger.error(`错误详情: ${error.stack}`);
     return { success: false, balance: null, error: error.message };
   }
 };
