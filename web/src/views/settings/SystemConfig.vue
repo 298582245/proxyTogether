@@ -144,6 +144,26 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.system-config {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.system-config > .el-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.system-config > .el-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
 .form-tip {
   color: #909399;
   font-size: 12px;

@@ -93,25 +93,59 @@
     </el-card>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑账号' : '添加账号'" width="600px" destroy-on-close>
+    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑账号' : '添加账号'" width="650px" destroy-on-close>
       <el-form :model="dialog.form" :rules="dialog.rules" ref="formRef" label-width="100px">
         <el-form-item label="所属网站" prop="siteId">
-          <el-select v-model="dialog.form.siteId" placeholder="请选择网站" style="width: 100%" :disabled="dialog.isEdit">
+          <el-select v-model="dialog.form.siteId" placeholder="请选择网站" style="width: 100%" :disabled="dialog.isEdit" @change="handleSiteChange">
             <el-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
           </el-select>
         </el-form-item>
         <el-form-item label="账号名称" prop="name">
           <el-input v-model="dialog.form.name" placeholder="账号备注名称" />
         </el-form-item>
+
+        <!-- 智能参数提示 -->
+        <template v-if="paramHints.extractParams.length > 0">
+          <el-divider content-position="left">提取参数</el-divider>
+          <el-alert type="info" :closable="false" style="margin-bottom: 12px">
+            请填写以下参数，这些参数会替换到提取链接模板中
+          </el-alert>
+          <el-form-item v-for="param in paramHints.extractParams" :key="param" :label="param">
+            <el-input v-model="dialog.form.extractParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncExtractParams" />
+          </el-form-item>
+        </template>
+
+        <template v-if="paramHints.balanceParams.length > 0">
+          <el-divider content-position="left">余额查询参数</el-divider>
+          <el-alert type="info" :closable="false" style="margin-bottom: 12px">
+            请填写以下参数，这些参数会替换到余额查询接口中
+          </el-alert>
+          <el-form-item v-for="param in paramHints.balanceParams" :key="param" :label="param">
+            <el-input v-model="dialog.form.balanceParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncBalanceParams" />
+          </el-form-item>
+        </template>
+
+        <!-- 时长参数提示 -->
+        <template v-if="paramHints.durationParams.length > 0">
+          <el-divider content-position="left">可用时长</el-divider>
+          <div style="margin-bottom: 12px;">
+            <el-tag v-for="item in paramHints.durationParams" :key="item.times" style="margin-right: 8px; margin-bottom: 4px;">
+              {{ item.label }} ({{ item.times }}分钟)
+            </el-tag>
+          </div>
+          <div class="form-tip">调用代理接口时使用 times={{ item.times }} 参数选择对应时长</div>
+        </template>
+
+        <el-divider content-position="left">高级设置</el-divider>
         <el-form-item label="提取参数">
           <el-input
             v-model="dialog.form.extractParamsStr"
             type="textarea"
             :rows="3"
-            placeholder='JSON格式，会替换到提取链接模板中的变量，如: {"key": "xxx", "secret": "yyy"}'
+            placeholder='JSON格式，可手动编辑'
           />
           <div class="form-tip">
-            这些参数会替换到网站的提取链接模板中的对应变量
+            上方填写的参数会自动同步到这里，也可以直接编辑JSON
           </div>
         </el-form-item>
         <el-form-item label="余额参数">
@@ -119,11 +153,8 @@
             v-model="dialog.form.balanceParamsStr"
             type="textarea"
             :rows="3"
-            placeholder='JSON格式，会覆盖网站的余额查询参数，如: {"key": "xxx"}'
+            placeholder='JSON格式，可手动编辑'
           />
-          <div class="form-tip">
-            这些参数会与网站的余额参数模板合并
-          </div>
         </el-form-item>
         <el-form-item label="状态">
           <el-radio-group v-model="dialog.form.status">
@@ -143,7 +174,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getAccountList, getAccountDetail, createAccount, updateAccount, deleteAccount, toggleAccountStatus, refreshAccountBalance, refreshAllBalance } from '@/api/account'
-import { getAllActiveSites } from '@/api/site'
+import { getAllActiveSites, getSiteParamHints } from '@/api/site'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
@@ -165,6 +196,14 @@ const pagination = reactive({
   total: 0
 })
 
+// 参数提示
+const paramHints = reactive({
+  extractParams: [],
+  balanceParams: [],
+  durationParams: [],
+  formatParams: []
+})
+
 const dialog = reactive({
   visible: false,
   isEdit: false,
@@ -172,6 +211,8 @@ const dialog = reactive({
   form: {
     siteId: '',
     name: '',
+    extractParamValues: {},
+    balanceParamValues: {},
     extractParamsStr: '',
     balanceParamsStr: '',
     status: 1
@@ -214,14 +255,71 @@ const loadData = async () => {
   }
 }
 
+// 加载网站参数提示
+const handleSiteChange = async (siteId) => {
+  if (!siteId) {
+    paramHints.extractParams = []
+    paramHints.balanceParams = []
+    paramHints.durationParams = []
+    paramHints.formatParams = []
+    return
+  }
+
+  try {
+    const res = await getSiteParamHints(siteId)
+    paramHints.extractParams = res.data.extractParams || []
+    paramHints.balanceParams = res.data.balanceParams || []
+    paramHints.durationParams = res.data.durationParams || []
+    paramHints.formatParams = res.data.formatParams || []
+
+    // 初始化参数值对象
+    dialog.form.extractParamValues = {}
+    dialog.form.balanceParamValues = {}
+    paramHints.extractParams.forEach(p => {
+      dialog.form.extractParamValues[p] = ''
+    })
+    paramHints.balanceParams.forEach(p => {
+      dialog.form.balanceParamValues[p] = ''
+    })
+    dialog.form.extractParamsStr = ''
+    dialog.form.balanceParamsStr = ''
+  } catch (error) {
+    // 错误已处理
+  }
+}
+
+// 同步提取参数到JSON
+const syncExtractParams = () => {
+  const params = {}
+  Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
+    if (value) params[key] = value
+  })
+  dialog.form.extractParamsStr = Object.keys(params).length > 0 ? JSON.stringify(params, null, 2) : ''
+}
+
+// 同步余额参数到JSON
+const syncBalanceParams = () => {
+  const params = {}
+  Object.entries(dialog.form.balanceParamValues).forEach(([key, value]) => {
+    if (value) params[key] = value
+  })
+  dialog.form.balanceParamsStr = Object.keys(params).length > 0 ? JSON.stringify(params, null, 2) : ''
+}
+
 const resetForm = () => {
   dialog.form = {
     siteId: '',
     name: '',
+    extractParamValues: {},
+    balanceParamValues: {},
     extractParamsStr: '',
     balanceParamsStr: '',
     status: 1
   }
+  paramHints.extractParams = []
+  paramHints.balanceParams = []
+  paramHints.durationParams = []
+  paramHints.formatParams = []
 }
 
 const handleAdd = () => {
@@ -234,11 +332,33 @@ const handleEdit = async (row) => {
   try {
     const res = await getAccountDetail(row.id)
     const data = res.data
+
+    // 加载参数提示
+    if (data.siteId) {
+      await handleSiteChange(data.siteId)
+    }
+
+    // 解析现有参数
+    let extractParams = {}
+    let balanceParams = {}
+    if (data.extractParams) {
+      try {
+        extractParams = typeof data.extractParams === 'string' ? JSON.parse(data.extractParams) : data.extractParams
+      } catch {}
+    }
+    if (data.balanceParams) {
+      try {
+        balanceParams = typeof data.balanceParams === 'string' ? JSON.parse(data.balanceParams) : data.balanceParams
+      } catch {}
+    }
+
     dialog.form = {
       siteId: data.siteId,
       name: data.name || '',
-      extractParamsStr: data.extractParams ? JSON.stringify(data.extractParams, null, 2) : '',
-      balanceParamsStr: data.balanceParams ? JSON.stringify(data.balanceParams, null, 2) : '',
+      extractParamValues: { ...extractParams },
+      balanceParamValues: { ...balanceParams },
+      extractParamsStr: data.extractParams ? JSON.stringify(extractParams, null, 2) : '',
+      balanceParamsStr: data.balanceParams ? JSON.stringify(balanceParams, null, 2) : '',
       status: data.status
     }
     dialog.isEdit = true
@@ -263,8 +383,8 @@ const handleSubmit = async () => {
         status: dialog.form.status
       }
 
-      // 解析参数
-      if (dialog.form.extractParamsStr) {
+      // 优先使用JSON字符串，如果为空则从参数值构建
+      if (dialog.form.extractParamsStr && dialog.form.extractParamsStr.trim()) {
         try {
           data.extractParams = JSON.parse(dialog.form.extractParamsStr)
         } catch {
@@ -272,10 +392,14 @@ const handleSubmit = async () => {
           return
         }
       } else {
-        data.extractParams = null
+        const params = {}
+        Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
+          if (value) params[key] = value
+        })
+        data.extractParams = Object.keys(params).length > 0 ? params : null
       }
 
-      if (dialog.form.balanceParamsStr) {
+      if (dialog.form.balanceParamsStr && dialog.form.balanceParamsStr.trim()) {
         try {
           data.balanceParams = JSON.parse(dialog.form.balanceParamsStr)
         } catch {
@@ -283,7 +407,11 @@ const handleSubmit = async () => {
           return
         }
       } else {
-        data.balanceParams = null
+        const params = {}
+        Object.entries(dialog.form.balanceParamValues).forEach(([key, value]) => {
+          if (value) params[key] = value
+        })
+        data.balanceParams = Object.keys(params).length > 0 ? params : null
       }
 
       if (dialog.isEdit) {
@@ -363,16 +491,46 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.account-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.account-list > .el-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.account-list > .el-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.account-list > .el-card :deep(.el-table__wrapper) {
+  flex: 1;
+}
+
 .toolbar {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px 0;
 }
 
 .pagination {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .form-tip {

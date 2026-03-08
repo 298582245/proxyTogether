@@ -4,23 +4,27 @@ const logger = require('../utils/logger');
 /**
  * 获取代理IP
  * GET /proxy/get
- * 参数: duration, format, token
+ * 参数: times(时长值), format, token
+ * 兼容旧参数: duration
  */
 const getProxy = async (req, res) => {
   try {
-    const { duration, format } = req.query;
+    const { duration, times, format } = req.query;
     const clientIp = req.clientIp;
 
+    // 兼容 duration 和 times 参数
+    const durationValue = times || duration;
+
     // 验证参数
-    if (!duration) {
+    if (!durationValue) {
       return res.status(400).json({
         success: false,
-        message: '缺少时长参数',
+        message: '缺少时长参数(times)',
       });
     }
 
-    const durationType = parseInt(duration, 10);
-    if (isNaN(durationType)) {
+    const durationNum = parseInt(durationValue, 10);
+    if (isNaN(durationNum)) {
       return res.status(400).json({
         success: false,
         message: '时长参数格式错误',
@@ -29,10 +33,10 @@ const getProxy = async (req, res) => {
 
     const formatValue = format || 'txt';
 
-    logger.info(`代理请求 - IP: ${clientIp}, 时长: ${durationType}, 格式: ${formatValue}`);
+    logger.info(`代理请求 - IP: ${clientIp}, 时长: ${durationNum}, 格式: ${formatValue}`);
 
     // 获取代理
-    const result = await proxyService.getProxy(durationType, formatValue, clientIp);
+    const result = await proxyService.getProxy(durationNum, formatValue, clientIp);
 
     if (result.success) {
       // 直接返回原始响应
@@ -58,20 +62,23 @@ const getProxy = async (req, res) => {
  */
 const getProxyDetail = async (req, res) => {
   try {
-    const { duration, format } = req.query;
+    const { duration, times, format } = req.query;
     const clientIp = req.clientIp;
 
-    if (!duration) {
+    // 兼容 duration 和 times 参数
+    const durationValue = times || duration;
+
+    if (!durationValue) {
       return res.status(400).json({
         success: false,
-        message: '缺少时长参数',
+        message: '缺少时长参数(times)',
       });
     }
 
-    const durationType = parseInt(duration, 10);
+    const durationNum = parseInt(durationValue, 10);
     const formatValue = format || 'txt';
 
-    const result = await proxyService.getProxy(durationType, formatValue, clientIp);
+    const result = await proxyService.getProxy(durationNum, formatValue, clientIp);
 
     res.json(result);
   } catch (error) {

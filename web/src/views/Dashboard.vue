@@ -169,11 +169,15 @@ onMounted(() => {
 
 <style scoped>
 .dashboard {
-  padding: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .stat-cards {
   margin-bottom: 20px;
+  flex-shrink: 0;
 }
 
 .stat-card {
@@ -208,7 +212,15 @@ onMounted(() => {
 }
 
 .log-stats {
-  margin-bottom: 20px;
+  flex: 1;
+}
+
+.log-stats .el-col {
+  height: 100%;
+}
+
+.log-stats .el-card {
+  height: 100%;
 }
 
 .quick-actions {

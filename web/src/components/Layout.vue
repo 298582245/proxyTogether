@@ -178,8 +178,13 @@ const handleChangePassword = async () => {
   height: 100vh;
 }
 
+.layout-container .el-container {
+  height: 100%;
+}
+
 .sidebar {
   background-color: #304156;
+  height: 100%;
 }
 
 .logo {
@@ -217,5 +222,30 @@ const handleChangePassword = async () => {
 .main {
   background: #f0f2f5;
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.main :deep(> *) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main :deep(> * > .el-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.main :deep(> * > .el-card > .el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
 }
 </style>

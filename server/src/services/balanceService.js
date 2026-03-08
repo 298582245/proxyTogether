@@ -22,13 +22,64 @@ const getValueByPath = (obj, path) => {
 };
 
 /**
+ * 替换URL中的参数占位符
+ * @param {string} url - URL模板，如 https://api.com?no={params.no}&key={params.key}
+ * @param {object} params - 参数对象
+ */
+const replaceUrlParams = (url, params) => {
+  if (!url || !params) return url;
+  let result = url;
+  // 替换 {params.xxx} 格式的参数
+  Object.entries(params).forEach(([key, value]) => {
+    const regex = new RegExp(`\\{params\\.${key}\\}`, 'g');
+    result = result.replace(regex, encodeURIComponent(value));
+  });
+  return result;
+};
+
+/**
+ * 从URL模板中提取参数名
+ * @param {string} url - URL模板
+ * @returns {array} 参数名列表
+ */
+const extractParamNames = (url) => {
+  if (!url) return [];
+  const regex = /\{params\.(\w+)\}/g;
+  const params = [];
+  let match;
+  while ((match = regex.exec(url)) !== null) {
+    if (!params.includes(match[1])) {
+      params.push(match[1]);
+    }
+  }
+  return params;
+};
+
+/**
  * 合并参数模板和账号参数
  * @param {object} template - 模板参数
  * @param {object} accountParams - 账号特有参数
  */
 const mergeParams = (template, accountParams) => {
-  if (!template && !accountParams) return {};
-  return { ...template, ...accountParams };
+  let templateParams = template;
+  // 如果模板是字符串，尝试解析为JSON
+  if (typeof template === 'string') {
+    try {
+      templateParams = JSON.parse(template);
+    } catch {
+      templateParams = {};
+    }
+  }
+  let accountP = accountParams;
+  if (typeof accountParams === 'string') {
+    try {
+      accountP = JSON.parse(accountParams);
+    } catch {
+      accountP = {};
+    }
+  }
+  if (!templateParams && !accountP) return {};
+  return { ...templateParams, ...accountP };
 };
 
 /**
@@ -46,14 +97,17 @@ const queryAccountBalance = async (account, site) => {
     // 合并参数
     const params = mergeParams(site.balanceParamsTemplate, account.balanceParams);
 
+    // 替换URL中的参数占位符
+    let balanceUrl = replaceUrlParams(site.balanceUrl, params);
+
     // 发起请求
     let response;
     const method = (site.balanceMethod || 'GET').toUpperCase();
 
     if (method === 'POST') {
-      response = await post(site.balanceUrl, params);
+      response = await post(balanceUrl, params);
     } else {
-      response = await get(site.balanceUrl, params);
+      response = await get(balanceUrl, params);
     }
 
     // 解析余额字段
@@ -185,4 +239,6 @@ module.exports = {
   queryAllBalances,
   updateAccountBalance,
   getAccountStats,
+  extractParamNames,
+  replaceUrlParams,
 };

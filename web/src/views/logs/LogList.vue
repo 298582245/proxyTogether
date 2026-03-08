@@ -191,16 +191,44 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.log-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-list > .el-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.log-list > .el-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.log-list > .el-card :deep(.el-table__wrapper) {
+  flex: 1;
+}
+
 .toolbar {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .pagination {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .response-preview {

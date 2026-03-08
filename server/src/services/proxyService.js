@@ -7,19 +7,50 @@ const { get, buildUrl } = require('../utils/http');
 const logger = require('../utils/logger');
 
 /**
- * 替换模板中的变量
- * @param {string} template - URL模板
+ * 替换URL中的参数占位符
+ * @param {string} url - URL模板
  * @param {object} params - 参数对象
  */
-const replaceTemplateVars = (template, params) => {
-  if (!template) return template;
-  let result = template;
+const replaceUrlParams = (url, params) => {
+  if (!url || !params) return url;
+  let result = url;
+  // 替换 {params.xxx} 格式的参数
   Object.entries(params).forEach(([key, value]) => {
-    // 支持 {key} 格式的变量替换
+    const regex = new RegExp(`\\{params\\.${key}\\}`, 'g');
+    result = result.replace(regex, encodeURIComponent(value));
+  });
+  // 替换 {xxx} 格式的参数（非 params 前缀）
+  Object.entries(params).forEach(([key, value]) => {
     const regex = new RegExp(`\\{${key}\\}`, 'g');
-    result = result.replace(regex, value);
+    result = result.replace(regex, encodeURIComponent(value));
   });
   return result;
+};
+
+/**
+ * 从URL模板中提取参数名
+ * @param {string} url - URL模板
+ * @returns {array} 参数名列表
+ */
+const extractParamNames = (url) => {
+  if (!url) return [];
+  const params = [];
+  // 匹配 {params.xxx} 格式
+  const paramsRegex = /\{params\.(\w+)\}/g;
+  let match;
+  while ((match = paramsRegex.exec(url)) !== null) {
+    if (!params.includes(match[1])) {
+      params.push(match[1]);
+    }
+  }
+  // 匹配 {xxx} 格式（排除 duration, format）
+  const simpleRegex = /\{(\w+)\}/g;
+  while ((match = simpleRegex.exec(url)) !== null) {
+    if (!['duration', 'format', 'times'].includes(match[1]) && !params.includes(match[1])) {
+      params.push(match[1]);
+    }
+  }
+  return params;
 };
 
 /**
@@ -52,84 +83,36 @@ const getAccountAvailableBalance = async (accountId) => {
 };
 
 /**
- * 选择最优账号
- * @param {number} durationType - 时长类型
- */
-const selectBestAccount = async (durationType) => {
-  // 获取所有启用的账号，按余额降序
-  const accounts = await Account.findAll({
-    where: { status: 1 },
-    include: [
-      {
-        model: Site,
-        as: 'site',
-        where: { status: 1 },
-        required: true,
-      },
-    ],
-    order: [['balance', 'DESC']],
-  });
-
-  // 过滤支持该时长的账号
-  const availableAccounts = accounts.filter((account) => {
-    const site = account.site;
-    if (!site || !site.durationParams) return false;
-
-    // 检查是否支持该时长参数
-    const durationParams = site.durationParams;
-    if (Array.isArray(durationParams)) {
-      return durationParams.some((dp) => dp.type === durationType);
-    }
-    return false;
-  });
-
-  if (availableAccounts.length === 0) {
-    return null;
-  }
-
-  // 获取所有余额并排序
-  const accountsWithBalance = await Promise.all(
-    availableAccounts.map(async (account) => {
-      const balance = await getAccountAvailableBalance(account.id);
-      return { account, balance };
-    })
-  );
-
-  // 按余额降序排序
-  accountsWithBalance.sort((a, b) => b.balance - a.balance);
-
-  return accountsWithBalance[0].account;
-};
-
-/**
  * 构建提取链接
  * @param {object} account - 账号对象
  * @param {object} site - 网站对象
- * @param {number} durationType - 时长类型
+ * @param {number} durationValue - 时长值（times）
  * @param {string} format - 格式参数
  */
-const buildExtractUrl = (account, site, durationType, format) => {
+const buildExtractUrl = (account, site, durationValue, format) => {
   let url = site.extractUrlTemplate;
-
-  // 查找对应的时长参数配置
-  const durationParams = site.durationParams || [];
-  const durationConfig = durationParams.find((dp) => dp.type === durationType);
 
   // 构建替换参数
   const replaceParams = {
-    duration: durationConfig ? durationConfig.times : durationType,
+    duration: durationValue,
+    times: durationValue,
     format: format,
   };
 
-  // 合并账号特有参数
+  // 合并账号特有参数（支持 params.xxx 格式）
   if (account.extractParams) {
-    Object.entries(account.extractParams).forEach(([key, value]) => {
+    const accountParams = typeof account.extractParams === 'string'
+      ? JSON.parse(account.extractParams)
+      : account.extractParams;
+    Object.entries(accountParams).forEach(([key, value]) => {
       replaceParams[key] = value;
+      // 同时支持 params.xxx 格式
+      replaceParams[`params.${key}`] = value;
     });
   }
 
   // 替换模板变量
-  url = replaceTemplateVars(url, replaceParams);
+  url = replaceUrlParams(url, replaceParams);
 
   return url;
 };
@@ -184,13 +167,25 @@ const resetFailCount = async (accountId) => {
 };
 
 /**
+ * 检查账号是否支持指定时长
+ * @param {object} site - 网站对象
+ * @param {number} durationValue - 时长值
+ */
+const isDurationSupported = (site, durationValue) => {
+  if (!site.durationParams || !Array.isArray(site.durationParams)) {
+    return false;
+  }
+  return site.durationParams.some((dp) => dp.times === durationValue);
+};
+
+/**
  * 获取代理IP核心方法
- * @param {number} durationType - 时长类型
+ * @param {number} durationValue - 时长值
  * @param {string} format - 格式参数
  * @param {string} clientIp - 客户端IP
  * @param {array} triedAccountIds - 已尝试过的账号ID列表
  */
-const getProxy = async (durationType, format, clientIp, triedAccountIds = []) => {
+const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) => {
   // 获取所有启用的账号
   const accounts = await Account.findAll({
     where: {
@@ -210,12 +205,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
   // 过滤支持该时长的账号
   const availableAccounts = accounts.filter((account) => {
     const site = account.site;
-    if (!site || !site.durationParams) return false;
-    const durationParams = site.durationParams;
-    if (Array.isArray(durationParams)) {
-      return durationParams.some((dp) => dp.type === durationType);
-    }
-    return false;
+    return isDurationSupported(site, durationValue);
   });
 
   if (availableAccounts.length === 0) {
@@ -244,7 +234,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
   logger.info(`选择账号 ${account.name}(${site.name})，余额: ${balance}`);
 
   // 构建提取链接
-  const extractUrl = buildExtractUrl(account, site, durationType, format);
+  const extractUrl = buildExtractUrl(account, site, durationValue, format);
   logger.info(`提取链接: ${extractUrl}`);
 
   try {
@@ -255,8 +245,12 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
 
     // 获取失败关键词（网站配置 + 系统配置）
     let failureKeywords = site.failureKeywords || [];
-    const defaultKeywords = JSON.parse(await SystemConfig.getValue('proxy_failure_keywords', '["余额不足","已过期"]'));
-    failureKeywords = [...failureKeywords, ...defaultKeywords];
+    try {
+      const defaultKeywords = JSON.parse(await SystemConfig.getValue('proxy_failure_keywords', '["余额不足","已过期"]'));
+      failureKeywords = [...failureKeywords, ...defaultKeywords];
+    } catch {
+      failureKeywords = [...failureKeywords, '余额不足', '已过期'];
+    }
 
     // 检查是否包含失败关键词
     if (containsFailureKeyword(response, failureKeywords)) {
@@ -270,7 +264,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
         accountId: account.id,
         siteId: site.id,
         clientIp,
-        duration: durationType,
+        duration: durationValue,
         format,
         success: false,
         errorMessage: '响应包含失败关键词',
@@ -278,7 +272,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
       });
 
       // 递归尝试下一个账号
-      return getProxy(durationType, format, clientIp, [...triedAccountIds, account.id]);
+      return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id]);
     }
 
     // 成功，重置失败次数
@@ -289,7 +283,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
       accountId: account.id,
       siteId: site.id,
       clientIp,
-      duration: durationType,
+      duration: durationValue,
       format,
       success: true,
       responsePreview,
@@ -321,7 +315,7 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
       accountId: account.id,
       siteId: site.id,
       clientIp,
-      duration: durationType,
+      duration: durationValue,
       format,
       success: false,
       errorMessage: error.message,
@@ -329,12 +323,13 @@ const getProxy = async (durationType, format, clientIp, triedAccountIds = []) =>
     });
 
     // 递归尝试下一个账号
-    return getProxy(durationType, format, clientIp, [...triedAccountIds, account.id]);
+    return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id]);
   }
 };
 
 module.exports = {
   getProxy,
   buildExtractUrl,
-  selectBestAccount,
+  extractParamNames,
+  isDurationSupported,
 };

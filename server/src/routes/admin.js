@@ -17,6 +17,7 @@ router.put('/auth/password', authMiddleware, authController.changePassword);
 router.get('/sites', authMiddleware, siteController.getList);
 router.get('/sites/all', authMiddleware, siteController.getAllActive);
 router.get('/sites/:id', authMiddleware, siteController.getDetail);
+router.get('/sites/:id/param-hints', authMiddleware, siteController.getParamHints);
 router.post('/sites', authMiddleware, siteController.create);
 router.put('/sites/:id', authMiddleware, siteController.update);
 router.delete('/sites/:id', authMiddleware, siteController.remove);

@@ -34,3 +34,8 @@ export const deleteSite = (id) => {
 export const toggleSiteStatus = (id) => {
   return request.put(`/admin/sites/${id}/toggle`)
 }
+
+// 获取网站参数提示（用于添加账号时智能提示）
+export const getSiteParamHints = (id) => {
+  return request.get(`/admin/sites/${id}/param-hints`)
+}

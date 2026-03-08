@@ -36,8 +36,8 @@
         <el-table-column prop="durationParams" label="时长参数" min-width="150">
           <template #default="{ row }">
             <template v-if="row.durationParams && row.durationParams.length">
-              <el-tag v-for="item in row.durationParams.slice(0, 3)" :key="item.type" size="small" style="margin-right: 4px">
-                {{ item.label }}
+              <el-tag v-for="item in row.durationParams.slice(0, 3)" :key="item.times" size="small" style="margin-right: 4px">
+                {{ item.label }}({{ item.times }}分钟)
               </el-tag>
               <span v-if="row.durationParams.length > 3">...</span>
             </template>
@@ -98,10 +98,10 @@
             v-model="dialog.form.extractUrlTemplate"
             type="textarea"
             :rows="3"
-            placeholder="支持变量: {duration}, {format}, {params.xxx}"
+            placeholder="支持变量: {times}, {format}, {params.xxx}"
           />
           <div class="form-tip">
-            示例: https://api.example.com/get?num=1&amp;format={format}&amp;time={duration}&amp;key={key}
+            示例: https://api.example.com/get?num=1&amp;format={format}&amp;minute={times}&amp;no={params.no}&amp;secret={params.secret}
           </div>
         </el-form-item>
         <el-form-item label="格式参数">
@@ -118,20 +118,21 @@
         </el-form-item>
         <el-form-item label="时长参数">
           <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-item">
-            <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-            <el-input-number v-model="item.times" placeholder="times值" style="width: 120px; margin-left: 8px" :min="1" />
-            <el-input-number v-model="item.type" placeholder="type值" style="width: 120px; margin-left: 8px" :min="1" />
+            <el-input v-model="item.label" placeholder="显示名称" style="width: 120px" />
+            <el-input-number v-model="item.times" placeholder="分钟数" style="width: 130px; margin-left: 8px" :min="1" />
+            <span style="margin-left: 8px; color: #909399;">分钟</span>
             <el-button type="danger" link @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
               删除
             </el-button>
           </div>
-          <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: 1, type: 1 })">
+          <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: 1 })">
             + 添加时长参数
           </el-button>
         </el-form-item>
         <el-divider content-position="left">余额查询配置</el-divider>
         <el-form-item label="余额接口URL">
-          <el-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址" />
+          <el-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址，支持 {params.xxx} 参数" />
+          <div class="form-tip">示例: https://api.example.com/balance?no={params.no}&amp;userId={params.userId}</div>
         </el-form-item>
         <el-form-item label="请求方法">
           <el-radio-group v-model="dialog.form.balanceMethod">
@@ -139,16 +140,9 @@
             <el-radio value="POST">POST</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="余额参数模板">
-          <el-input
-            v-model="dialog.form.balanceParamsTemplate"
-            type="textarea"
-            :rows="2"
-            placeholder='JSON格式，如: {"key": "xxx", "secret": "yyy"}'
-          />
-        </el-form-item>
         <el-form-item label="余额字段路径">
           <el-input v-model="dialog.form.balanceField" placeholder="如: data.balance" />
+          <div class="form-tip">接口返回JSON中余额字段的路径，用点号分隔</div>
         </el-form-item>
         <el-divider content-position="left">失败关键词</el-divider>
         <el-form-item label="失败关键词">
@@ -161,6 +155,7 @@
             placeholder="输入关键词后回车添加"
             style="width: 100%"
           />
+          <div class="form-tip">当提取响应包含这些关键词时，自动切换到下一个账号</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -202,7 +197,6 @@ const dialog = reactive({
     durationParams: [],
     balanceUrl: '',
     balanceMethod: 'GET',
-    balanceParamsTemplate: '',
     balanceField: 'data.balance',
     failureKeywords: []
   },
@@ -242,7 +236,6 @@ const resetForm = () => {
     durationParams: [],
     balanceUrl: '',
     balanceMethod: 'GET',
-    balanceParamsTemplate: '',
     balanceField: 'data.balance',
     failureKeywords: []
   }
@@ -265,7 +258,6 @@ const handleEdit = async (row) => {
       durationParams: data.durationParams || [],
       balanceUrl: data.balanceUrl || '',
       balanceMethod: data.balanceMethod || 'GET',
-      balanceParamsTemplate: data.balanceParamsTemplate || '',
       balanceField: data.balanceField || 'data.balance',
       failureKeywords: data.failureKeywords || []
     }
@@ -286,14 +278,6 @@ const handleSubmit = async () => {
     dialog.loading = true
     try {
       const data = { ...dialog.form }
-      // 解析余额参数模板
-      if (data.balanceParamsTemplate && typeof data.balanceParamsTemplate === 'string') {
-        try {
-          data.balanceParamsTemplate = JSON.parse(data.balanceParamsTemplate)
-        } catch {
-          // 保持原样
-        }
-      }
 
       if (dialog.isEdit) {
         await updateSite(dialog.editId, data)
@@ -344,22 +328,51 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.site-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.site-list > .el-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.site-list > .el-card :deep(.el-card__body) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
+}
+
+.site-list > .el-card :deep(.el-table__wrapper) {
+  flex: 1;
+}
+
 .toolbar {
   margin-bottom: 16px;
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .pagination {
   margin-top: 16px;
   display: flex;
   justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .form-tip {
   color: #909399;
   font-size: 12px;
   margin-top: 4px;
+  line-height: 1.5;
 }
 
 .param-item {

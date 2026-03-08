@@ -292,6 +292,88 @@ const toggleStatus = async (req, res) => {
   }
 };
 
+/**
+ * 从URL模板中提取参数名
+ * @param {string} url - URL模板
+ * @returns {array} 参数名列表
+ */
+const extractParamNames = (url) => {
+  if (!url) return [];
+  const params = [];
+  // 匹配 {params.xxx} 格式
+  const paramsRegex = /\{params\.(\w+)\}/g;
+  let match;
+  while ((match = paramsRegex.exec(url)) !== null) {
+    if (!params.includes(match[1])) {
+      params.push(match[1]);
+    }
+  }
+  // 匹配 {xxx} 格式（排除 duration, format, times 等系统变量）
+  const simpleRegex = /\{(\w+)\}/g;
+  while ((match = simpleRegex.exec(url)) !== null) {
+    if (!['duration', 'format', 'times'].includes(match[1]) && !params.includes(match[1])) {
+      params.push(match[1]);
+    }
+  }
+  return params;
+};
+
+/**
+ * 获取网站的参数提示（用于添加账号时智能提示）
+ */
+const getParamHints = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const site = await Site.findByPk(id);
+    if (!site) {
+      return res.status(404).json({
+        success: false,
+        message: '网站不存在',
+      });
+    }
+
+    // 从提取URL提取参数
+    const extractParams = extractParamNames(site.extractUrlTemplate);
+
+    // 从余额URL提取参数
+    const balanceParams = extractParamNames(site.balanceUrl);
+
+    // 从余额参数模板中提取
+    let templateParams = [];
+    if (site.balanceParamsTemplate) {
+      try {
+        const template = typeof site.balanceParamsTemplate === 'string'
+          ? JSON.parse(site.balanceParamsTemplate)
+          : site.balanceParamsTemplate;
+        templateParams = Object.keys(template || {});
+      } catch {
+        // 忽略解析错误
+      }
+    }
+
+    // 合并并去重
+    const allExtractParams = [...new Set([...extractParams])];
+    const allBalanceParams = [...new Set([...balanceParams, ...templateParams])];
+
+    res.json({
+      success: true,
+      data: {
+        extractParams: allExtractParams,
+        balanceParams: allBalanceParams,
+        formatParams: site.formatParams || [],
+        durationParams: site.durationParams || [],
+      },
+    });
+  } catch (error) {
+    logger.error('获取参数提示失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取参数提示失败',
+    });
+  }
+};
+
 module.exports = {
   getList,
   getDetail,
@@ -300,4 +382,5 @@ module.exports = {
   update,
   remove,
   toggleStatus,
+  getParamHints,
 };
