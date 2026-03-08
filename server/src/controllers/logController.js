@@ -34,16 +34,16 @@ const getList = async (req, res) => {
       whereClause.success = parseInt(success, 10);
     }
     if (startDate) {
-      whereClause.createdAt = {
-        ...whereClause.createdAt,
+      whereClause.created_at = {
+        ...whereClause.created_at,
         [Op.gte]: new Date(startDate),
       };
     }
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      whereClause.createdAt = {
-        ...whereClause.createdAt,
+      whereClause.created_at = {
+        ...whereClause.created_at,
         [Op.lte]: end,
       };
     }
@@ -52,7 +52,7 @@ const getList = async (req, res) => {
       where: whereClause,
       offset,
       limit,
-      order: [['createdAt', 'DESC']],
+      order: [['created_at', 'DESC']],
       include: [
         {
           model: Account,
@@ -140,14 +140,14 @@ const getStats = async (req, res) => {
 
     const whereClause = {};
     if (startDate || endDate) {
-      whereClause.createdAt = {};
+      whereClause.created_at = {};
       if (startDate) {
-        whereClause.createdAt[Op.gte] = new Date(startDate);
+        whereClause.created_at[Op.gte] = new Date(startDate);
       }
       if (endDate) {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
-        whereClause.createdAt[Op.lte] = end;
+        whereClause.created_at[Op.lte] = end;
       }
     }
 
@@ -168,14 +168,14 @@ const getStats = async (req, res) => {
     const todayRequests = await ProxyLog.count({
       where: {
         ...whereClause,
-        createdAt: { [Op.gte]: today },
+        created_at: { [Op.gte]: today },
       },
     });
 
     const todaySuccess = await ProxyLog.count({
       where: {
         ...whereClause,
-        createdAt: { [Op.gte]: today },
+        created_at: { [Op.gte]: today },
         success: 1,
       },
     });
