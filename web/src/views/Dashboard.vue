@@ -66,7 +66,7 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="今日请求">{{ logStats.todayRequests }}</el-descriptions-item>
             <el-descriptions-item label="今日成功">{{ logStats.todaySuccess }}</el-descriptions-item>
-            <el-descriptions-item label="今日消费">¥{{ Number(logStats.todayCost || 0).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="今日消费">¥{{ Number(logStats.todayCost || 0).toFixed(4) }}</el-descriptions-item>
             <el-descriptions-item label="成功率">{{ logStats.successRate }}%</el-descriptions-item>
           </el-descriptions>
         </el-card>
@@ -79,7 +79,7 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="总请求数">{{ logStats.totalRequests }}</el-descriptions-item>
             <el-descriptions-item label="总成功数">{{ logStats.successRequests }}</el-descriptions-item>
-            <el-descriptions-item label="总消费">¥{{ Number(logStats.totalCost || 0).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="总消费">¥{{ Number(logStats.totalCost || 0).toFixed(4) }}</el-descriptions-item>
             <el-descriptions-item label="失败数">{{ logStats.failRequests }}</el-descriptions-item>
           </el-descriptions>
           <div style="margin-top: 16px;">
