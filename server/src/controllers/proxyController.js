@@ -1,5 +1,27 @@
 const proxyService = require('../services/proxyService');
+const ProxyLog = require('../models/ProxyLog');
 const logger = require('../utils/logger');
+
+/**
+ * 记录代理请求日志
+ */
+const logProxyRequest = async (data) => {
+  try {
+    await ProxyLog.create({
+      accountId: data.accountId,
+      siteId: data.siteId,
+      clientIp: data.clientIp,
+      duration: data.duration,
+      format: data.format,
+      success: data.success ? 1 : 0,
+      cost: data.cost || 0,
+      errorMessage: data.errorMessage,
+      responsePreview: data.responsePreview,
+    });
+  } catch (error) {
+    logger.error('记录代理日志失败:', error);
+  }
+};
 
 /**
  * 获取代理IP
@@ -17,6 +39,13 @@ const getProxy = async (req, res) => {
 
     // 验证参数
     if (!durationValue) {
+      await logProxyRequest({
+        clientIp,
+        duration: null,
+        format: format || null,
+        success: false,
+        errorMessage: '缺少时长参数(times)',
+      });
       return res.status(400).json({
         success: false,
         message: '缺少时长参数(times)',
@@ -25,6 +54,13 @@ const getProxy = async (req, res) => {
 
     const durationNum = parseInt(durationValue, 10);
     if (isNaN(durationNum)) {
+      await logProxyRequest({
+        clientIp,
+        duration: null,
+        format: format || null,
+        success: false,
+        errorMessage: '时长参数格式错误',
+      });
       return res.status(400).json({
         success: false,
         message: '时长参数格式错误',

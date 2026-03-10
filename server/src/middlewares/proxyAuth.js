@@ -1,4 +1,5 @@
 const SystemConfig = require('../models/SystemConfig');
+const ProxyLog = require('../models/ProxyLog');
 const cacheService = require('../services/cacheService');
 const logger = require('../utils/logger');
 
@@ -12,6 +13,25 @@ const getClientIp = (req) => {
     req.ip ||
     'unknown'
   );
+};
+
+// 记录验证失败的日志
+const logAuthFailure = async (clientIp, errorMessage) => {
+  try {
+    await ProxyLog.create({
+      accountId: null,
+      siteId: null,
+      clientIp: clientIp,
+      duration: null,
+      format: null,
+      success: 0,
+      cost: 0,
+      errorMessage: errorMessage,
+      responsePreview: null,
+    });
+  } catch (error) {
+    logger.error('记录认证失败日志失败:', error);
+  }
 };
 
 // 代理接口认证中间件
@@ -52,6 +72,7 @@ const proxyAuthMiddleware = async (req, res, next) => {
 
       if (!requestToken || requestToken !== proxyToken) {
         logger.warn(`代理接口Token验证失败，IP: ${clientIp}`);
+        await logAuthFailure(clientIp, 'Token无效');
         return res.status(403).json({
           success: false,
           message: 'Token无效',
@@ -73,6 +94,7 @@ const proxyAuthMiddleware = async (req, res, next) => {
 
       if (!isAllowed) {
         logger.warn(`代理接口IP白名单验证失败，IP: ${clientIp}`);
+        await logAuthFailure(clientIp, 'IP不在白名单中');
         return res.status(403).json({
           success: false,
           message: 'IP不在白名单中',
