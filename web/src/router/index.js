@@ -48,8 +48,13 @@ const router = createRouter({
 })
 
 // 路由守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+
+  // 等待初始化完成
+  if (!authStore.isInitialized && authStore.token) {
+    await authStore.verify()
+  }
 
   if (to.meta.requiresAuth !== false && !authStore.isLoggedIn) {
     next('/login')

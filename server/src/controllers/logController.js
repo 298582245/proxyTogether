@@ -215,6 +215,36 @@ const getStats = async (req, res) => {
       raw: true,
     });
 
+    // 昨日统计
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayRequests = await ProxyLog.count({
+      where: {
+        ...whereClause,
+        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
+      },
+    });
+
+    const yesterdaySuccess = await ProxyLog.count({
+      where: {
+        ...whereClause,
+        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
+        success: 1,
+      },
+    });
+
+    const yesterdayCostResult = await ProxyLog.findOne({
+      attributes: [
+        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'yesterdayCost'],
+      ],
+      where: {
+        ...whereClause,
+        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
+        success: 1,
+      },
+      raw: true,
+    });
+
     res.json({
       success: true,
       data: {
@@ -225,6 +255,9 @@ const getStats = async (req, res) => {
         todayRequests,
         todaySuccess,
         todayCost: parseFloat(todayCostResult.todayCost) || 0,
+        yesterdayRequests,
+        yesterdaySuccess,
+        yesterdayCost: parseFloat(yesterdayCostResult.yesterdayCost) || 0,
         successRate: totalRequests > 0 ? ((successRequests / totalRequests) * 100).toFixed(2) : 0,
       },
     });
@@ -237,8 +270,98 @@ const getStats = async (req, res) => {
   }
 };
 
+/**
+ * 获取图表数据（按日期分组）
+ */
+const getChartData = async (req, res) => {
+  try {
+    const { type = 'week' } = req.query; // week, month, custom
+    const sequelize = require('sequelize');
+    const { fn, col, literal } = sequelize;
+
+    let startDate, endDate;
+    const now = new Date();
+    endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+
+    switch (type) {
+      case 'today':
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'yesterday':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 1);
+        startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now);
+        endDate.setHours(0, 0, 0, 0);
+        break;
+      case 'week':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 6);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'month':
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 29);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      default:
+        startDate = new Date(now);
+        startDate.setDate(startDate.getDate() - 6);
+        startDate.setHours(0, 0, 0, 0);
+    }
+
+    // 按日期分组统计
+    const results = await ProxyLog.findAll({
+      attributes: [
+        [fn('DATE', col('created_at')), 'date'],
+        [fn('COUNT', col('id')), 'requests'],
+        [fn('SUM', literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
+        [fn('SUM', literal('CASE WHEN success = 1 THEN cost ELSE 0 END')), 'cost'],
+      ],
+      where: {
+        created_at: {
+          [Op.gte]: startDate,
+          [Op.lte]: endDate,
+        },
+      },
+      group: [fn('DATE', col('created_at'))],
+      order: [[fn('DATE', col('created_at')), 'ASC']],
+      raw: true,
+    });
+
+    // 生成完整的日期范围
+    const chartData = [];
+    const currentDate = new Date(startDate);
+    while (currentDate <= endDate) {
+      const dateStr = currentDate.toISOString().split('T')[0];
+      const found = results.find((r) => r.date === dateStr);
+      chartData.push({
+        date: dateStr,
+        requests: found ? parseInt(found.requests) : 0,
+        successCount: found ? parseInt(found.successCount) : 0,
+        cost: found ? parseFloat(found.cost) || 0 : 0,
+      });
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    res.json({
+      success: true,
+      data: chartData,
+    });
+  } catch (error) {
+    logger.error('获取图表数据失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取图表数据失败',
+    });
+  }
+};
+
 module.exports = {
   getList,
   getDetail,
   getStats,
+  getChartData,
 };

@@ -42,6 +42,7 @@ router.get('/config/:key', authMiddleware, configController.getConfigValue);
 // 日志管理
 router.get('/logs', authMiddleware, logController.getList);
 router.get('/logs/stats', authMiddleware, logController.getStats);
+router.get('/logs/chart', authMiddleware, logController.getChartData);
 router.get('/logs/:id', authMiddleware, logController.getDetail);
 
 module.exports = router;

@@ -14,3 +14,8 @@ export const getLogDetail = (id) => {
 export const getLogStats = (params) => {
   return request.get('/admin/logs/stats', { params })
 }
+
+// 获取图表数据
+export const getLogChart = (params) => {
+  return request.get('/admin/logs/chart', { params })
+}
