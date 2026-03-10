@@ -119,15 +119,15 @@
         <el-form-item label="时长参数">
           <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-item">
             <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-            <el-input-number v-model="item.times" placeholder="分钟数" style="width: 110px; margin-left: 8px" :min="1" />
+            <el-input v-model="item.times" placeholder="分钟数" style="width: 80px; margin-left: 8px" />
             <span style="margin-left: 4px; color: #909399;">分钟</span>
-            <el-input-number v-model="item.price" placeholder="价格" style="width: 100px; margin-left: 8px" :min="0" :precision="4" />
+            <el-input v-model="item.price" placeholder="价格" style="width: 80px; margin-left: 8px" />
             <span style="margin-left: 4px; color: #909399;">元</span>
             <el-button type="danger" link @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
               删除
             </el-button>
           </div>
-          <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: 1, price: 0 })">
+          <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: '', price: '' })">
             + 添加时长参数
           </el-button>
         </el-form-item>
