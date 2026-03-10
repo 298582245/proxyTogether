@@ -25,12 +25,9 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('echarts') || id.includes('zrender')) return 'echarts-vendor'
-            if (id.includes('vue')) return 'vue-vendor'
-            return 'vendor'
-          }
+        manualChunks: {
+          'vue-vendor': ['vue', 'vue-router', 'pinia'],
+          'element-vendor': ['element-plus', '@element-plus/icons-vue']
         },
         chunkFileNames: 'js/[name]-[hash].js',
         entryFileNames: 'js/[name]-[hash].js',
