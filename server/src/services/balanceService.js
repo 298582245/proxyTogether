@@ -243,9 +243,18 @@ const getAccountStats = async () => {
     raw: true,
   });
 
+  // 只统计启用账号的总余额
+  const activeBalanceResult = await Account.findOne({
+    attributes: [
+      [require('sequelize').fn('SUM', require('sequelize').col('balance')), 'activeBalance'],
+    ],
+    where: { status: 1 },
+    raw: true,
+  });
+
   return {
     totalCount: parseInt(result.totalCount) || 0,
-    totalBalance: parseFloat(result.totalBalance) || 0,
+    totalBalance: parseFloat(activeBalanceResult.activeBalance) || 0, // 只计算启用账号的余额
     activeCount: parseInt(result.activeCount) || 0,
     inactiveCount: parseInt(result.inactiveCount) || 0,
   };

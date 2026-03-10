@@ -35,6 +35,11 @@ const ProxyLog = sequelize.define('ProxyLog', {
     defaultValue: 0,
     comment: '是否成功: 1成功 0失败',
   },
+  cost: {
+    type: DataTypes.DECIMAL(10, 4),
+    defaultValue: 0,
+    comment: '消费金额',
+  },
   errorMessage: {
     type: DataTypes.STRING(500),
     field: 'error_message',

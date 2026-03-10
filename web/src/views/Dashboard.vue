@@ -66,21 +66,23 @@
           <el-descriptions :column="2" border>
             <el-descriptions-item label="今日请求">{{ logStats.todayRequests }}</el-descriptions-item>
             <el-descriptions-item label="今日成功">{{ logStats.todaySuccess }}</el-descriptions-item>
-            <el-descriptions-item label="总请求数">{{ logStats.totalRequests }}</el-descriptions-item>
-            <el-descriptions-item label="总成功数">{{ logStats.successRequests }}</el-descriptions-item>
+            <el-descriptions-item label="今日消费">¥{{ Number(logStats.todayCost || 0).toFixed(2) }}</el-descriptions-item>
             <el-descriptions-item label="成功率">{{ logStats.successRate }}%</el-descriptions-item>
-            <el-descriptions-item label="失败数">{{ logStats.failRequests }}</el-descriptions-item>
           </el-descriptions>
         </el-card>
       </el-col>
       <el-col :span="12">
         <el-card shadow="hover">
           <template #header>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span>快速操作</span>
-            </div>
+            <span>累计统计</span>
           </template>
-          <div class="quick-actions">
+          <el-descriptions :column="2" border>
+            <el-descriptions-item label="总请求数">{{ logStats.totalRequests }}</el-descriptions-item>
+            <el-descriptions-item label="总成功数">{{ logStats.successRequests }}</el-descriptions-item>
+            <el-descriptions-item label="总消费">¥{{ Number(logStats.totalCost || 0).toFixed(2) }}</el-descriptions-item>
+            <el-descriptions-item label="失败数">{{ logStats.failRequests }}</el-descriptions-item>
+          </el-descriptions>
+          <div style="margin-top: 16px;">
             <el-button type="primary" @click="handleRefreshBalance" :loading="refreshing">
               刷新所有余额
             </el-button>
@@ -88,7 +90,7 @@
               复制代理接口地址
             </el-button>
           </div>
-          <div class="proxy-url" style="margin-top: 20px;">
+          <div style="margin-top: 12px;">
             <span style="color: #909399; font-size: 14px;">代理接口地址：</span>
             <code style="background: #f5f5f5; padding: 4px 8px; border-radius: 4px;">
               {{ proxyUrl }}
@@ -118,8 +120,10 @@ const logStats = reactive({
   totalRequests: 0,
   successRequests: 0,
   failRequests: 0,
+  totalCost: 0,
   todayRequests: 0,
   todaySuccess: 0,
+  todayCost: 0,
   successRate: 0
 })
 

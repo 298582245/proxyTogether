@@ -175,6 +175,15 @@ const getStats = async (req, res) => {
     // 失败请求数
     const failRequests = totalRequests - successRequests;
 
+    // 总消费金额（只计算成功的）
+    const totalCostResult = await ProxyLog.findOne({
+      attributes: [
+        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'totalCost'],
+      ],
+      where: { ...whereClause, success: 1 },
+      raw: true,
+    });
+
     // 今日统计
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -193,14 +202,29 @@ const getStats = async (req, res) => {
       },
     });
 
+    // 今日消费
+    const todayCostResult = await ProxyLog.findOne({
+      attributes: [
+        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'todayCost'],
+      ],
+      where: {
+        ...whereClause,
+        created_at: { [Op.gte]: today },
+        success: 1,
+      },
+      raw: true,
+    });
+
     res.json({
       success: true,
       data: {
         totalRequests,
         successRequests,
         failRequests,
+        totalCost: parseFloat(totalCostResult.totalCost) || 0,
         todayRequests,
         todaySuccess,
+        todayCost: parseFloat(todayCostResult.todayCost) || 0,
         successRate: totalRequests > 0 ? ((successRequests / totalRequests) * 100).toFixed(2) : 0,
       },
     });

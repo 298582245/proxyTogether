@@ -129,12 +129,27 @@ const logProxyRequest = async (data) => {
       duration: data.duration,
       format: data.format,
       success: data.success ? 1 : 0,
+      cost: data.cost || 0,
       errorMessage: data.errorMessage,
       responsePreview: data.responsePreview,
     });
   } catch (error) {
     logger.error('记录代理日志失败:', error);
   }
+};
+
+/**
+ * 根据时长获取价格
+ * @param {object} site - 网站对象
+ * @param {number} durationValue - 时长值
+ * @returns {number} 价格
+ */
+const getDurationPrice = (site, durationValue) => {
+  if (!site.durationParams || !Array.isArray(site.durationParams)) {
+    return 0;
+  }
+  const duration = site.durationParams.find((dp) => dp.times === durationValue);
+  return duration ? parseFloat(duration.price) || 0 : 0;
 };
 
 /**
@@ -209,6 +224,19 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
   });
 
   if (availableAccounts.length === 0) {
+    // 记录无可用账号的日志
+    await logProxyRequest({
+      accountId: null,
+      siteId: null,
+      clientIp,
+      duration: durationValue,
+      format,
+      success: false,
+      cost: 0,
+      errorMessage: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数',
+      responsePreview: null,
+    });
+
     return {
       success: false,
       message: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数',
@@ -231,7 +259,10 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
   const { account, balance } = accountsWithBalance[0];
   const site = account.site;
 
-  logger.info(`选择账号 ${account.name}(${site.name})，余额: ${balance}`);
+  // 计算消费金额
+  const cost = getDurationPrice(site, durationValue);
+
+  logger.info(`选择账号 ${account.name}(${site.name})，余额: ${balance}，预计消费: ${cost}`);
 
   // 构建提取链接
   const extractUrl = buildExtractUrl(account, site, durationValue, format);
@@ -259,7 +290,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       // 增加失败次数
       await incrementFailCount(account.id);
 
-      // 记录日志
+      // 记录日志（失败不扣费）
       await logProxyRequest({
         accountId: account.id,
         siteId: site.id,
@@ -267,6 +298,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
         duration: durationValue,
         format,
         success: false,
+        cost: 0,
         errorMessage: '响应包含失败关键词',
         responsePreview,
       });
@@ -278,7 +310,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     // 成功，重置失败次数
     await resetFailCount(account.id);
 
-    // 记录成功日志
+    // 记录成功日志（包含消费金额）
     await logProxyRequest({
       accountId: account.id,
       siteId: site.id,
@@ -286,10 +318,11 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       duration: durationValue,
       format,
       success: true,
+      cost: cost,
       responsePreview,
     });
 
-    logger.info(`账号 ${account.name} 提取成功`);
+    logger.info(`账号 ${account.name} 提取成功，消费: ${cost}`);
 
     return {
       success: true,
@@ -301,6 +334,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
           name: account.name,
           siteName: site.name,
           balance,
+          cost,
         },
       },
     };
@@ -318,6 +352,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       duration: durationValue,
       format,
       success: false,
+      cost: 0,
       errorMessage: error.message,
       responsePreview: null,
     });
@@ -332,4 +367,5 @@ module.exports = {
   buildExtractUrl,
   extractParamNames,
   isDurationSupported,
+  getDurationPrice,
 };
