@@ -279,72 +279,75 @@ const getChartData = async (req, res) => {
     const sequelize = require('sequelize');
     const { fn, col, literal } = sequelize;
 
-    // 使用本地时间计算日期范围
+    // 强制使用中国时区 (UTC+8)
+    const TIMEZONE_OFFSET = 8 * 60 * 60 * 1000; // 8小时的毫秒数
     const now = new Date();
+    const chinaTime = new Date(now.getTime() + TIMEZONE_OFFSET);
 
-    // 获取本地日期字符串 YYYY-MM-DD
-    const getLocalDateStr = (date) => {
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, '0');
-      const day = String(date.getDate()).padStart(2, '0');
-      return `${year}-${month}-${day}`;
+    // 获取中国时区的日期字符串 YYYY-MM-DD
+    const getChinaDateStr = (date) => {
+      const d = new Date(date.getTime() + TIMEZONE_OFFSET);
+      return d.toISOString().split('T')[0];
     };
 
-    // 获取本地日期的开始和结束时间
-    const getLocalStartOfDay = (date) => {
-      const d = new Date(date);
-      d.setHours(0, 0, 0, 0);
-      return d;
+    // 获取中国时区某天的开始时间（UTC时间）
+    const getChinaDayStart = (dateStr) => {
+      // dateStr 是 "2026-03-11" 格式，这是中国时区的日期
+      // 中国时区 00:00:00 = UTC 16:00:00（前一天）
+      return new Date(dateStr + 'T00:00:00.000+08:00');
     };
 
-    const getLocalEndOfDay = (date) => {
-      const d = new Date(date);
-      d.setHours(23, 59, 59, 999);
-      return d;
+    // 获取中国时区某天的结束时间（UTC时间）
+    const getChinaDayEnd = (dateStr) => {
+      return new Date(dateStr + 'T23:59:59.999+08:00');
     };
 
-    const todayStr = getLocalDateStr(now);
+    const todayStr = getChinaDateStr(now);
     let startDate, endDate;
 
     switch (type) {
       case 'today':
         // 今天
-        startDate = getLocalStartOfDay(now);
-        endDate = getLocalEndOfDay(now);
+        startDate = getChinaDayStart(todayStr);
+        endDate = getChinaDayEnd(todayStr);
         break;
       case 'yesterday': {
         // 昨天
-        const yesterday = new Date(now);
-        yesterday.setDate(yesterday.getDate() - 1);
-        startDate = getLocalStartOfDay(yesterday);
-        endDate = getLocalEndOfDay(yesterday);
+        const yesterday = new Date(chinaTime);
+        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        startDate = getChinaDayStart(yesterdayStr);
+        endDate = getChinaDayEnd(yesterdayStr);
         break;
       }
       case 'week': {
         // 最近7天
-        const weekStart = new Date(now);
-        weekStart.setDate(weekStart.getDate() - 6);
-        startDate = getLocalStartOfDay(weekStart);
-        endDate = getLocalEndOfDay(now);
+        const weekStart = new Date(chinaTime);
+        weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+        const weekStartStr = weekStart.toISOString().split('T')[0];
+        startDate = getChinaDayStart(weekStartStr);
+        endDate = getChinaDayEnd(todayStr);
         break;
       }
       case 'month': {
         // 最近30天
-        const monthStart = new Date(now);
-        monthStart.setDate(monthStart.getDate() - 29);
-        startDate = getLocalStartOfDay(monthStart);
-        endDate = getLocalEndOfDay(now);
+        const monthStart = new Date(chinaTime);
+        monthStart.setUTCDate(monthStart.getUTCDate() - 29);
+        const monthStartStr = monthStart.toISOString().split('T')[0];
+        startDate = getChinaDayStart(monthStartStr);
+        endDate = getChinaDayEnd(todayStr);
         break;
       }
       default: {
-        const defaultStart = new Date(now);
-        defaultStart.setDate(defaultStart.getDate() - 6);
-        startDate = getLocalStartOfDay(defaultStart);
-        endDate = getLocalEndOfDay(now);
+        const defaultStart = new Date(chinaTime);
+        defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
+        const defaultStartStr = defaultStart.toISOString().split('T')[0];
+        startDate = getChinaDayStart(defaultStartStr);
+        endDate = getChinaDayEnd(todayStr);
       }
     }
 
-    // 使用 DATE_FORMAT 函数按本地日期分组
+    // 使用 DATE_FORMAT 函数按日期分组（数据库存储的是本地时间）
     const results = await ProxyLog.findAll({
       attributes: [
         [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'date'],
@@ -367,7 +370,7 @@ const getChartData = async (req, res) => {
     const chartData = [];
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
-      const dateStr = getLocalDateStr(currentDate);
+      const dateStr = getChinaDateStr(currentDate);
       const found = results.find((r) => r.date === dateStr);
       chartData.push({
         date: dateStr,
@@ -375,7 +378,7 @@ const getChartData = async (req, res) => {
         successCount: found ? parseInt(found.successCount) : 0,
         cost: found ? parseFloat(found.cost) || 0 : 0,
       });
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     res.json({
