@@ -71,7 +71,12 @@
     <el-card shadow="hover" class="chart-card">
       <template #header>
         <div class="chart-header">
-          <span>请求统计</span>
+          <div class="chart-title">
+            <span>请求统计</span>
+            <span class="chart-summary">
+              总计: {{ chartSummary.requests }} 次请求 | {{ chartSummary.success }} 次成功 | ¥{{ chartSummary.cost.toFixed(4) }} 消费
+            </span>
+          </div>
           <el-radio-group v-model="chartType" size="small" @change="loadChartData">
             <el-radio-button value="today">今日</el-radio-button>
             <el-radio-button value="yesterday">昨日</el-radio-button>
@@ -86,7 +91,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getAccountStats, refreshAllBalance } from '@/api/account'
 import { getLogChart } from '@/api/log'
 import { ElMessage } from 'element-plus'
@@ -98,6 +103,17 @@ const stats = reactive({
   totalCount: 0,
   activeCount: 0,
   inactiveCount: 0
+})
+
+const chartData = ref([])
+const chartSummary = computed(() => {
+  const summary = { requests: 0, success: 0, cost: 0 }
+  chartData.value.forEach(item => {
+    summary.requests += item.requests
+    summary.success += item.successCount
+    summary.cost += item.cost
+  })
+  return summary
 })
 
 const refreshing = ref(false)
@@ -118,6 +134,7 @@ const loadStats = async () => {
 const loadChartData = async () => {
   try {
     const res = await getLogChart({ type: chartType.value })
+    chartData.value = res.data
     await nextTick()
     renderChart(res.data)
   } catch (error) {
@@ -321,12 +338,15 @@ onUnmounted(() => {
 
 .chart-card :deep(.el-card__header) {
   padding: 12px 16px;
+  flex-shrink: 0;
 }
 
 .chart-card :deep(.el-card__body) {
   flex: 1;
   min-height: 0;
   padding: 16px;
+  display: flex;
+  flex-direction: column;
 }
 
 .chart-header {
@@ -335,8 +355,20 @@ onUnmounted(() => {
   align-items: center;
 }
 
+.chart-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.chart-summary {
+  font-size: 13px;
+  color: #909399;
+  font-weight: normal;
+}
+
 .chart-container {
-  height: 100%;
+  flex: 1;
   min-height: 0;
 }
 </style>
