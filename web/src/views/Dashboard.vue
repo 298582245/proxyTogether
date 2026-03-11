@@ -1,12 +1,12 @@
 <template>
   <div class="dashboard">
-    <!-- 统计卡片 -->
-    <el-row :gutter="20" class="stat-cards">
-      <el-col :span="6">
-        <el-card shadow="hover">
+    <!-- 统计卡片 - 第一行 -->
+    <el-row :gutter="16" class="stat-cards">
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #409EFF">
-              <el-icon size="24"><Wallet /></el-icon>
+              <el-icon size="20"><Wallet /></el-icon>
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.totalBalance.toFixed(2) }}</div>
@@ -15,11 +15,11 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #67C23A">
-              <el-icon size="24"><User /></el-icon>
+              <el-icon size="20"><User /></el-icon>
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.totalCount }}</div>
@@ -28,11 +28,11 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #E6A23C">
-              <el-icon size="24"><CircleCheck /></el-icon>
+              <el-icon size="20"><CircleCheck /></el-icon>
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.activeCount }}</div>
@@ -41,15 +41,41 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover">
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #F56C6C">
-              <el-icon size="24"><CircleClose /></el-icon>
+              <el-icon size="20"><CircleClose /></el-icon>
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.inactiveCount }}</div>
               <div class="stat-label">禁用账号</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #909399">
+              <el-icon size="20"><DataLine /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">{{ logStats.totalRequests }}</div>
+              <div class="stat-label">总请求数</div>
+            </div>
+          </div>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover" class="stat-card-wrap">
+          <div class="stat-card">
+            <div class="stat-icon" style="background: #9C27B0">
+              <el-icon size="20"><Money /></el-icon>
+            </div>
+            <div class="stat-info">
+              <div class="stat-value">¥{{ Number(logStats.totalCost || 0).toFixed(4) }}</div>
+              <div class="stat-label">总消费</div>
             </div>
           </div>
         </el-card>
@@ -93,9 +119,9 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getAccountStats, refreshAllBalance } from '@/api/account'
-import { getLogChart } from '@/api/log'
+import { getLogChart, getLogStats } from '@/api/log'
 import { ElMessage } from 'element-plus'
-import { Wallet, User, CircleCheck, CircleClose } from '@element-plus/icons-vue'
+import { Wallet, User, CircleCheck, CircleClose, DataLine, Money } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 
 const stats = reactive({
@@ -103,6 +129,11 @@ const stats = reactive({
   totalCount: 0,
   activeCount: 0,
   inactiveCount: 0
+})
+
+const logStats = reactive({
+  totalRequests: 0,
+  totalCost: 0
 })
 
 const chartData = ref([])
@@ -126,6 +157,15 @@ const loadStats = async () => {
   try {
     const res = await getAccountStats()
     Object.assign(stats, res.data)
+  } catch (error) {
+    // 错误已处理
+  }
+}
+
+const loadLogStats = async () => {
+  try {
+    const res = await getLogStats()
+    Object.assign(logStats, res.data)
   } catch (error) {
     // 错误已处理
   }
@@ -247,6 +287,7 @@ const handleResize = () => {
 
 onMounted(() => {
   loadStats()
+  loadLogStats()
   loadChartData()
   window.addEventListener('resize', handleResize)
 })
@@ -273,35 +314,48 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+.stat-card-wrap {
+  height: 100%;
+}
+
+.stat-card-wrap :deep(.el-card__body) {
+  padding: 12px 16px;
+}
+
 .stat-card {
   display: flex;
   align-items: center;
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
+  width: 44px;
+  height: 44px;
   border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
+  flex-shrink: 0;
 }
 
 .stat-info {
-  margin-left: 16px;
+  margin-left: 12px;
+  min-width: 0;
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 18px;
   font-weight: bold;
   color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .stat-label {
-  font-size: 14px;
+  font-size: 12px;
   color: #909399;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .quick-actions-bar {
