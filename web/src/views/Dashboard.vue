@@ -87,55 +87,13 @@
       </template>
       <div ref="chartRef" class="chart-container"></div>
     </el-card>
-
-    <!-- 统计对比 -->
-    <el-row :gutter="20" class="stats-row">
-      <el-col :span="12">
-        <el-card shadow="hover">
-          <template #header>
-            <span>今日统计</span>
-          </template>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="请求数">{{ logStats.todayRequests }}</el-descriptions-item>
-            <el-descriptions-item label="成功数">{{ logStats.todaySuccess }}</el-descriptions-item>
-            <el-descriptions-item label="消费">¥{{ Number(logStats.todayCost || 0).toFixed(4) }}</el-descriptions-item>
-            <el-descriptions-item label="成功率">{{ logStats.todayRequests > 0 ? ((logStats.todaySuccess / logStats.todayRequests) * 100).toFixed(1) : 0 }}%</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
-      <el-col :span="12">
-        <el-card shadow="hover">
-          <template #header>
-            <span>昨日统计</span>
-          </template>
-          <el-descriptions :column="2" border>
-            <el-descriptions-item label="请求数">{{ logStats.yesterdayRequests }}</el-descriptions-item>
-            <el-descriptions-item label="成功数">{{ logStats.yesterdaySuccess }}</el-descriptions-item>
-            <el-descriptions-item label="消费">¥{{ Number(logStats.yesterdayCost || 0).toFixed(4) }}</el-descriptions-item>
-            <el-descriptions-item label="成功率">{{ logStats.yesterdayRequests > 0 ? ((logStats.yesterdaySuccess / logStats.yesterdayRequests) * 100).toFixed(1) : 0 }}%</el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-      </el-col>
-    </el-row>
-
-    <el-card shadow="hover" class="total-card">
-      <template #header>
-        <span>累计统计</span>
-      </template>
-      <el-descriptions :column="4" border>
-        <el-descriptions-item label="总请求">{{ logStats.totalRequests }}</el-descriptions-item>
-        <el-descriptions-item label="总成功">{{ logStats.successRequests }}</el-descriptions-item>
-        <el-descriptions-item label="总消费">¥{{ Number(logStats.totalCost || 0).toFixed(4) }}</el-descriptions-item>
-        <el-descriptions-item label="成功率">{{ logStats.successRate }}%</el-descriptions-item>
-      </el-descriptions>
-    </el-card>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import { getAccountStats, refreshAllBalance } from '@/api/account'
-import { getLogStats, getLogChart } from '@/api/log'
+import { getLogChart } from '@/api/log'
 import { ElMessage } from 'element-plus'
 import { Wallet, User, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
@@ -145,20 +103,6 @@ const stats = reactive({
   totalCount: 0,
   activeCount: 0,
   inactiveCount: 0
-})
-
-const logStats = reactive({
-  totalRequests: 0,
-  successRequests: 0,
-  failRequests: 0,
-  totalCost: 0,
-  todayRequests: 0,
-  todaySuccess: 0,
-  todayCost: 0,
-  yesterdayRequests: 0,
-  yesterdaySuccess: 0,
-  yesterdayCost: 0,
-  successRate: 0
 })
 
 const refreshing = ref(false)
@@ -171,15 +115,6 @@ const loadStats = async () => {
   try {
     const res = await getAccountStats()
     Object.assign(stats, res.data)
-  } catch (error) {
-    // 错误已处理
-  }
-}
-
-const loadLogStats = async () => {
-  try {
-    const res = await getLogStats()
-    Object.assign(logStats, res.data)
   } catch (error) {
     // 错误已处理
   }
@@ -300,7 +235,6 @@ const handleResize = () => {
 
 onMounted(() => {
   loadStats()
-  loadLogStats()
   loadChartData()
   window.addEventListener('resize', handleResize)
 })
@@ -380,7 +314,15 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  flex-shrink: 0;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-card :deep(.el-card__body) {
+  flex: 1;
+  min-height: 0;
 }
 
 .chart-header {
@@ -390,14 +332,7 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  height: 300px;
-}
-
-.stats-row {
-  flex-shrink: 0;
-}
-
-.total-card {
-  flex-shrink: 0;
+  height: 100%;
+  min-height: 300px;
 }
 </style>
