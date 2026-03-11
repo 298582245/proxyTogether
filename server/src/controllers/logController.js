@@ -279,57 +279,72 @@ const getChartData = async (req, res) => {
     const sequelize = require('sequelize');
     const { fn, col, literal } = sequelize;
 
-    // 使用本地日期字符串格式处理，避免时区问题
+    // 使用本地时间计算日期范围
     const now = new Date();
-    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const today = new Date(todayStr + 'T00:00:00.000Z');
 
-    let startDate, endDate, expectedDays;
+    // 获取本地日期字符串 YYYY-MM-DD
+    const getLocalDateStr = (date) => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const day = String(date.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
+    // 获取本地日期的开始和结束时间
+    const getLocalStartOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(0, 0, 0, 0);
+      return d;
+    };
+
+    const getLocalEndOfDay = (date) => {
+      const d = new Date(date);
+      d.setHours(23, 59, 59, 999);
+      return d;
+    };
+
+    const todayStr = getLocalDateStr(now);
+    let startDate, endDate;
 
     switch (type) {
       case 'today':
         // 今天
-        startDate = today;
-        endDate = new Date(todayStr + 'T23:59:59.999Z');
-        expectedDays = 1;
+        startDate = getLocalStartOfDay(now);
+        endDate = getLocalEndOfDay(now);
         break;
-      case 'yesterday':
+      case 'yesterday': {
         // 昨天
-        const yesterdayStr = new Date(today);
-        yesterdayStr.setUTCDate(yesterdayStr.getUTCDate() - 1);
-        const yestStr = yesterdayStr.toISOString().split('T')[0];
-        startDate = new Date(yestStr + 'T00:00:00.000Z');
-        endDate = new Date(yestStr + 'T23:59:59.999Z');
-        expectedDays = 1;
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        startDate = getLocalStartOfDay(yesterday);
+        endDate = getLocalEndOfDay(yesterday);
         break;
-      case 'week':
+      }
+      case 'week': {
         // 最近7天
-        const weekStart = new Date(today);
-        weekStart.setUTCDate(weekStart.getUTCDate() - 6);
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        startDate = new Date(weekStartStr + 'T00:00:00.000Z');
-        endDate = new Date(todayStr + 'T23:59:59.999Z');
-        expectedDays = 7;
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - 6);
+        startDate = getLocalStartOfDay(weekStart);
+        endDate = getLocalEndOfDay(now);
         break;
-      case 'month':
+      }
+      case 'month': {
         // 最近30天
-        const monthStart = new Date(today);
-        monthStart.setUTCDate(monthStart.getUTCDate() - 29);
-        const monthStartStr = monthStart.toISOString().split('T')[0];
-        startDate = new Date(monthStartStr + 'T00:00:00.000Z');
-        endDate = new Date(todayStr + 'T23:59:59.999Z');
-        expectedDays = 30;
+        const monthStart = new Date(now);
+        monthStart.setDate(monthStart.getDate() - 29);
+        startDate = getLocalStartOfDay(monthStart);
+        endDate = getLocalEndOfDay(now);
         break;
-      default:
-        const defaultStart = new Date(today);
-        defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
-        const defaultStartStr = defaultStart.toISOString().split('T')[0];
-        startDate = new Date(defaultStartStr + 'T00:00:00.000Z');
-        endDate = new Date(todayStr + 'T23:59:59.999Z');
-        expectedDays = 7;
+      }
+      default: {
+        const defaultStart = new Date(now);
+        defaultStart.setDate(defaultStart.getDate() - 6);
+        startDate = getLocalStartOfDay(defaultStart);
+        endDate = getLocalEndOfDay(now);
+      }
     }
 
-    // 使用 DATE_FORMAT 函数确保按本地日期分组
+    // 使用 DATE_FORMAT 函数按本地日期分组
     const results = await ProxyLog.findAll({
       attributes: [
         [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'date'],
@@ -352,7 +367,7 @@ const getChartData = async (req, res) => {
     const chartData = [];
     const currentDate = new Date(startDate);
     while (currentDate <= endDate) {
-      const dateStr = currentDate.toISOString().split('T')[0];
+      const dateStr = getLocalDateStr(currentDate);
       const found = results.find((r) => r.date === dateStr);
       chartData.push({
         date: dateStr,
@@ -360,7 +375,7 @@ const getChartData = async (req, res) => {
         successCount: found ? parseInt(found.successCount) : 0,
         cost: found ? parseFloat(found.cost) || 0 : 0,
       });
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+      currentDate.setDate(currentDate.getDate() + 1);
     }
 
     res.json({
