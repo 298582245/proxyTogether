@@ -57,20 +57,15 @@
     </el-row>
 
     <!-- 快捷操作 -->
-    <el-card shadow="hover" class="action-card">
-      <div class="quick-actions">
-        <el-button type="primary" @click="handleRefreshBalance" :loading="refreshing">
-          刷新所有余额
-        </el-button>
-        <el-button @click="copyProxyUrl">
-          复制代理接口地址
-        </el-button>
-        <div class="proxy-url">
-          <span style="color: #909399; font-size: 14px;">代理接口：</span>
-          <code>{{ proxyUrl }}</code>
-        </div>
-      </div>
-    </el-card>
+    <div class="quick-actions-bar">
+      <el-button type="primary" size="small" @click="handleRefreshBalance" :loading="refreshing">
+        刷新余额
+      </el-button>
+      <el-button size="small" @click="copyProxyUrl">
+        复制接口
+      </el-button>
+      <span class="proxy-url">代理接口：<code>{{ proxyUrl }}</code></span>
+    </div>
 
     <!-- 图表区域 -->
     <el-card shadow="hover" class="chart-card">
@@ -252,9 +247,9 @@ onUnmounted(() => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .stat-cards {
@@ -292,25 +287,29 @@ onUnmounted(() => {
   margin-top: 4px;
 }
 
-.action-card {
-  flex-shrink: 0;
-}
-
-.quick-actions {
+.quick-actions-bar {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding: 12px 16px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  flex-shrink: 0;
 }
 
-.proxy-url {
+.quick-actions-bar .proxy-url {
   margin-left: auto;
+  color: #909399;
+  font-size: 14px;
 }
 
-.proxy-url code {
+.quick-actions-bar .proxy-url code {
   background: #f5f5f5;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 13px;
+  color: #606266;
 }
 
 .chart-card {
@@ -320,9 +319,14 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
+.chart-card :deep(.el-card__header) {
+  padding: 12px 16px;
+}
+
 .chart-card :deep(.el-card__body) {
   flex: 1;
   min-height: 0;
+  padding: 16px;
 }
 
 .chart-header {
@@ -333,6 +337,6 @@ onUnmounted(() => {
 
 .chart-container {
   height: 100%;
-  min-height: 300px;
+  min-height: 0;
 }
 </style>
