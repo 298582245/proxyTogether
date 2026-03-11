@@ -275,41 +275,51 @@ const getStats = async (req, res) => {
  */
 const getChartData = async (req, res) => {
   try {
-    const { type = 'week' } = req.query; // week, month, custom
+    const { type = 'week' } = req.query; // today, yesterday, week, month
     const sequelize = require('sequelize');
     const { fn, col, literal } = sequelize;
 
     let startDate, endDate;
     const now = new Date();
-    endDate = new Date(now);
-    endDate.setHours(23, 59, 59, 999);
 
     switch (type) {
       case 'today':
+        // 今天
         startDate = new Date(now);
         startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
         break;
       case 'yesterday':
+        // 昨天
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 1);
         startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(0, 0, 0, 0);
+        endDate = new Date(startDate);
+        endDate.setHours(23, 59, 59, 999);
         break;
       case 'week':
+        // 最近7天
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 6);
         startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
         break;
       case 'month':
+        // 最近30天
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 29);
         startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
         break;
       default:
         startDate = new Date(now);
         startDate.setDate(startDate.getDate() - 6);
         startDate.setHours(0, 0, 0, 0);
+        endDate = new Date(now);
+        endDate.setHours(23, 59, 59, 999);
     }
 
     // 按日期分组统计
