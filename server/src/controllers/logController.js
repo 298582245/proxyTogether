@@ -279,53 +279,60 @@ const getChartData = async (req, res) => {
     const sequelize = require('sequelize');
     const { fn, col, literal } = sequelize;
 
-    let startDate, endDate;
+    // 使用本地日期字符串格式处理，避免时区问题
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date(todayStr + 'T00:00:00.000Z');
+
+    let startDate, endDate, expectedDays;
 
     switch (type) {
       case 'today':
         // 今天
-        startDate = new Date(now);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        startDate = today;
+        endDate = new Date(todayStr + 'T23:59:59.999Z');
+        expectedDays = 1;
         break;
       case 'yesterday':
         // 昨天
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 1);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(startDate);
-        endDate.setHours(23, 59, 59, 999);
+        const yesterdayStr = new Date(today);
+        yesterdayStr.setUTCDate(yesterdayStr.getUTCDate() - 1);
+        const yestStr = yesterdayStr.toISOString().split('T')[0];
+        startDate = new Date(yestStr + 'T00:00:00.000Z');
+        endDate = new Date(yestStr + 'T23:59:59.999Z');
+        expectedDays = 1;
         break;
       case 'week':
         // 最近7天
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 6);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        const weekStart = new Date(today);
+        weekStart.setUTCDate(weekStart.getUTCDate() - 6);
+        const weekStartStr = weekStart.toISOString().split('T')[0];
+        startDate = new Date(weekStartStr + 'T00:00:00.000Z');
+        endDate = new Date(todayStr + 'T23:59:59.999Z');
+        expectedDays = 7;
         break;
       case 'month':
         // 最近30天
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 29);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        const monthStart = new Date(today);
+        monthStart.setUTCDate(monthStart.getUTCDate() - 29);
+        const monthStartStr = monthStart.toISOString().split('T')[0];
+        startDate = new Date(monthStartStr + 'T00:00:00.000Z');
+        endDate = new Date(todayStr + 'T23:59:59.999Z');
+        expectedDays = 30;
         break;
       default:
-        startDate = new Date(now);
-        startDate.setDate(startDate.getDate() - 6);
-        startDate.setHours(0, 0, 0, 0);
-        endDate = new Date(now);
-        endDate.setHours(23, 59, 59, 999);
+        const defaultStart = new Date(today);
+        defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
+        const defaultStartStr = defaultStart.toISOString().split('T')[0];
+        startDate = new Date(defaultStartStr + 'T00:00:00.000Z');
+        endDate = new Date(todayStr + 'T23:59:59.999Z');
+        expectedDays = 7;
     }
 
-    // 按日期分组统计
+    // 使用 DATE_FORMAT 函数确保按本地日期分组
     const results = await ProxyLog.findAll({
       attributes: [
-        [fn('DATE', col('created_at')), 'date'],
+        [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'date'],
         [fn('COUNT', col('id')), 'requests'],
         [fn('SUM', literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
         [fn('SUM', literal('CASE WHEN success = 1 THEN cost ELSE 0 END')), 'cost'],
@@ -336,8 +343,8 @@ const getChartData = async (req, res) => {
           [Op.lte]: endDate,
         },
       },
-      group: [fn('DATE', col('created_at'))],
-      order: [[fn('DATE', col('created_at')), 'ASC']],
+      group: [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d')],
+      order: [[fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'ASC']],
       raw: true,
     });
 
@@ -353,7 +360,7 @@ const getChartData = async (req, res) => {
         successCount: found ? parseInt(found.successCount) : 0,
         cost: found ? parseFloat(found.cost) || 0 : 0,
       });
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
     }
 
     res.json({
