@@ -32,7 +32,12 @@
         </el-table-column>
         <el-table-column prop="balance" label="余额" width="120" align="right">
           <template #default="{ row }">
-            <span :class="{ 'low-balance': Number(row.balance) < 10 }">{{ Number(row.balance || 0).toFixed(2) }}</span>
+            <template v-if="row.site && row.site.balanceType === 'monthly'">
+              <el-tag type="info" size="small">包月</el-tag>
+            </template>
+            <template v-else>
+              <span :class="{ 'low-balance': Number(row.balance) < 10 }">{{ Number(row.balance || 0).toFixed(2) }}</span>
+            </template>
           </template>
         </el-table-column>
         <el-table-column prop="failCount" label="失败次数" width="100" align="center">

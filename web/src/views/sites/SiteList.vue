@@ -18,9 +18,16 @@
       <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="网站名称" min-width="120" />
+        <el-table-column prop="balanceType" label="余额类型" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.balanceType === 'monthly' ? 'info' : 'success'" size="small">
+              {{ row.balanceType === 'monthly' ? '包月' : '余额' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="balanceUrl" label="余额查询接口" min-width="200" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.balanceUrl || '-' }}
+            {{ row.balanceType === 'monthly' ? '包月无需配置' : (row.balanceUrl || '-') }}
           </template>
         </el-table-column>
         <el-table-column prop="formatParams" label="格式参数" min-width="150">
@@ -132,20 +139,29 @@
           </el-button>
         </el-form-item>
         <el-divider content-position="left">余额查询配置</el-divider>
-        <el-form-item label="余额接口URL">
-          <el-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址，支持 {params.xxx} 参数" />
-          <div class="form-tip">示例: https://api.example.com/balance?no={params.no}&amp;userId={params.userId}</div>
-        </el-form-item>
-        <el-form-item label="请求方法">
-          <el-radio-group v-model="dialog.form.balanceMethod">
-            <el-radio value="GET">GET</el-radio>
-            <el-radio value="POST">POST</el-radio>
+        <el-form-item label="余额类型">
+          <el-radio-group v-model="dialog.form.balanceType">
+            <el-radio value="balance">余额查询</el-radio>
+            <el-radio value="monthly">包月</el-radio>
           </el-radio-group>
+          <div class="form-tip">包月类型无需配置余额查询接口，余额显示为空</div>
         </el-form-item>
-        <el-form-item label="余额字段路径">
-          <el-input v-model="dialog.form.balanceField" placeholder="如: data.balance" />
-          <div class="form-tip">接口返回JSON中余额字段的路径，用点号分隔</div>
-        </el-form-item>
+        <template v-if="dialog.form.balanceType === 'balance'">
+          <el-form-item label="余额接口URL">
+            <el-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址，支持 {params.xxx} 参数" />
+            <div class="form-tip">示例: https://api.example.com/balance?no={params.no}&amp;userId={params.userId}</div>
+          </el-form-item>
+          <el-form-item label="请求方法">
+            <el-radio-group v-model="dialog.form.balanceMethod">
+              <el-radio value="GET">GET</el-radio>
+              <el-radio value="POST">POST</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="余额字段路径">
+            <el-input v-model="dialog.form.balanceField" placeholder="如: data.balance" />
+            <div class="form-tip">接口返回JSON中余额字段的路径，用点号分隔</div>
+          </el-form-item>
+        </template>
         <el-divider content-position="left">失败关键词</el-divider>
         <el-form-item label="失败关键词">
           <el-select
@@ -197,6 +213,7 @@ const dialog = reactive({
     extractUrlTemplate: '',
     formatParams: [],
     durationParams: [],
+    balanceType: 'balance',
     balanceUrl: '',
     balanceMethod: 'GET',
     balanceField: 'data.balance',
@@ -236,6 +253,7 @@ const resetForm = () => {
     extractUrlTemplate: '',
     formatParams: [],
     durationParams: [],
+    balanceType: 'balance',
     balanceUrl: '',
     balanceMethod: 'GET',
     balanceField: 'data.balance',
@@ -258,6 +276,7 @@ const handleEdit = async (row) => {
       extractUrlTemplate: data.extractUrlTemplate,
       formatParams: data.formatParams || [],
       durationParams: data.durationParams || [],
+      balanceType: data.balanceType || 'balance',
       balanceUrl: data.balanceUrl || '',
       balanceMethod: data.balanceMethod || 'GET',
       balanceField: data.balanceField || 'data.balance',

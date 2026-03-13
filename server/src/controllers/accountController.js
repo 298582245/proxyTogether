@@ -34,7 +34,7 @@ const getList = async (req, res) => {
         {
           model: Site,
           as: 'site',
-          attributes: ['id', 'name'],
+          attributes: ['id', 'name', 'balanceType'],
         },
       ],
     });
@@ -275,6 +275,15 @@ const refreshBalance = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: '账号关联的网站不存在',
+      });
+    }
+
+    // 检查是否为包月类型
+    if (account.site.balanceType === 'monthly' || !account.site.balanceUrl) {
+      return res.json({
+        success: true,
+        message: '该网站为包月类型，无需查询余额',
+        data: { balance: null, isMonthly: true },
       });
     }
 

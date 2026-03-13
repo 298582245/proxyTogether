@@ -28,6 +28,12 @@ const Site = sequelize.define('Site', {
     field: 'duration_params',
     comment: '时长参数配置',
   },
+  balanceType: {
+    type: DataTypes.STRING(20),
+    field: 'balance_type',
+    defaultValue: 'balance',
+    comment: '余额类型: balance余额查询 monthly包月',
+  },
   balanceUrl: {
     type: DataTypes.STRING(500),
     field: 'balance_url',

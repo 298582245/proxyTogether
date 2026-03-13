@@ -94,7 +94,7 @@ const getAllActive = async (req, res) => {
   try {
     const sites = await Site.findAll({
       where: { status: 1 },
-      attributes: ['id', 'name', 'formatParams', 'durationParams'],
+      attributes: ['id', 'name', 'formatParams', 'durationParams', 'balanceType'],
       order: [['name', 'ASC']],
     });
 
@@ -121,6 +121,7 @@ const create = async (req, res) => {
       extractUrlTemplate,
       formatParams,
       durationParams,
+      balanceType,
       balanceUrl,
       balanceMethod,
       balanceParamsTemplate,
@@ -141,6 +142,7 @@ const create = async (req, res) => {
       extractUrlTemplate,
       formatParams: formatParams || null,
       durationParams: durationParams || null,
+      balanceType: balanceType || 'balance',
       balanceUrl: balanceUrl || null,
       balanceMethod: balanceMethod || 'GET',
       balanceParamsTemplate: balanceParamsTemplate || null,
@@ -174,6 +176,7 @@ const update = async (req, res) => {
       extractUrlTemplate,
       formatParams,
       durationParams,
+      balanceType,
       balanceUrl,
       balanceMethod,
       balanceParamsTemplate,
@@ -195,6 +198,7 @@ const update = async (req, res) => {
       extractUrlTemplate: extractUrlTemplate || site.extractUrlTemplate,
       formatParams: formatParams !== undefined ? formatParams : site.formatParams,
       durationParams: durationParams !== undefined ? durationParams : site.durationParams,
+      balanceType: balanceType || site.balanceType,
       balanceUrl: balanceUrl !== undefined ? balanceUrl : site.balanceUrl,
       balanceMethod: balanceMethod || site.balanceMethod,
       balanceParamsTemplate: balanceParamsTemplate !== undefined ? balanceParamsTemplate : site.balanceParamsTemplate,

@@ -89,9 +89,10 @@ const mergeParams = (template, accountParams) => {
  */
 const queryAccountBalance = async (account, site) => {
   try {
-    if (!site.balanceUrl) {
-      logger.warn(`网站 ${site.name} 未配置余额查询接口`);
-      return { success: false, balance: null, error: '未配置余额查询接口' };
+    // 检查是否为包月类型
+    if (site.balanceType === 'monthly' || !site.balanceUrl) {
+      logger.info(`网站 ${site.name} 为包月类型或未配置余额接口，跳过余额查询`);
+      return { success: true, balance: null, isMonthly: true, error: null };
     }
 
     // 合并参数
@@ -196,17 +197,27 @@ const queryAllBalances = async () => {
 
     let successCount = 0;
     let failCount = 0;
+    let monthlyCount = 0;
 
     for (const site of sites) {
       const accounts = site.accounts || [];
       logger.info(`网站 ${site.name} 有 ${accounts.length} 个账号`);
 
+      // 检查是否为包月类型
+      if (site.balanceType === 'monthly' || !site.balanceUrl) {
+        logger.info(`网站 ${site.name} 为包月类型，跳过余额查询`);
+        monthlyCount += accounts.length;
+        continue;
+      }
+
       for (const account of accounts) {
         const result = await queryAccountBalance(account, site);
 
-        if (result.success) {
+        if (result.success && !result.isMonthly) {
           await updateAccountBalance(account.id, result.balance);
           successCount++;
+        } else if (result.isMonthly) {
+          monthlyCount++;
         } else {
           // 查询失败也更新时间，但不更新余额
           await Account.update(
@@ -221,8 +232,8 @@ const queryAllBalances = async () => {
       }
     }
 
-    logger.info(`余额查询完成，成功: ${successCount}，失败: ${failCount}`);
-    return { successCount, failCount };
+    logger.info(`余额查询完成，成功: ${successCount}，失败: ${failCount}，包月: ${monthlyCount}`);
+    return { successCount, failCount, monthlyCount };
   } catch (error) {
     logger.error('查询所有余额失败:', error);
     throw error;
