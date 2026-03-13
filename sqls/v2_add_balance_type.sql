@@ -5,3 +5,6 @@ ALTER TABLE `sites` ADD COLUMN `balance_type` VARCHAR(20) DEFAULT 'balance' COMM
 
 -- 更新已有数据：如果balance_url为空则设置为包月类型
 UPDATE `sites` SET `balance_type` = 'monthly' WHERE `balance_url` IS NULL OR `balance_url` = '';
+
+-- 添加到期时间字段到accounts表
+ALTER TABLE `accounts` ADD COLUMN `expire_at` DATETIME NULL DEFAULT NULL COMMENT '到期时间(包月账号专用)' AFTER `fail_count`;

@@ -35,9 +35,22 @@
             <template v-if="row.site && row.site.balanceType === 'monthly'">
               <el-tag type="info" size="small">包月</el-tag>
             </template>
+            <template v-else-if="row.expireAt && new Date(row.expireAt) > new Date()">
+              <el-tag type="warning" size="small">包月</el-tag>
+            </template>
             <template v-else>
               <span :class="{ 'low-balance': Number(row.balance) < 10 }">{{ Number(row.balance || 0).toFixed(2) }}</span>
             </template>
+          </template>
+        </el-table-column>
+        <el-table-column prop="expireAt" label="到期时间" width="160">
+          <template #default="{ row }">
+            <template v-if="row.expireAt">
+              <span :class="{ 'expired': new Date(row.expireAt) <= new Date() }">
+                {{ formatDate(row.expireAt) }}
+              </span>
+            </template>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="failCount" label="失败次数" width="100" align="center">
@@ -67,7 +80,14 @@
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button type="success" link size="small" @click="handleRefreshBalance(row)" :loading="row.refreshing">
+            <el-button
+              v-if="!isMonthlyAccount(row)"
+              type="success"
+              link
+              size="small"
+              @click="handleRefreshBalance(row)"
+              :loading="row.refreshing"
+            >
               刷新余额
             </el-button>
             <el-button
@@ -142,6 +162,17 @@
         </template>
 
         <el-divider content-position="left">高级设置</el-divider>
+        <el-form-item label="到期时间">
+          <el-date-picker
+            v-model="dialog.form.expireAt"
+            type="datetime"
+            placeholder="选择到期时间（包月账号专用）"
+            format="YYYY-MM-DD HH:mm:ss"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
+          <div class="form-tip">设置后，在该时间之前账号视为包月账号，不会被自动禁用</div>
+        </el-form-item>
         <el-form-item label="提取参数">
           <el-input
             v-model="dialog.form.extractParamsStr"
@@ -220,6 +251,7 @@ const dialog = reactive({
     balanceParamValues: {},
     extractParamsStr: '',
     balanceParamsStr: '',
+    expireAt: null,
     status: 1
   },
   rules: {
@@ -230,6 +262,19 @@ const dialog = reactive({
 const formatDate = (date) => {
   if (!date) return ''
   return new Date(date).toLocaleString('zh-CN')
+}
+
+// 判断是否为包月账号
+const isMonthlyAccount = (row) => {
+  // 网站类型为包月
+  if (row.site && row.site.balanceType === 'monthly') {
+    return true
+  }
+  // 账号设置了到期时间且未过期
+  if (row.expireAt && new Date(row.expireAt) > new Date()) {
+    return true
+  }
+  return false
 }
 
 const loadSites = async () => {
@@ -331,6 +376,7 @@ const resetForm = () => {
     balanceParamValues: {},
     extractParamsStr: '',
     balanceParamsStr: '',
+    expireAt: null,
     status: 1
   }
   paramHints.extractParams = []
@@ -376,6 +422,7 @@ const handleEdit = async (row) => {
       balanceParamValues: { ...balanceParams },
       extractParamsStr: data.extractParams ? JSON.stringify(extractParams, null, 2) : '',
       balanceParamsStr: data.balanceParams ? JSON.stringify(balanceParams, null, 2) : '',
+      expireAt: data.expireAt || null,
       status: data.status
     }
     dialog.isEdit = true
@@ -397,6 +444,7 @@ const handleSubmit = async () => {
       const data = {
         siteId: dialog.form.siteId,
         name: dialog.form.name,
+        expireAt: dialog.form.expireAt || null,
         status: dialog.form.status
       }
 
@@ -559,5 +607,9 @@ onMounted(() => {
 .low-balance {
   color: #F56C6C;
   font-weight: bold;
+}
+
+.expired {
+  color: #F56C6C;
 }
 </style>

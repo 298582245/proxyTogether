@@ -43,6 +43,11 @@ const Account = sequelize.define('Account', {
     field: 'fail_count',
     comment: '连续失败次数',
   },
+  expireAt: {
+    type: DataTypes.DATE,
+    field: 'expire_at',
+    comment: '到期时间(包月账号专用)',
+  },
   status: {
     type: DataTypes.TINYINT,
     defaultValue: 1,

@@ -29,7 +29,14 @@ const getList = async (req, res) => {
       where: whereClause,
       offset,
       limit,
-      order: [['balance', 'DESC']],
+      order: [
+        // 先按状态排序（启用的在前）
+        ['status', 'DESC'],
+        // 再按到期时间排序（有到期时间的在前，且越近的越前）
+        ['expire_at', 'ASC'],
+        // 最后按余额排序
+        ['balance', 'DESC'],
+      ],
       include: [
         {
           model: Site,
@@ -98,7 +105,7 @@ const getDetail = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const { siteId, name, extractParams, balanceParams } = req.body;
+    const { siteId, name, extractParams, balanceParams, expireAt, status } = req.body;
 
     // 验证必填字段
     if (!siteId) {
@@ -123,7 +130,8 @@ const create = async (req, res) => {
       extractParams: extractParams || null,
       balanceParams: balanceParams || null,
       balance: 0,
-      status: 1,
+      expireAt: expireAt || null,
+      status: status !== undefined ? status : 1,
       failCount: 0,
     });
 
@@ -147,7 +155,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, extractParams, balanceParams, status } = req.body;
+    const { name, extractParams, balanceParams, expireAt, status } = req.body;
 
     const account = await Account.findByPk(id);
     if (!account) {
@@ -161,6 +169,7 @@ const update = async (req, res) => {
       name: name || account.name,
       extractParams: extractParams !== undefined ? extractParams : account.extractParams,
       balanceParams: balanceParams !== undefined ? balanceParams : account.balanceParams,
+      expireAt: expireAt !== undefined ? expireAt : account.expireAt,
       status: status !== undefined ? status : account.status,
     });
 

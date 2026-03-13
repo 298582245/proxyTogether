@@ -154,23 +154,37 @@ const getDurationPrice = (site, durationValue) => {
 
 /**
  * 增加账号失败次数
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象
  */
-const incrementFailCount = async (accountId) => {
-  const account = await Account.findByPk(accountId);
-  if (!account) return;
+const incrementFailCount = async (account, site) => {
+  const accountId = account.id;
+  const accountEntity = await Account.findByPk(accountId);
+  if (!accountEntity) return;
 
-  const newFailCount = account.failCount + 1;
-  const maxFailCount = parseInt(await SystemConfig.getValue('max_fail_count', '3'), 10);
+  const newFailCount = accountEntity.failCount + 1;
 
-  if (newFailCount >= maxFailCount) {
-    // 达到最大失败次数，禁用账号
-    await Account.update(
-      { failCount: newFailCount, status: 0 },
-      { where: { id: accountId } }
-    );
-    logger.warn(`账号 ${account.name} 连续失败 ${newFailCount} 次，已自动禁用`);
-  } else {
+  // 检查是否为包月账号（网站类型为包月 或 账号有到期时间且未过期）
+  const isMonthly = (site.balanceType === 'monthly') ||
+    (accountEntity.expireAt && new Date(accountEntity.expireAt) > new Date());
+
+  if (isMonthly) {
+    // 包月账号：只增加失败次数，不禁用
     await Account.update({ failCount: newFailCount }, { where: { id: accountId } });
+    logger.warn(`包月账号 ${accountEntity.name} 连续失败 ${newFailCount} 次（不会自动禁用）`);
+  } else {
+    // 非包月账号：达到最大失败次数后禁用
+    const maxFailCount = parseInt(await SystemConfig.getValue('max_fail_count', '3'), 10);
+
+    if (newFailCount >= maxFailCount) {
+      await Account.update(
+        { failCount: newFailCount, status: 0 },
+        { where: { id: accountId } }
+      );
+      logger.warn(`账号 ${accountEntity.name} 连续失败 ${newFailCount} 次，已自动禁用`);
+    } else {
+      await Account.update({ failCount: newFailCount }, { where: { id: accountId } });
+    }
   }
 };
 
@@ -191,6 +205,48 @@ const isDurationSupported = (site, durationValue) => {
     return false;
   }
   return site.durationParams.some((dp) => dp.times === durationValue);
+};
+
+/**
+ * 检查账号是否为有效的包月账号
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象
+ */
+const isMonthlyAccount = (account, site) => {
+  // 网站类型为包月
+  if (site.balanceType === 'monthly') {
+    return true;
+  }
+  // 账号设置了到期时间且未过期
+  if (account.expireAt && new Date(account.expireAt) > new Date()) {
+    return true;
+  }
+  return false;
+};
+
+/**
+ * 检查账号是否过期（仅对包月账号有效）
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象
+ */
+const isAccountExpired = (account, site) => {
+  // 非包月账号不会因时间过期
+  if (!isMonthlyAccount(account, site)) {
+    return false;
+  }
+  // 网站类型为包月，检查账号到期时间
+  if (site.balanceType === 'monthly' && account.expireAt) {
+    return new Date(account.expireAt) <= new Date();
+  }
+  // 网站类型为包月但没有设置到期时间，视为未过期
+  if (site.balanceType === 'monthly') {
+    return false;
+  }
+  // 检查账号到期时间
+  if (account.expireAt) {
+    return new Date(account.expireAt) <= new Date();
+  }
+  return false;
 };
 
 /**
@@ -217,10 +273,18 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     ],
   });
 
-  // 过滤支持该时长的账号
+  // 过滤支持该时长且未过期的账号
   const availableAccounts = accounts.filter((account) => {
     const site = account.site;
-    return isDurationSupported(site, durationValue);
+    // 检查是否支持该时长
+    if (!isDurationSupported(site, durationValue)) {
+      return false;
+    }
+    // 检查是否过期
+    if (isAccountExpired(account, site)) {
+      return false;
+    }
+    return true;
   });
 
   if (availableAccounts.length === 0) {
@@ -233,36 +297,53 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       format,
       success: false,
       cost: 0,
-      errorMessage: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数',
+      errorMessage: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数或账号已过期',
       responsePreview: null,
     });
 
     return {
       success: false,
-      message: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数',
+      message: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数或账号已过期',
       data: null,
     };
   }
 
-  // 获取所有余额并排序
-  const accountsWithBalance = await Promise.all(
-    availableAccounts.map(async (account) => {
-      const balance = await getAccountAvailableBalance(account.id);
-      return { account, balance };
-    })
-  );
+  // 分离包月账号和非包月账号
+  const monthlyAccounts = [];
+  const balanceAccounts = [];
 
-  // 按余额降序排序
-  accountsWithBalance.sort((a, b) => b.balance - a.balance);
+  for (const account of availableAccounts) {
+    const site = account.site;
+    const balance = await getAccountAvailableBalance(account.id);
 
-  // 选择余额最高的账号
-  const { account, balance } = accountsWithBalance[0];
-  const site = account.site;
+    if (isMonthlyAccount(account, site)) {
+      monthlyAccounts.push({ account, balance, site });
+    } else {
+      balanceAccounts.push({ account, balance, site });
+    }
+  }
 
-  // 计算消费金额
-  const cost = getDurationPrice(site, durationValue);
+  // 包月账号按到期时间排序（越快到期的越先使用）
+  monthlyAccounts.sort((a, b) => {
+    const aExpire = a.account.expireAt ? new Date(a.account.expireAt).getTime() : Infinity;
+    const bExpire = b.account.expireAt ? new Date(b.account.expireAt).getTime() : Infinity;
+    return aExpire - bExpire;
+  });
 
-  logger.info(`选择账号 ${account.name}(${site.name})，余额: ${balance}，预计消费: ${cost}`);
+  // 非包月账号按余额降序排序
+  balanceAccounts.sort((a, b) => b.balance - a.balance);
+
+  // 合并：包月账号优先，然后是余额账号
+  const accountsWithBalance = [...monthlyAccounts, ...balanceAccounts];
+
+  // 选择第一个账号
+  const { account, balance, site } = accountsWithBalance[0];
+  const isMonthly = isMonthlyAccount(account, site);
+
+  // 计算消费金额（包月账号不扣费）
+  const cost = isMonthly ? 0 : getDurationPrice(site, durationValue);
+
+  logger.info(`选择账号 ${account.name}(${site.name})，${isMonthly ? '包月账号' : `余额: ${balance}`}，预计消费: ${cost}`);
 
   // 构建提取链接
   const extractUrl = buildExtractUrl(account, site, durationValue, format);
@@ -287,8 +368,8 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     if (containsFailureKeyword(response, failureKeywords)) {
       logger.warn(`账号 ${account.name} 提取失败，响应包含失败关键词`);
 
-      // 增加失败次数
-      await incrementFailCount(account.id);
+      // 增加失败次数（包月账号不会被禁用）
+      await incrementFailCount(account, site);
 
       // 记录日志（失败不扣费）
       await logProxyRequest({
@@ -333,16 +414,17 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
           id: account.id,
           name: account.name,
           siteName: site.name,
-          balance,
+          balance: isMonthly ? '包月' : balance,
           cost,
+          isMonthly,
         },
       },
     };
   } catch (error) {
     logger.error(`账号 ${account.name} 提取失败:`, error.message);
 
-    // 增加失败次数
-    await incrementFailCount(account.id);
+    // 增加失败次数（包月账号不会被禁用）
+    await incrementFailCount(account, site);
 
     // 记录失败日志
     await logProxyRequest({
