@@ -187,6 +187,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { getSiteList, getSiteDetail, createSite, updateSite, deleteSite, toggleSiteStatus } from '@/api/site'
+import { formatLocalizedDateTime } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
@@ -225,10 +226,7 @@ const dialog = reactive({
   }
 })
 
-const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleString('zh-CN')
-}
+const formatDate = (date) => formatLocalizedDateTime(date)
 
 const loadData = async () => {
   loading.value = true

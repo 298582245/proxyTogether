@@ -46,7 +46,7 @@
         <el-table-column prop="expireAt" label="到期时间" width="160">
           <template #default="{ row }">
             <template v-if="row.expireAt">
-              <span :class="{ 'expired': new Date(row.expireAt) <= new Date() }">
+              <span :class="{ expired: isExpired(row.expireAt) }">
                 {{ formatDate(row.expireAt) }}
               </span>
             </template>
@@ -228,7 +228,6 @@
             type="datetime"
             placeholder="选择到期时间（包月账号专用）"
             format="YYYY-MM-DD HH:mm:ss"
-            value-format="YYYY-MM-DD HH:mm:ss"
             style="width: 100%"
           />
           <div class="form-tip">设置后，在该时间之前账号视为包月账号，不会被自动禁用</div>
@@ -271,6 +270,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { getAccountList, getAccountDetail, createAccount, updateAccount, deleteAccount, toggleAccountStatus, refreshAccountBalance, refreshAllBalance } from '@/api/account'
 import { getAllActiveSites, getSiteParamHints } from '@/api/site'
+import { formatDateTimeForApi, formatLocalizedDateTime, parseLocalDateTime } from '@/utils/date'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 
@@ -330,9 +330,13 @@ const dialog = reactive({
   }
 })
 
-const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleString('zh-CN')
+const formatDate = (date) => formatLocalizedDateTime(date)
+
+const isExpired = (date) => {
+  const expireDate = parseLocalDateTime(date)
+  if (!expireDate) return false
+
+  return expireDate.getTime() <= Date.now()
 }
 
 // 判断是否为包月账号
@@ -346,7 +350,8 @@ const isMonthlyAccount = (row) => {
     return true
   }
   // 账号设置了到期时间且未过期
-  if (row.expireAt && new Date(row.expireAt) > new Date()) {
+  const expireDate = parseLocalDateTime(row.expireAt)
+  if (expireDate && expireDate.getTime() > Date.now()) {
     return true
   }
   return false
@@ -526,7 +531,7 @@ const handleEdit = async (row) => {
       balanceParamValues: { ...balanceParams },
       extractParamsStr: data.extractParams ? JSON.stringify(extractParams, null, 2) : '',
       balanceParamsStr: data.balanceParams ? JSON.stringify(balanceParams, null, 2) : '',
-      expireAt: data.expireAt || null,
+      expireAt: parseLocalDateTime(data.expireAt),
       status: data.status
     }
     dialog.isEdit = true
@@ -547,7 +552,7 @@ const handleSubmit = async () => {
     try {
       const data = {
         name: dialog.form.name,
-        expireAt: dialog.form.expireAt || null,
+        expireAt: formatDateTimeForApi(dialog.form.expireAt),
         status: dialog.form.status
       }
 
