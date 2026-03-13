@@ -239,12 +239,9 @@ const isDurationSupported = (site, account, durationValue) => {
         ? JSON.parse(account.durationParams)
         : account.durationParams;
       if (Array.isArray(durationParams)) {
-        const supported = durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
-        logger.info(`独立包月账号 ${account.name} 时长参数: ${JSON.stringify(durationParams)}, 请求时长: ${durationNum}, 支持: ${supported}`);
-        return supported;
+        return durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
       }
     }
-    logger.info(`独立包月账号 ${account.name} 没有配置时长参数`);
     return false;
   }
 
@@ -254,20 +251,15 @@ const isDurationSupported = (site, account, durationValue) => {
       ? JSON.parse(account.durationParams)
       : account.durationParams;
     if (Array.isArray(durationParams) && durationParams.length > 0) {
-      const supported = durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
-      logger.info(`账号 ${account.name} 自己的时长参数: ${JSON.stringify(durationParams)}, 请求时长: ${durationNum}, 支持: ${supported}`);
-      return supported;
+      return durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
     }
   }
 
   // 使用网站的时长参数
   if (site.durationParams && Array.isArray(site.durationParams)) {
-    const supported = site.durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
-    logger.info(`账号 ${account.name} 使用网站 ${site.name} 的时长参数: ${JSON.stringify(site.durationParams)}, 请求时长: ${durationNum}, 支持: ${supported}`);
-    return supported;
+    return site.durationParams.some((dp) => parseInt(dp.times, 10) === durationNum);
   }
 
-  logger.info(`网站 ${site.name} 没有配置时长参数`);
   return false;
 };
 
@@ -343,48 +335,33 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     ],
   });
 
-  logger.info(`找到 ${accounts.length} 个启用的账号`);
-  accounts.forEach(acc => {
-    logger.info(`账号 ${acc.id} - ${acc.name}: siteId=${acc.siteId}, site=${acc.site ? acc.site.name : '无'}, extractUrlTemplate=${acc.extractUrlTemplate ? '有' : '无'}, durationParams=${JSON.stringify(acc.durationParams)}`);
-  });
-
   // 过滤支持该时长且未过期的账号
   const availableAccounts = accounts.filter((account) => {
     const site = account.site;
     // 独立包月账号
     if (!site && account.extractUrlTemplate) {
-      logger.debug(`账号 ${account.name} 是独立包月账号，检查时长支持...`);
       // 检查是否支持该时长
       if (!isDurationSupported(null, account, durationValue)) {
-        logger.debug(`账号 ${account.name} 不支持时长 ${durationValue}`);
         return false;
       }
       // 检查是否过期
       if (isAccountExpired(account, null)) {
-        logger.debug(`账号 ${account.name} 已过期`);
         return false;
       }
-      logger.info(`账号 ${account.name} (独立包月) 可用`);
       return true;
     }
     // 网站账号
     if (site) {
-      logger.debug(`账号 ${account.name} 关联网站 ${site.name}，检查时长支持...`);
       // 检查是否支持该时长
       if (!isDurationSupported(site, account, durationValue)) {
-        logger.debug(`账号 ${account.name} 不支持时长 ${durationValue}`);
         return false;
       }
       // 检查是否过期
       if (isAccountExpired(account, site)) {
-        logger.debug(`账号 ${account.name} 已过期`);
         return false;
       }
-      logger.info(`账号 ${account.name} (网站:${site.name}) 可用`);
       return true;
     }
-    // 既没有网站也不是独立包月账号，跳过
-    logger.debug(`账号 ${account.name} 既没有关联网站也没有提取链接模板，跳过`);
     return false;
   });
 
