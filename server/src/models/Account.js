@@ -9,13 +9,33 @@ const Account = sequelize.define('Account', {
   },
   siteId: {
     type: DataTypes.INTEGER,
-    allowNull: false,
+    allowNull: true, // 包月账号可为空
     field: 'site_id',
-    comment: '关联网站ID',
+    comment: '关联网站ID(包月账号可为空)',
   },
   name: {
     type: DataTypes.STRING(100),
     comment: '账号名称/备注',
+  },
+  extractUrlTemplate: {
+    type: DataTypes.TEXT,
+    field: 'extract_url_template',
+    comment: '提取链接模板(包月账号专用)',
+  },
+  formatParams: {
+    type: DataTypes.JSON,
+    field: 'format_params',
+    comment: '格式参数(包月账号专用)',
+  },
+  durationParams: {
+    type: DataTypes.JSON,
+    field: 'duration_params',
+    comment: '时长参数(包月账号专用)',
+  },
+  failureKeywords: {
+    type: DataTypes.JSON,
+    field: 'failure_keywords',
+    comment: '失败关键词(包月账号专用)',
   },
   extractParams: {
     type: DataTypes.JSON,

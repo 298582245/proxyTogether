@@ -85,12 +85,17 @@ const getAccountAvailableBalance = async (accountId) => {
 /**
  * 构建提取链接
  * @param {object} account - 账号对象
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
  * @param {number} durationValue - 时长值（times）
  * @param {string} format - 格式参数
  */
 const buildExtractUrl = (account, site, durationValue, format) => {
-  let url = site.extractUrlTemplate;
+  // 优先使用账号自己的提取链接模板（独立包月账号）
+  let url = account.extractUrlTemplate || (site ? site.extractUrlTemplate : '');
+
+  if (!url) {
+    throw new Error('缺少提取链接模板');
+  }
 
   // 构建替换参数
   const replaceParams = {
@@ -140,12 +145,25 @@ const logProxyRequest = async (data) => {
 
 /**
  * 根据时长获取价格
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
+ * @param {object} account - 账号对象
  * @param {number} durationValue - 时长值
  * @returns {number} 价格
  */
-const getDurationPrice = (site, durationValue) => {
-  if (!site.durationParams || !Array.isArray(site.durationParams)) {
+const getDurationPrice = (site, account, durationValue) => {
+  // 独立包月账号使用自己的时长参数
+  if (!site && account.durationParams) {
+    const durationParams = typeof account.durationParams === 'string'
+      ? JSON.parse(account.durationParams)
+      : account.durationParams;
+    if (Array.isArray(durationParams)) {
+      const duration = durationParams.find((dp) => dp.times === durationValue);
+      return duration ? parseFloat(duration.price) || 0 : 0;
+    }
+    return 0;
+  }
+  // 网站账号使用网站的时长参数
+  if (!site || !site.durationParams || !Array.isArray(site.durationParams)) {
     return 0;
   }
   const duration = site.durationParams.find((dp) => dp.times === durationValue);
@@ -155,7 +173,7 @@ const getDurationPrice = (site, durationValue) => {
 /**
  * 增加账号失败次数
  * @param {object} account - 账号对象
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
  */
 const incrementFailCount = async (account, site) => {
   const accountId = account.id;
@@ -164,8 +182,9 @@ const incrementFailCount = async (account, site) => {
 
   const newFailCount = accountEntity.failCount + 1;
 
-  // 检查是否为包月账号（网站类型为包月 或 账号有到期时间且未过期）
-  const isMonthly = (site.balanceType === 'monthly') ||
+  // 检查是否为包月账号（独立包月账号、网站类型为包月 或 账号有到期时间且未过期）
+  const isMonthly = isStandaloneMonthlyAccount(accountEntity) ||
+    (site && site.balanceType === 'monthly') ||
     (accountEntity.expireAt && new Date(accountEntity.expireAt) > new Date());
 
   if (isMonthly) {
@@ -196,12 +215,30 @@ const resetFailCount = async (accountId) => {
 };
 
 /**
+ * 检查账号是否为独立的包月账号（不关联网站）
+ * @param {object} account - 账号对象
+ */
+const isStandaloneMonthlyAccount = (account) => {
+  // 没有关联网站，且有提取链接模板
+  return !account.siteId && account.extractUrlTemplate;
+};
+
+/**
  * 检查账号是否支持指定时长
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
+ * @param {object} account - 账号对象
  * @param {number} durationValue - 时长值
  */
-const isDurationSupported = (site, durationValue) => {
-  if (!site.durationParams || !Array.isArray(site.durationParams)) {
+const isDurationSupported = (site, account, durationValue) => {
+  // 独立包月账号使用自己的时长参数
+  if (!site && account.durationParams) {
+    const durationParams = typeof account.durationParams === 'string'
+      ? JSON.parse(account.durationParams)
+      : account.durationParams;
+    return Array.isArray(durationParams) && durationParams.some((dp) => dp.times === durationValue);
+  }
+  // 网站账号使用网站的时长参数
+  if (!site || !site.durationParams || !Array.isArray(site.durationParams)) {
     return false;
   }
   return site.durationParams.some((dp) => dp.times === durationValue);
@@ -210,11 +247,15 @@ const isDurationSupported = (site, durationValue) => {
 /**
  * 检查账号是否为有效的包月账号
  * @param {object} account - 账号对象
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
  */
 const isMonthlyAccount = (account, site) => {
+  // 独立包月账号（不关联网站）
+  if (isStandaloneMonthlyAccount(account)) {
+    return true;
+  }
   // 网站类型为包月
-  if (site.balanceType === 'monthly') {
+  if (site && site.balanceType === 'monthly') {
     return true;
   }
   // 账号设置了到期时间且未过期
@@ -227,24 +268,24 @@ const isMonthlyAccount = (account, site) => {
 /**
  * 检查账号是否过期（仅对包月账号有效）
  * @param {object} account - 账号对象
- * @param {object} site - 网站对象
+ * @param {object} site - 网站对象（可能为null）
  */
 const isAccountExpired = (account, site) => {
   // 非包月账号不会因时间过期
   if (!isMonthlyAccount(account, site)) {
     return false;
   }
-  // 网站类型为包月，检查账号到期时间
-  if (site.balanceType === 'monthly' && account.expireAt) {
-    return new Date(account.expireAt) <= new Date();
-  }
-  // 网站类型为包月但没有设置到期时间，视为未过期
-  if (site.balanceType === 'monthly') {
-    return false;
-  }
   // 检查账号到期时间
   if (account.expireAt) {
     return new Date(account.expireAt) <= new Date();
+  }
+  // 网站类型为包月但没有设置到期时间，视为未过期
+  if (site && site.balanceType === 'monthly') {
+    return false;
+  }
+  // 独立包月账号没有设置到期时间，视为未过期
+  if (isStandaloneMonthlyAccount(account)) {
+    return false;
   }
   return false;
 };
@@ -257,18 +298,20 @@ const isAccountExpired = (account, site) => {
  * @param {array} triedAccountIds - 已尝试过的账号ID列表
  */
 const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) => {
-  // 获取所有启用的账号
+  const { Op } = require('sequelize');
+
+  // 获取所有启用的账号（包括独立包月账号）
   const accounts = await Account.findAll({
     where: {
       status: 1,
-      id: { [require('sequelize').Op.notIn]: triedAccountIds },
+      id: { [Op.notIn]: triedAccountIds },
     },
     include: [
       {
         model: Site,
         as: 'site',
         where: { status: 1 },
-        required: true,
+        required: false, // 允许不关联网站（独立包月账号）
       },
     ],
   });
@@ -276,15 +319,30 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
   // 过滤支持该时长且未过期的账号
   const availableAccounts = accounts.filter((account) => {
     const site = account.site;
-    // 检查是否支持该时长
-    if (!isDurationSupported(site, durationValue)) {
-      return false;
+    // 独立包月账号
+    if (!site && account.extractUrlTemplate) {
+      // 检查是否支持该时长
+      if (!isDurationSupported(null, account, durationValue)) {
+        return false;
+      }
+      // 检查是否过期
+      if (isAccountExpired(account, null)) {
+        return false;
+      }
+      return true;
     }
-    // 检查是否过期
-    if (isAccountExpired(account, site)) {
-      return false;
+    // 网站账号
+    if (site) {
+      // 检查是否支持该时长
+      if (!isDurationSupported(site, account, durationValue)) {
+        return false;
+      }
+      // 检查是否过期
+      if (isAccountExpired(account, site)) {
+        return false;
+      }
     }
-    return true;
+    return false;
   });
 
   if (availableAccounts.length === 0) {
@@ -341,9 +399,10 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
   const isMonthly = isMonthlyAccount(account, site);
 
   // 计算消费金额（包月账号不扣费）
-  const cost = isMonthly ? 0 : getDurationPrice(site, durationValue);
+  const cost = isMonthly ? 0 : getDurationPrice(site, account, durationValue);
 
-  logger.info(`选择账号 ${account.name}(${site.name})，${isMonthly ? '包月账号' : `余额: ${balance}`}，预计消费: ${cost}`);
+  const siteName = site ? site.name : '独立包月';
+  logger.info(`选择账号 ${account.name}(${siteName})，${isMonthly ? '包月账号' : `余额: ${balance}`}，预计消费: ${cost}`);
 
   // 构建提取链接
   const extractUrl = buildExtractUrl(account, site, durationValue, format);
@@ -355,8 +414,17 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     const responseStr = typeof response === 'object' ? JSON.stringify(response) : String(response);
     const responsePreview = responseStr.substring(0, 500);
 
-    // 获取失败关键词（网站配置 + 系统配置）
-    let failureKeywords = site.failureKeywords || [];
+    // 获取失败关键词（网站配置 + 账号配置 + 系统配置）
+    let failureKeywords = [];
+    // 独立包月账号使用自己的失败关键词
+    if (account.failureKeywords && Array.isArray(account.failureKeywords)) {
+      failureKeywords = [...account.failureKeywords];
+    }
+    // 网站配置的失败关键词
+    if (site && site.failureKeywords) {
+      failureKeywords = [...failureKeywords, ...site.failureKeywords];
+    }
+    // 系统默认失败关键词
     try {
       const defaultKeywords = JSON.parse(await SystemConfig.getValue('proxy_failure_keywords', '["余额不足","已过期"]'));
       failureKeywords = [...failureKeywords, ...defaultKeywords];
@@ -374,7 +442,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       // 记录日志（失败不扣费）
       await logProxyRequest({
         accountId: account.id,
-        siteId: site.id,
+        siteId: site ? site.id : null,
         clientIp,
         duration: durationValue,
         format,
@@ -394,7 +462,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     // 记录成功日志（包含消费金额）
     await logProxyRequest({
       accountId: account.id,
-      siteId: site.id,
+      siteId: site ? site.id : null,
       clientIp,
       duration: durationValue,
       format,
@@ -413,7 +481,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
         account: {
           id: account.id,
           name: account.name,
-          siteName: site.name,
+          siteName: siteName,
           balance: isMonthly ? '包月' : balance,
           cost,
           isMonthly,
@@ -429,7 +497,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
     // 记录失败日志
     await logProxyRequest({
       accountId: account.id,
-      siteId: site.id,
+      siteId: site ? site.id : null,
       clientIp,
       duration: durationValue,
       format,

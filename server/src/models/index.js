@@ -5,8 +5,8 @@ const SystemConfig = require('./SystemConfig');
 const ProxyLog = require('./ProxyLog');
 
 // 定义关联关系
-Site.hasMany(Account, { foreignKey: 'siteId', as: 'accounts' });
-Account.belongsTo(Site, { foreignKey: 'siteId', as: 'site' });
+Site.hasMany(Account, { foreignKey: 'siteId', as: 'accounts', allowNull: true });
+Account.belongsTo(Site, { foreignKey: 'siteId', as: 'site', allowNull: true, constraints: false });
 
 // ProxyLog关联
 Site.hasMany(ProxyLog, { foreignKey: 'siteId', as: 'logs' });

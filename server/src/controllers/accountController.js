@@ -105,30 +105,50 @@ const getDetail = async (req, res) => {
  */
 const create = async (req, res) => {
   try {
-    const { siteId, name, extractParams, balanceParams, expireAt, status } = req.body;
+    const {
+      siteId,
+      name,
+      extractParams,
+      balanceParams,
+      extractUrlTemplate,
+      formatParams,
+      durationParams,
+      failureKeywords,
+      expireAt,
+      status
+    } = req.body;
+
+    // 判断是否为独立包月账号
+    const isStandaloneMonthly = !siteId && extractUrlTemplate;
 
     // 验证必填字段
-    if (!siteId) {
+    if (!isStandaloneMonthly && !siteId) {
       return res.status(400).json({
         success: false,
-        message: '请选择网站',
+        message: '请选择网站或配置独立包月参数',
       });
     }
 
-    // 检查网站是否存在
-    const site = await Site.findByPk(siteId);
-    if (!site) {
-      return res.status(400).json({
-        success: false,
-        message: '网站不存在',
-      });
+    // 检查网站是否存在（如果关联网站）
+    if (siteId) {
+      const site = await Site.findByPk(siteId);
+      if (!site) {
+        return res.status(400).json({
+          success: false,
+          message: '网站不存在',
+        });
+      }
     }
 
     const account = await Account.create({
-      siteId,
+      siteId: siteId || null,
       name: name || `账号-${Date.now()}`,
       extractParams: extractParams || null,
       balanceParams: balanceParams || null,
+      extractUrlTemplate: extractUrlTemplate || null,
+      formatParams: formatParams || null,
+      durationParams: durationParams || null,
+      failureKeywords: failureKeywords || null,
       balance: 0,
       expireAt: expireAt || null,
       status: status !== undefined ? status : 1,
@@ -155,7 +175,17 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   try {
     const { id } = req.params;
-    const { name, extractParams, balanceParams, expireAt, status } = req.body;
+    const {
+      name,
+      extractParams,
+      balanceParams,
+      extractUrlTemplate,
+      formatParams,
+      durationParams,
+      failureKeywords,
+      expireAt,
+      status
+    } = req.body;
 
     const account = await Account.findByPk(id);
     if (!account) {
@@ -169,6 +199,10 @@ const update = async (req, res) => {
       name: name || account.name,
       extractParams: extractParams !== undefined ? extractParams : account.extractParams,
       balanceParams: balanceParams !== undefined ? balanceParams : account.balanceParams,
+      extractUrlTemplate: extractUrlTemplate !== undefined ? extractUrlTemplate : account.extractUrlTemplate,
+      formatParams: formatParams !== undefined ? formatParams : account.formatParams,
+      durationParams: durationParams !== undefined ? durationParams : account.durationParams,
+      failureKeywords: failureKeywords !== undefined ? failureKeywords : account.failureKeywords,
       expireAt: expireAt !== undefined ? expireAt : account.expireAt,
       status: status !== undefined ? status : account.status,
     });
