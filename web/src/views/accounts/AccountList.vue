@@ -123,7 +123,9 @@
             >
               <template #cell="{ record }">
                 <a-tooltip :content="`成功次数: ${record.successCount || 0}`">
-                  <span class="success-count">{{ formatCount(record.successCount || 0) }}</span>
+                  <span class="success-count">{{
+                    formatCount(record.successCount || 0)
+                  }}</span>
                 </a-tooltip>
               </template>
             </a-table-column>
@@ -180,7 +182,7 @@
               align="center"
             >
               <template #cell="{ record }">
-                {{ formatDate(record.createdAt) }}
+                {{ formatDate(record.created_at) }}
               </template>
             </a-table-column>
             <a-table-column
@@ -215,9 +217,10 @@
       </div>
 
       <!-- 移动端卡片列表 -->
-      <a-spin :loading="loading" style="width: 100%">
-        <div v-if="isMobile" class="mobile-card-list">
-          <div v-for="item in tableData" :key="item.id" class="mobile-card">
+      <div v-if="isMobile" class="mobile-card-wrapper">
+        <a-spin :loading="loading" style="width: 100%">
+          <div class="mobile-card-list">
+            <div v-for="item in tableData" :key="item.id" class="mobile-card">
             <div class="card-header">
               <span class="card-title">{{ item.name }}</span>
               <a-tag :color="item.status === 1 ? 'green' : 'red'" size="small">
@@ -257,7 +260,9 @@
               </div>
               <div class="card-row">
                 <span class="card-label">成功:</span>
-                <span class="card-value">{{ formatCount(item.successCount || 0) }}</span>
+                <span class="card-value">{{
+                  formatCount(item.successCount || 0)
+                }}</span>
               </div>
               <div class="card-row">
                 <span class="card-label">失败次数:</span>
@@ -310,8 +315,9 @@
             v-if="!loading && tableData.length === 0"
             description="暂无数据"
           />
-        </div>
-      </a-spin>
+          </div>
+        </a-spin>
+      </div>
 
       <!-- 分页 -->
       <div class="pagination">
@@ -725,12 +731,12 @@ const formatDate = (date) => formatLocalizedDateTime(date);
 
 // 格式化成功次数显示
 const formatCount = (count) => {
-  if (count === 0) return '0';
+  if (count === 0) return "0";
   if (count < 1000) return count.toString();
-  if (count < 10000) return (count / 1000).toFixed(2) + 'k';
-  if (count < 100000) return (count / 10000).toFixed(2) + 'w';
-  if (count < 100000000) return Math.floor(count / 10000) + 'w';
-  return '1亿+';
+  if (count < 10000) return (count / 1000).toFixed(2) + "k";
+  if (count < 100000) return (count / 10000).toFixed(2) + "w";
+  if (count < 100000000) return Math.floor(count / 10000) + "w";
+  return "1亿+";
 };
 
 // 账号名显示：前三后二，中间用...代替
@@ -873,8 +879,8 @@ const resetForm = () => {
     name: "",
     extractUrlTemplate: "",
     formatParams: [
-      { label: '纯IP', value: 'txt' },
-      { label: 'JSON', value: 'JSON' }
+      { label: "纯IP", value: "txt" },
+      { label: "JSON", value: "JSON" },
     ],
     durationParams: [],
     failureKeywords: [],
@@ -1327,11 +1333,17 @@ onUnmounted(() => {
 }
 
 /* 移动端卡片样式 */
+.mobile-card-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .mobile-card-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  flex: 1;
+  height: 100%;
   overflow-y: auto;
 }
 
