@@ -58,7 +58,7 @@
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: var(--color-text-3)">
-              <icon-line-chart-stroked :size="20" />
+              <icon-storage :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ logStats.totalRequests }}</div>
@@ -133,7 +133,7 @@ import {
   IconUser,
   IconCheckCircle,
   IconCloseCircle,
-  IconLineChartStroked,
+  IconStorage,
   IconFire
 } from '@arco-design/web-vue/es/icon'
 import * as echarts from 'echarts'
