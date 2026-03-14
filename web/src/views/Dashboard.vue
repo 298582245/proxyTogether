@@ -456,6 +456,20 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  /* 调整卡片头部布局，让 extra 换行显示 */
+  .chart-card :deep(.arco-card-header) {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    padding-bottom: 0;
+  }
+
+  .chart-card :deep(.arco-card-header-extra) {
+    position: static;
+    margin-top: 12px;
+    width: 100%;
+  }
+
   .stat-cards {
     margin: 0 -8px;
   }

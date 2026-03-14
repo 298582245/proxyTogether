@@ -63,6 +63,7 @@
         :footer="false"
         :header="false"
         :width="220"
+        :drawer-style="{ padding: '0', background: '#232323' }"
         class="mobile-drawer"
       >
         <div class="sidebar mobile-sidebar">
@@ -352,8 +353,19 @@ const handleChangePassword = async () => {
 }
 
 /* 移动端抽屉样式 */
+.mobile-drawer :deep(.arco-drawer) {
+  max-width: 100vw;
+}
+
 .mobile-drawer :deep(.arco-drawer-body) {
   padding: 0;
+  background-color: #232323;
+  overflow: hidden;
+}
+
+.mobile-drawer :deep(.arco-drawer-content) {
+  padding: 0;
+  background-color: #232323;
 }
 
 .mobile-sidebar {
