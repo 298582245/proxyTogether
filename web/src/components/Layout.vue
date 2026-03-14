@@ -329,6 +329,11 @@ const handleChangePassword = async () => {
   background-color: rgb(var(--primary-6));
 }
 
+/* 折叠状态下保持边距和图标居中 */
+.sidebar :deep(.arco-menu-collapsed .arco-menu-item) {
+  margin: 4px 8px !important;
+}
+
 .logo {
   height: 60px;
   display: flex;
