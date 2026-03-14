@@ -536,4 +536,13 @@ const handleChangePassword = async () => {
   margin-right: 0 !important;
   margin-left: 0 !important;
 }
+
+/* 折叠时隐藏标题，只显示图标 */
+.sidebar .arco-menu-collapsed .arco-menu-item-inner {
+  justify-content: center !important;
+}
+
+.sidebar .arco-menu-collapsed .arco-menu-title {
+  display: none !important;
+}
 </style>
