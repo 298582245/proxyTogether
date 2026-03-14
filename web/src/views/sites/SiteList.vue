@@ -1,250 +1,240 @@
 <template>
   <div class="site-list">
-    <el-card shadow="never">
+    <a-card :bordered="false">
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-button type="primary" @click="handleAdd">
-          <el-icon><Plus /></el-icon>
+        <a-button type="primary" @click="handleAdd">
+          <template #icon><icon-plus /></template>
           <span class="btn-text">添加网站</span>
-        </el-button>
-        <el-select v-model="filters.status" placeholder="状态" clearable class="filter-select" @change="loadData">
-          <el-option label="全部" value="" />
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
-        </el-select>
+        </a-button>
+        <a-select v-model="filters.status" placeholder="状态" allow-clear style="width: 120px" @change="loadData">
+          <a-option label="全部" value="" />
+          <a-option :value="1">启用</a-option>
+          <a-option :value="0">禁用</a-option>
+        </a-select>
       </div>
 
       <!-- 桌面端表格 -->
-      <el-table
+      <a-table
         v-if="!isMobile"
         :data="tableData"
-        v-loading="loading"
-        stripe
+        :loading="loading"
+        :pagination="false"
+        :stripe="true"
         style="width: 100%"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="网站名称" min-width="120" />
-        <el-table-column prop="balanceType" label="余额类型" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.balanceType === 'monthly' ? 'info' : 'success'" size="small">
-              {{ row.balanceType === 'monthly' ? '包月' : '余额' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="balanceUrl" label="余额查询接口" min-width="200" show-overflow-tooltip>
-          <template #default="{ row }">
-            {{ row.balanceType === 'monthly' ? '包月无需配置' : (row.balanceUrl || '-') }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="formatParams" label="格式参数" min-width="150">
-          <template #default="{ row }">
-            <template v-if="row.formatParams && row.formatParams.length">
-              <el-tag v-for="item in row.formatParams" :key="item.value" size="small" style="margin-right: 4px">
-                {{ item.label }}
-              </el-tag>
+        <template #columns>
+          <a-table-column title="ID" data-index="id" :width="80" />
+          <a-table-column title="网站名称" data-index="name" :min-width="120" />
+          <a-table-column title="余额类型" :width="100" align="center">
+            <template #cell="{ record }">
+              <a-tag :color="record.balanceType === 'monthly' ? 'gray' : 'green'">
+                {{ record.balanceType === 'monthly' ? '包月' : '余额' }}
+              </a-tag>
             </template>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="durationParams" label="时长参数" min-width="150">
-          <template #default="{ row }">
-            <template v-if="row.durationParams && row.durationParams.length">
-              <el-tag v-for="item in row.durationParams.slice(0, 3)" :key="item.times" size="small" style="margin-right: 4px">
-                {{ item.label }}({{ item.times }}分钟)
-              </el-tag>
-              <span v-if="row.durationParams.length > 3">...</span>
+          </a-table-column>
+          <a-table-column title="余额查询接口" :min-width="200" ellipsis>
+            <template #cell="{ record }">
+              {{ record.balanceType === 'monthly' ? '包月无需配置' : (record.balanceUrl || '-') }}
             </template>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="accountCount" label="账号数" width="100" align="center" />
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button
-              :type="row.status === 1 ? 'warning' : 'success'"
-              link
-              size="small"
-              @click="handleToggleStatus(row)"
-            >
-              {{ row.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+          </a-table-column>
+          <a-table-column title="格式参数" :min-width="150">
+            <template #cell="{ record }">
+              <template v-if="record.formatParams && record.formatParams.length">
+                <a-tag v-for="item in record.formatParams" :key="item.value" size="small" style="margin-right: 4px">
+                  {{ item.label }}
+                </a-tag>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </a-table-column>
+          <a-table-column title="时长参数" :min-width="150">
+            <template #cell="{ record }">
+              <template v-if="record.durationParams && record.durationParams.length">
+                <a-tag v-for="item in record.durationParams.slice(0, 3)" :key="item.times" size="small" style="margin-right: 4px">
+                  {{ item.label }}({{ item.times }}分钟)
+                </a-tag>
+                <span v-if="record.durationParams.length > 3">...</span>
+              </template>
+              <span v-else>-</span>
+            </template>
+          </a-table-column>
+          <a-table-column title="账号数" data-index="accountCount" :width="100" align="center" />
+          <a-table-column title="状态" :width="100" align="center">
+            <template #cell="{ record }">
+              <a-tag :color="record.status === 1 ? 'green' : 'red'">
+                {{ record.status === 1 ? '启用' : '禁用' }}
+              </a-tag>
+            </template>
+          </a-table-column>
+          <a-table-column title="创建时间" :width="160">
+            <template #cell="{ record }">
+              {{ formatDate(record.createdAt) }}
+            </template>
+          </a-table-column>
+          <a-table-column title="操作" :width="200" fixed="right">
+            <template #cell="{ record }">
+              <a-space>
+                <a-link @click="handleEdit(record)">编辑</a-link>
+                <a-link :status="record.status === 1 ? 'warning' : 'success'" @click="handleToggleStatus(record)">
+                  {{ record.status === 1 ? '禁用' : '启用' }}
+                </a-link>
+                <a-link status="danger" @click="handleDelete(record)">删除</a-link>
+              </a-space>
+            </template>
+          </a-table-column>
+        </template>
+      </a-table>
 
       <!-- 移动端卡片列表 -->
-      <div v-else class="mobile-card-list" v-loading="loading">
-        <div v-for="item in tableData" :key="item.id" class="mobile-card">
-          <div class="card-header">
-            <span class="card-title">{{ item.name }}</span>
-            <el-tag :type="item.status === 1 ? 'success' : 'danger'" size="small">
-              {{ item.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </div>
-          <div class="card-body">
-            <div class="card-row">
-              <span class="card-label">ID:</span>
-              <span class="card-value">{{ item.id }}</span>
+      <div v-else class="mobile-card-list">
+        <a-spin :loading="loading" style="width: 100%">
+          <div v-for="item in tableData" :key="item.id" class="mobile-card">
+            <div class="card-header">
+              <span class="card-title">{{ item.name }}</span>
+              <a-tag :color="item.status === 1 ? 'green' : 'red'" size="small">
+                {{ item.status === 1 ? '启用' : '禁用' }}
+              </a-tag>
             </div>
-            <div class="card-row">
-              <span class="card-label">余额类型:</span>
-              <el-tag :type="item.balanceType === 'monthly' ? 'info' : 'success'" size="small">
-                {{ item.balanceType === 'monthly' ? '包月' : '余额' }}
-              </el-tag>
-            </div>
-            <div class="card-row">
-              <span class="card-label">账号数:</span>
-              <span class="card-value">{{ item.accountCount }}</span>
-            </div>
-            <div class="card-row">
-              <span class="card-label">创建时间:</span>
-              <span class="card-value">{{ formatDate(item.createdAt) }}</span>
-            </div>
-            <div class="card-row" v-if="item.formatParams && item.formatParams.length">
-              <span class="card-label">格式参数:</span>
-              <div class="card-tags">
-                <el-tag v-for="tag in item.formatParams" :key="tag.value" size="small">
-                  {{ tag.label }}
-                </el-tag>
+            <div class="card-body">
+              <div class="card-row">
+                <span class="card-label">ID:</span>
+                <span class="card-value">{{ item.id }}</span>
+              </div>
+              <div class="card-row">
+                <span class="card-label">余额类型:</span>
+                <a-tag :color="item.balanceType === 'monthly' ? 'gray' : 'green'" size="small">
+                  {{ item.balanceType === 'monthly' ? '包月' : '余额' }}
+                </a-tag>
+              </div>
+              <div class="card-row">
+                <span class="card-label">账号数:</span>
+                <span class="card-value">{{ item.accountCount }}</span>
+              </div>
+              <div class="card-row">
+                <span class="card-label">创建时间:</span>
+                <span class="card-value">{{ formatDate(item.createdAt) }}</span>
+              </div>
+              <div class="card-row" v-if="item.formatParams && item.formatParams.length">
+                <span class="card-label">格式参数:</span>
+                <div class="card-tags">
+                  <a-tag v-for="tag in item.formatParams" :key="tag.value" size="small">
+                    {{ tag.label }}
+                  </a-tag>
+                </div>
               </div>
             </div>
+            <div class="card-actions">
+              <a-button type="primary" size="small" @click="handleEdit(item)">编辑</a-button>
+              <a-button
+                :status="item.status === 1 ? 'warning' : 'success'"
+                size="small"
+                @click="handleToggleStatus(item)"
+              >
+                {{ item.status === 1 ? '禁用' : '启用' }}
+              </a-button>
+              <a-button status="danger" size="small" @click="handleDelete(item)">删除</a-button>
+            </div>
           </div>
-          <div class="card-actions">
-            <el-button type="primary" size="small" @click="handleEdit(item)">编辑</el-button>
-            <el-button
-              :type="item.status === 1 ? 'warning' : 'success'"
-              size="small"
-              @click="handleToggleStatus(item)"
-            >
-              {{ item.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button type="danger" size="small" @click="handleDelete(item)">删除</el-button>
-          </div>
-        </div>
-        <el-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+          <a-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+        </a-spin>
       </div>
 
       <!-- 分页 -->
       <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
+        <a-pagination
+          v-model:current="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          :layout="isMobile ? 'total, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-          :small="isMobile"
-          @size-change="loadData"
-          @current-change="loadData"
+          :page-size-options="[10, 20, 50, 100]"
+          :show-total="true"
+          :show-jumper="!isMobile"
+          :show-page-size="!isMobile"
+          :simple="isMobile"
+          @change="loadData"
+          @page-size-change="loadData"
         />
       </div>
-    </el-card>
+    </a-card>
 
     <!-- 编辑对话框 -->
-    <el-dialog
-      v-model="dialog.visible"
+    <a-modal
+      v-model:visible="dialog.visible"
       :title="dialog.isEdit ? '编辑网站' : '添加网站'"
-      :width="isMobile ? '95%' : '700px'"
-      destroy-on-close
+      :width="isMobile ? '95%' : 700"
+      @ok="handleSubmit"
+      @cancel="dialog.visible = false"
     >
-      <el-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-width="isMobile ? '100px' : '120px'">
-        <el-form-item label="网站名称" prop="name">
-          <el-input v-model="dialog.form.name" placeholder="请输入网站名称" />
-        </el-form-item>
-        <el-form-item label="提取链接模板" prop="extractUrlTemplate">
-          <el-input
+      <a-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-col-props="{ span: isMobile ? 24 : 5 }" :wrapper-col-props="{ span: isMobile ? 24 : 19 }" layout="horizontal">
+        <a-form-item field="name" label="网站名称">
+          <a-input v-model="dialog.form.name" placeholder="请输入网站名称" />
+        </a-form-item>
+        <a-form-item field="extractUrlTemplate" label="提取链接模板">
+          <a-textarea
             v-model="dialog.form.extractUrlTemplate"
-            type="textarea"
-            :rows="3"
+            :auto-size="{ minRows: 3 }"
             placeholder="支持变量: {times}, {format}, {params.xxx}"
           />
           <div class="form-tip">
             示例: https://api.example.com/get?num=1&amp;format={format}&amp;minute={times}&amp;no={params.no}&amp;secret={params.secret}
           </div>
-        </el-form-item>
-        <el-form-item label="格式参数">
+        </a-form-item>
+        <a-form-item label="格式参数">
           <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-item">
-            <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-            <el-input v-model="item.value" placeholder="参数值" style="width: 100px; margin-left: 8px" />
-            <el-button type="danger" link @click="dialog.form.formatParams.splice(index, 1)" style="margin-left: 8px">
-              删除
-            </el-button>
+            <a-input v-model="item.label" placeholder="显示名称" style="width: 120px" />
+            <a-input v-model="item.value" placeholder="参数值" style="width: 120px; margin-left: 8px" />
+            <a-link status="danger" @click="dialog.form.formatParams.splice(index, 1)" style="margin-left: 8px">删除</a-link>
           </div>
-          <el-button type="primary" link @click="dialog.form.formatParams.push({ label: '', value: '' })">
-            + 添加格式参数
-          </el-button>
-        </el-form-item>
-        <el-form-item label="时长参数">
+          <a-link @click="dialog.form.formatParams.push({ label: '', value: '' })">+ 添加格式参数</a-link>
+        </a-form-item>
+        <a-form-item label="时长参数">
           <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-item">
-            <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-            <el-input v-model="item.times" placeholder="分钟数" style="width: 80px; margin-left: 8px" />
-            <span style="margin-left: 4px; color: #909399;">分钟</span>
-            <el-input v-model="item.price" placeholder="价格" style="width: 80px; margin-left: 8px" />
-            <span style="margin-left: 4px; color: #909399;">元</span>
-            <el-button type="danger" link @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
-              删除
-            </el-button>
+            <a-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
+            <a-input-number v-model="item.times" placeholder="分钟数" style="width: 100px; margin-left: 8px" />
+            <span style="margin-left: 4px; color: var(--color-text-3);">分钟</span>
+            <a-input-number v-model="item.price" placeholder="价格" style="width: 100px; margin-left: 8px" />
+            <span style="margin-left: 4px; color: var(--color-text-3);">元</span>
+            <a-link status="danger" @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">删除</a-link>
           </div>
-          <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: '', price: '' })">
-            + 添加时长参数
-          </el-button>
-        </el-form-item>
-        <el-divider content-position="left">余额查询配置</el-divider>
-        <el-form-item label="余额类型">
-          <el-radio-group v-model="dialog.form.balanceType">
-            <el-radio value="balance">余额查询</el-radio>
-            <el-radio value="monthly">包月</el-radio>
-          </el-radio-group>
+          <a-link @click="dialog.form.durationParams.push({ label: '', times: '', price: '' })">+ 添加时长参数</a-link>
+        </a-form-item>
+        <a-divider orientation="left">余额查询配置</a-divider>
+        <a-form-item label="余额类型">
+          <a-radio-group v-model="dialog.form.balanceType">
+            <a-radio value="balance">余额查询</a-radio>
+            <a-radio value="monthly">包月</a-radio>
+          </a-radio-group>
           <div class="form-tip">包月类型无需配置余额查询接口，余额显示为空</div>
-        </el-form-item>
+        </a-form-item>
         <template v-if="dialog.form.balanceType === 'balance'">
-          <el-form-item label="余额接口URL">
-            <el-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址，支持 {params.xxx} 参数" />
+          <a-form-item label="余额接口URL">
+            <a-input v-model="dialog.form.balanceUrl" placeholder="余额查询接口地址，支持 {params.xxx} 参数" />
             <div class="form-tip">示例: https://api.example.com/balance?no={params.no}&amp;userId={params.userId}</div>
-          </el-form-item>
-          <el-form-item label="请求方法">
-            <el-radio-group v-model="dialog.form.balanceMethod">
-              <el-radio value="GET">GET</el-radio>
-              <el-radio value="POST">POST</el-radio>
-            </el-radio-group>
-          </el-form-item>
-          <el-form-item label="余额字段路径">
-            <el-input v-model="dialog.form.balanceField" placeholder="如: data.balance" />
+          </a-form-item>
+          <a-form-item label="请求方法">
+            <a-radio-group v-model="dialog.form.balanceMethod">
+              <a-radio value="GET">GET</a-radio>
+              <a-radio value="POST">POST</a-radio>
+            </a-radio-group>
+          </a-form-item>
+          <a-form-item label="余额字段路径">
+            <a-input v-model="dialog.form.balanceField" placeholder="如: data.balance" />
             <div class="form-tip">接口返回JSON中余额字段的路径，用点号分隔</div>
-          </el-form-item>
+          </a-form-item>
         </template>
-        <el-divider content-position="left">失败关键词</el-divider>
-        <el-form-item label="失败关键词">
-          <el-select
+        <a-divider orientation="left">失败关键词</a-divider>
+        <a-form-item label="失败关键词">
+          <a-select
             v-model="dialog.form.failureKeywords"
             multiple
-            filterable
             allow-create
-            default-first-option
+            allow-search
             placeholder="输入关键词后回车添加"
-            style="width: 100%"
           />
           <div class="form-tip">当提取响应包含这些关键词时，自动切换到下一个账号</div>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialog.visible = false">取消</el-button>
-        <el-button type="primary" :loading="dialog.loading" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -252,8 +242,8 @@
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { getSiteList, getSiteDetail, createSite, updateSite, deleteSite, toggleSiteStatus } from '@/api/site'
 import { formatLocalizedDateTime } from '@/utils/date'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Message, Modal } from '@arco-design/web-vue'
+import { IconPlus } from '@arco-design/web-vue/es/icon'
 
 const loading = ref(false)
 const tableData = ref([])
@@ -291,8 +281,8 @@ const dialog = reactive({
     failureKeywords: []
   },
   rules: {
-    name: [{ required: true, message: '请输入网站名称', trigger: 'blur' }],
-    extractUrlTemplate: [{ required: true, message: '请输入提取链接模板', trigger: 'blur' }]
+    name: [{ required: true, message: '请输入网站名称' }],
+    extractUrlTemplate: [{ required: true, message: '请输入提取链接模板' }]
   }
 })
 
@@ -361,34 +351,33 @@ const handleEdit = async (row) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
+  const valid = await formRef.value.validate()
+  if (valid) return
 
-    dialog.loading = true
-    try {
-      const data = { ...dialog.form }
+  dialog.loading = true
+  try {
+    const data = { ...dialog.form }
 
-      if (dialog.isEdit) {
-        await updateSite(dialog.editId, data)
-        ElMessage.success('更新成功')
-      } else {
-        await createSite(data)
-        ElMessage.success('创建成功')
-      }
-      dialog.visible = false
-      loadData()
-    } catch (error) {
-      // 错误已处理
-    } finally {
-      dialog.loading = false
+    if (dialog.isEdit) {
+      await updateSite(dialog.editId, data)
+      Message.success('更新成功')
+    } else {
+      await createSite(data)
+      Message.success('创建成功')
     }
-  })
+    dialog.visible = false
+    loadData()
+  } catch (error) {
+    // 错误已处理
+  } finally {
+    dialog.loading = false
+  }
 }
 
 const handleToggleStatus = async (row) => {
   try {
     await toggleSiteStatus(row.id)
-    ElMessage.success('状态更新成功')
+    Message.success('状态更新成功')
     loadData()
   } catch (error) {
     // 错误已处理
@@ -396,17 +385,17 @@ const handleToggleStatus = async (row) => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除该网站吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteSite(row.id)
-      ElMessage.success('删除成功')
-      loadData()
-    } catch (error) {
-      // 错误已处理
+  Modal.confirm({
+    title: '提示',
+    content: '确定要删除该网站吗？',
+    onOk: async () => {
+      try {
+        await deleteSite(row.id)
+        Message.success('删除成功')
+        loadData()
+      } catch (error) {
+        // 错误已处理
+      }
     }
   })
 }
@@ -430,23 +419,19 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.site-list > .el-card {
+.site-list > :deep(.arco-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.site-list > .el-card :deep(.el-card__body) {
+.site-list > :deep(.arco-card-body) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: auto;
-}
-
-.site-list > .el-card :deep(.el-table__wrapper) {
-  flex: 1;
 }
 
 .toolbar {
@@ -458,10 +443,6 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.filter-select {
-  width: 120px;
-}
-
 .pagination {
   margin-top: 16px;
   display: flex;
@@ -470,7 +451,7 @@ onUnmounted(() => {
 }
 
 .form-tip {
-  color: #909399;
+  color: var(--color-text-3);
   font-size: 12px;
   margin-top: 4px;
   line-height: 1.5;
@@ -494,8 +475,8 @@ onUnmounted(() => {
 }
 
 .mobile-card {
-  background: #fff;
-  border: 1px solid #ebeef5;
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
   border-radius: 8px;
   padding: 12px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
@@ -507,13 +488,13 @@ onUnmounted(() => {
   align-items: center;
   margin-bottom: 12px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .card-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-1);
 }
 
 .card-body {
@@ -530,14 +511,14 @@ onUnmounted(() => {
 }
 
 .card-label {
-  color: #909399;
+  color: var(--color-text-3);
   font-size: 13px;
   min-width: 70px;
   flex-shrink: 0;
 }
 
 .card-value {
-  color: #606266;
+  color: var(--color-text-2);
   font-size: 13px;
   word-break: break-all;
 }
@@ -552,10 +533,10 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   padding-top: 12px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--color-border);
 }
 
-.card-actions .el-button {
+.card-actions :deep(.arco-btn) {
   flex: 1;
 }
 
@@ -565,7 +546,7 @@ onUnmounted(() => {
     padding: 0;
   }
 
-  .toolbar .el-button {
+  .toolbar :deep(.arco-btn) {
     flex: 1;
   }
 
@@ -573,8 +554,8 @@ onUnmounted(() => {
     display: inline;
   }
 
-  .filter-select {
-    width: 100%;
+  .toolbar :deep(.arco-select) {
+    width: 100% !important;
   }
 
   .pagination {
@@ -587,13 +568,14 @@ onUnmounted(() => {
     align-items: stretch;
   }
 
-  .param-item .el-input {
+  .param-item :deep(.arco-input),
+  .param-item :deep(.arco-input-number) {
     width: 100% !important;
     margin-left: 0 !important;
     margin-bottom: 8px;
   }
 
-  .param-item .el-button {
+  .param-item :deep(.arco-link) {
     align-self: flex-start;
   }
 }

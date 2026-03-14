@@ -1,72 +1,72 @@
 <template>
   <div class="system-config">
-    <el-card shadow="never">
-      <template #header>
+    <a-card :bordered="false">
+      <template #title>
         <span>系统设置</span>
       </template>
 
-      <el-form :model="form" :label-width="isMobile ? '100px' : '150px'" v-loading="loading">
-        <el-divider content-position="left">安全设置</el-divider>
-        <el-form-item label="后台密码">
-          <el-input v-model="form.admin_password" type="password" show-password placeholder="修改后台登录密码" />
+      <a-form :model="form" layout="horizontal" :label-col-props="{ span: isMobile ? 6 : 5 }" :wrapper-col-props="{ span: isMobile ? 18 : 19 }">
+        <a-divider orientation="left">安全设置</a-divider>
+        <a-form-item label="后台密码">
+          <a-input-password v-model="form.admin_password" placeholder="修改后台登录密码" allow-clear />
           <div class="form-tip">留空表示不修改</div>
-        </el-form-item>
-        <el-form-item label="代理接口Token">
-          <el-input v-model="form.proxy_token" placeholder="留空则不验证Token" />
+        </a-form-item>
+        <a-form-item label="代理接口Token">
+          <a-input v-model="form.proxy_token" placeholder="留空则不验证Token" allow-clear />
           <div class="form-tip">设置后，调用/proxy/get接口时需要携带此Token</div>
-        </el-form-item>
-        <el-form-item label="IP白名单">
-          <el-select
+        </a-form-item>
+        <a-form-item label="IP白名单">
+          <a-select
             v-model="form.ip_whitelist"
             multiple
-            filterable
             allow-create
-            default-first-option
+            allow-search
             placeholder="输入IP后回车添加"
             style="width: 100%"
           />
           <div class="form-tip">只有白名单中的IP才能调用代理接口，留空则不限制。支持通配符，如: 192.168.*.*</div>
-        </el-form-item>
+        </a-form-item>
 
-        <el-divider content-position="left">代理设置</el-divider>
-        <el-form-item label="最大失败次数">
-          <el-input-number v-model="form.max_fail_count" :min="1" :max="10" />
+        <a-divider orientation="left">代理设置</a-divider>
+        <a-form-item label="最大失败次数">
+          <a-input-number v-model="form.max_fail_count" :min="1" :max="10" :style="{ width: '150px' }" />
           <div class="form-tip">账号连续提取失败超过此次数后自动禁用</div>
-        </el-form-item>
-        <el-form-item label="失败关键词">
-          <el-select
+        </a-form-item>
+        <a-form-item label="失败关键词">
+          <a-select
             v-model="form.proxy_failure_keywords"
             multiple
-            filterable
             allow-create
-            default-first-option
+            allow-search
             placeholder="输入关键词后回车添加"
             style="width: 100%"
           />
           <div class="form-tip">当提取响应包含这些关键词时，视为失败并切换账号</div>
-        </el-form-item>
+        </a-form-item>
 
-        <el-divider content-position="left">定时任务</el-divider>
-        <el-form-item label="余额查询间隔">
+        <a-divider orientation="left">定时任务</a-divider>
+        <a-form-item label="余额查询间隔">
           <div class="inline-input">
-            <el-input-number v-model="form.balance_check_interval" :min="1" :max="1440" />
+            <a-input-number v-model="form.balance_check_interval" :min="1" :max="1440" :style="{ width: '150px' }" />
             <span class="input-suffix">分钟</span>
           </div>
           <div class="form-tip">定时查询所有账号余额的间隔时间</div>
-        </el-form-item>
+        </a-form-item>
 
-        <el-form-item>
-          <el-button type="primary" :loading="saving" @click="handleSave">保存设置</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
+        <a-form-item :wrapper-col-props="{ offset: isMobile ? 0 : 5 }">
+          <a-button type="primary" :loading="saving" @click="handleSave">保存设置</a-button>
+        </a-form-item>
+      </a-form>
+
+      <a-spin :loading="loading" dot />
+    </a-card>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { getConfig, updateConfig } from '@/api/config'
-import { ElMessage } from 'element-plus'
+import { Message } from '@arco-design/web-vue'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -137,7 +137,7 @@ const handleSave = async () => {
     configs.push({ key: 'balance_check_interval', value: form.balance_check_interval.toString() })
 
     await updateConfig(configs)
-    ElMessage.success('保存成功')
+    Message.success('保存成功')
     form.admin_password = ''
   } catch (error) {
     // 错误已处理
@@ -165,21 +165,28 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.system-config > .el-card {
+.system-config > .a-card {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.system-config > .el-card :deep(.el-card__body) {
+.system-config > :deep(.a-card) {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.system-config > :deep(.a-card .a-card-body) {
   flex: 1;
   min-height: 0;
   overflow: auto;
 }
 
 .form-tip {
-  color: #909399;
+  color: var(--color-text-3);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -191,17 +198,17 @@ onUnmounted(() => {
 }
 
 .input-suffix {
-  color: #606266;
+  color: var(--color-text-2);
   white-space: nowrap;
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .system-config > .el-card :deep(.el-card__body) {
+  .system-config > :deep(.a-card .a-card-body) {
     padding: 12px;
   }
 
-  :deep(.el-divider__text) {
+  :deep(.a-divider .a-divider-text) {
     font-size: 14px;
   }
 

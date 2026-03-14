@@ -1,8 +1,8 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
-import 'element-plus/dist/index.css'
-import zhCn from 'element-plus/dist/locale/zh-cn.mjs'
+import ArcoVue from '@arco-design/web-vue'
+import '@arco-design/web-vue/dist/arco.css'
+import ArcoVueIcon from '@arco-design/web-vue/es/icon'
 import App from './App.vue'
 import router from './router'
 
@@ -10,6 +10,7 @@ const app = createApp(App)
 
 app.use(createPinia())
 app.use(router)
-app.use(ElementPlus, { locale: zhCn })
+app.use(ArcoVue)
+app.use(ArcoVueIcon)
 
 app.mount('#app')

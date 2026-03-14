@@ -1,96 +1,96 @@
 <template>
   <div class="dashboard">
     <!-- 统计卡片 - 第一行 -->
-    <el-row :gutter="16" class="stat-cards">
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+    <a-row :gutter="16" class="stat-cards">
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: #409EFF">
-              <el-icon size="20"><Wallet /></el-icon>
+            <div class="stat-icon" style="background: rgb(var(--primary-6))">
+              <icon-wallet :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.totalBalance.toFixed(2) }}</div>
               <div class="stat-label">总余额</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: #67C23A">
-              <el-icon size="20"><User /></el-icon>
+            <div class="stat-icon" style="background: rgb(var(--success-6))">
+              <icon-user :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.totalCount }}</div>
               <div class="stat-label">总账号数</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: #E6A23C">
-              <el-icon size="20"><CircleCheck /></el-icon>
+            <div class="stat-icon" style="background: rgb(var(--warning-6))">
+              <icon-check-circle :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.activeCount }}</div>
               <div class="stat-label">启用账号</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: #F56C6C">
-              <el-icon size="20"><CircleClose /></el-icon>
+            <div class="stat-icon" style="background: rgb(var(--danger-6))">
+              <icon-close-circle :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.inactiveCount }}</div>
               <div class="stat-label">禁用账号</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: #909399">
-              <el-icon size="20"><DataLine /></el-icon>
+            <div class="stat-icon" style="background: var(--color-text-3)">
+              <icon-line-chart :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ logStats.totalRequests }}</div>
               <div class="stat-label">总请求数</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :xs="12" :sm="8" :md="6" :lg="4">
-        <el-card shadow="hover" class="stat-card-wrap">
+        </a-card>
+      </a-col>
+      <a-col :xs="12" :sm="8" :md="6" :lg="4">
+        <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #9C27B0">
-              <el-icon size="20"><Money /></el-icon>
+              <icon-fire :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">¥{{ Number(logStats.totalCost || 0).toFixed(4) }}</div>
               <div class="stat-label">总消费</div>
             </div>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </a-card>
+      </a-col>
+    </a-row>
 
     <!-- 快捷操作 -->
     <div class="quick-actions-bar">
       <div class="action-buttons">
-        <el-button type="primary" size="small" @click="handleRefreshBalance" :loading="refreshing">
+        <a-button type="primary" size="small" @click="handleRefreshBalance" :loading="refreshing">
           刷新余额
-        </el-button>
-        <el-button size="small" @click="copyProxyUrl">
+        </a-button>
+        <a-button size="small" @click="copyProxyUrl">
           复制接口
-        </el-button>
+        </a-button>
       </div>
       <span class="proxy-url">
         <span class="proxy-label">代理接口：</span>
@@ -99,8 +99,8 @@
     </div>
 
     <!-- 图表区域 -->
-    <el-card shadow="hover" class="chart-card">
-      <template #header>
+    <a-card hoverable class="chart-card">
+      <template #title>
         <div class="chart-header">
           <div class="chart-title">
             <span>请求统计</span>
@@ -108,16 +108,18 @@
               总计: {{ chartSummary.requests }} 次请求 | {{ chartSummary.success }} 次成功 | ¥{{ chartSummary.cost.toFixed(4) }} 消费
             </span>
           </div>
-          <el-radio-group v-model="chartType" size="small" @change="loadChartData">
-            <el-radio-button value="today">今日</el-radio-button>
-            <el-radio-button value="yesterday">昨日</el-radio-button>
-            <el-radio-button value="week">本周</el-radio-button>
-            <el-radio-button value="month">本月</el-radio-button>
-          </el-radio-group>
         </div>
       </template>
+      <template #extra>
+        <a-radio-group v-model="chartType" size="small" type="button" @change="loadChartData">
+          <a-radio value="today">今日</a-radio>
+          <a-radio value="yesterday">昨日</a-radio>
+          <a-radio value="week">本周</a-radio>
+          <a-radio value="month">本月</a-radio>
+        </a-radio-group>
+      </template>
       <div ref="chartRef" class="chart-container"></div>
-    </el-card>
+    </a-card>
   </div>
 </template>
 
@@ -125,8 +127,15 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getAccountStats, refreshAllBalance } from '@/api/account'
 import { getLogChart, getLogStats } from '@/api/log'
-import { ElMessage } from 'element-plus'
-import { Wallet, User, CircleCheck, CircleClose, DataLine, Money } from '@element-plus/icons-vue'
+import { Message } from '@arco-design/web-vue'
+import {
+  IconWallet,
+  IconUser,
+  IconCheckCircle,
+  IconCloseCircle,
+  IconLineChart,
+  IconFire
+} from '@arco-design/web-vue/es/icon'
 import * as echarts from 'echarts'
 
 const stats = reactive({
@@ -240,7 +249,7 @@ const renderChart = (data) => {
         type: 'bar',
         data: requests,
         itemStyle: {
-          color: '#409EFF'
+          color: 'rgb(var(--primary-6))'
         }
       },
       {
@@ -248,7 +257,7 @@ const renderChart = (data) => {
         type: 'bar',
         data: successCount,
         itemStyle: {
-          color: '#67C23A'
+          color: 'rgb(var(--success-6))'
         }
       },
       {
@@ -257,7 +266,7 @@ const renderChart = (data) => {
         yAxisIndex: 1,
         data: costs,
         itemStyle: {
-          color: '#E6A23C'
+          color: 'rgb(var(--warning-6))'
         },
         smooth: true
       }
@@ -271,7 +280,7 @@ const handleRefreshBalance = async () => {
   refreshing.value = true
   try {
     await refreshAllBalance()
-    ElMessage.success('已开始刷新余额，请稍后刷新页面查看')
+    Message.success('已开始刷新余额，请稍后刷新页面查看')
   } catch (error) {
     // 错误已处理
   } finally {
@@ -281,7 +290,7 @@ const handleRefreshBalance = async () => {
 
 const copyProxyUrl = () => {
   navigator.clipboard.writeText(proxyUrl.value)
-  ElMessage.success('已复制到剪贴板')
+  Message.success('已复制到剪贴板')
 }
 
 const handleResize = () => {
@@ -323,7 +332,7 @@ onUnmounted(() => {
   height: 100%;
 }
 
-.stat-card-wrap :deep(.el-card__body) {
+.stat-card-wrap :deep(.arco-card-body) {
   padding: 12px 16px;
 }
 
@@ -352,7 +361,7 @@ onUnmounted(() => {
 .stat-value {
   font-size: 18px;
   font-weight: bold;
-  color: #303133;
+  color: var(--color-text-1);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -360,7 +369,7 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-3);
   margin-top: 2px;
 }
 
@@ -383,7 +392,7 @@ onUnmounted(() => {
 
 .quick-actions-bar .proxy-url {
   margin-left: auto;
-  color: #909399;
+  color: var(--color-text-3);
   font-size: 14px;
   display: flex;
   align-items: center;
@@ -396,11 +405,11 @@ onUnmounted(() => {
 }
 
 .quick-actions-bar .proxy-url code {
-  background: #f5f5f5;
+  background: var(--color-fill-2);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text-2);
   word-break: break-all;
 }
 
@@ -411,12 +420,7 @@ onUnmounted(() => {
   flex-direction: column;
 }
 
-.chart-card :deep(.el-card__header) {
-  padding: 12px 16px;
-  flex-shrink: 0;
-}
-
-.chart-card :deep(.el-card__body) {
+.chart-card :deep(.arco-card-body) {
   flex: 1;
   min-height: 0;
   padding: 16px;
@@ -441,7 +445,7 @@ onUnmounted(() => {
 
 .chart-summary {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text-3);
   font-weight: normal;
 }
 
@@ -456,21 +460,17 @@ onUnmounted(() => {
     margin: 0 -8px;
   }
 
-  .stat-cards :deep(.el-col) {
+  .stat-cards :deep(.arco-col) {
     margin-bottom: 12px;
   }
 
-  .stat-card-wrap :deep(.el-card__body) {
+  .stat-card-wrap :deep(.arco-card-body) {
     padding: 10px 12px;
   }
 
   .stat-icon {
     width: 36px;
     height: 36px;
-  }
-
-  .stat-icon :deep(.el-icon) {
-    font-size: 16px;
   }
 
   .stat-value {
@@ -490,7 +490,7 @@ onUnmounted(() => {
     width: 100%;
   }
 
-  .action-buttons .el-button {
+  .action-buttons :deep(.arco-btn) {
     flex: 1;
   }
 
@@ -520,16 +520,12 @@ onUnmounted(() => {
     font-size: 12px;
   }
 
-  :deep(.el-radio-group) {
+  :deep(.arco-radio-group) {
     width: 100%;
   }
 
-  :deep(.el-radio-button) {
+  :deep(.arco-radio-button) {
     flex: 1;
-  }
-
-  :deep(.el-radio-button__inner) {
-    width: 100%;
   }
 }
 </style>

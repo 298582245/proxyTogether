@@ -1,353 +1,353 @@
 <template>
   <div class="account-list">
-    <el-card shadow="never">
+    <a-card :bordered="false">
       <!-- 工具栏 -->
       <div class="toolbar">
         <div class="toolbar-row">
-          <el-button type="primary" @click="handleAdd">
-            <el-icon><Plus /></el-icon>
+          <a-button type="primary" @click="handleAdd">
+            <template #icon><icon-plus /></template>
             <span class="btn-text">添加账号</span>
-          </el-button>
-          <el-button @click="handleRefreshAllBalance" :loading="refreshing">
+          </a-button>
+          <a-button @click="handleRefreshAllBalance" :loading="refreshing">
             <span class="btn-text">刷新所有余额</span>
-          </el-button>
+          </a-button>
         </div>
         <div class="toolbar-row">
-          <el-select v-model="filters.siteId" placeholder="选择网站" clearable class="filter-select" @change="loadData">
-            <el-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
-          </el-select>
-          <el-select v-model="filters.status" placeholder="状态" clearable class="filter-select" @change="loadData">
-            <el-option label="全部" value="" />
-            <el-option label="启用" :value="1" />
-            <el-option label="禁用" :value="0" />
-          </el-select>
-          <el-input v-model="filters.name" placeholder="搜索账号名称" clearable class="filter-input" @keyup.enter="loadData" />
+          <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select" @change="loadData">
+            <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+          </a-select>
+          <a-select v-model="filters.status" placeholder="状态" allow-clear class="filter-select" @change="loadData">
+            <a-option label="全部" value="" />
+            <a-option label="启用" :value="1" />
+            <a-option label="禁用" :value="0" />
+          </a-select>
+          <a-input v-model="filters.name" placeholder="搜索账号名称" allow-clear class="filter-input" @press-enter="loadData" />
         </div>
       </div>
 
       <!-- 桌面端表格 -->
-      <el-table
-        v-if="!isMobile"
-        :data="tableData"
-        v-loading="loading"
-        stripe
-        style="width: 100%"
-      >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="账号名称" min-width="120" />
-        <el-table-column prop="site" label="所属网站" width="120">
-          <template #default="{ row }">
-            <template v-if="row.site">
-              {{ row.site.name }}
-            </template>
-            <el-tag v-else type="warning" size="small">独立包月</el-tag>
+      <a-spin :loading="loading" style="width: 100%;">
+        <a-table
+          v-if="!isMobile"
+          :data="tableData"
+          :pagination="false"
+          :bordered="{ cell: true }"
+          style="width: 100%"
+        >
+          <template #columns>
+            <a-table-column title="ID" data-index="id" :width="80" />
+            <a-table-column title="账号名称" data-index="name" :min-width="120" />
+            <a-table-column title="所属网站" :width="120">
+              <template #cell="{ record }">
+                <template v-if="record.site">
+                  {{ record.site.name }}
+                </template>
+                <a-tag v-else color="orangered" size="small">独立包月</a-tag>
+              </template>
+            </a-table-column>
+            <a-table-column title="余额" data-index="balance" :width="120" align="right">
+              <template #cell="{ record }">
+                <template v-if="isMonthlyAccount(record)">
+                  <a-tag color="gray" size="small">包月</a-tag>
+                </template>
+                <template v-else>
+                  <span :class="{ 'low-balance': Number(record.balance) < 10 }">{{ Number(record.balance || 0).toFixed(2) }}</span>
+                </template>
+              </template>
+            </a-table-column>
+            <a-table-column title="到期时间" data-index="expireAt" :width="160">
+              <template #cell="{ record }">
+                <template v-if="record.expireAt">
+                  <span :class="{ expired: isExpired(record.expireAt) }">
+                    {{ formatDate(record.expireAt) }}
+                  </span>
+                </template>
+                <span v-else>-</span>
+              </template>
+            </a-table-column>
+            <a-table-column title="失败次数" data-index="failCount" :width="100" align="center">
+              <template #cell="{ record }">
+                <a-tag :color="record.failCount >= 3 ? 'red' : record.failCount > 0 ? 'orangered' : 'green'" size="small">
+                  {{ record.failCount }}
+                </a-tag>
+              </template>
+            </a-table-column>
+            <a-table-column title="余额更新时间" data-index="balanceUpdatedAt" :width="160">
+              <template #cell="{ record }">
+                {{ formatDate(record.balanceUpdatedAt) }}
+              </template>
+            </a-table-column>
+            <a-table-column title="状态" data-index="status" :width="100" align="center">
+              <template #cell="{ record }">
+                <a-tag :color="record.status === 1 ? 'green' : 'red'" size="small">
+                  {{ record.status === 1 ? '启用' : '禁用' }}
+                </a-tag>
+              </template>
+            </a-table-column>
+            <a-table-column title="创建时间" data-index="createdAt" :width="160">
+              <template #cell="{ record }">
+                {{ formatDate(record.createdAt) }}
+              </template>
+            </a-table-column>
+            <a-table-column title="操作" :width="220" fixed="right">
+              <template #cell="{ record }">
+                <a-space>
+                  <a-link @click="handleEdit(record)">编辑</a-link>
+                  <a-link
+                    v-if="!isMonthlyAccount(record)"
+                    status="success"
+                    @click="handleRefreshBalance(record)"
+                    :loading="record.refreshing"
+                  >
+                    刷新余额
+                  </a-link>
+                  <a-link
+                    :status="record.status === 1 ? 'warning' : 'success'"
+                    @click="handleToggleStatus(record)"
+                  >
+                    {{ record.status === 1 ? '禁用' : '启用' }}
+                  </a-link>
+                  <a-link status="danger" @click="handleDelete(record)">删除</a-link>
+                </a-space>
+              </template>
+            </a-table-column>
           </template>
-        </el-table-column>
-        <el-table-column prop="balance" label="余额" width="120" align="right">
-          <template #default="{ row }">
-            <template v-if="isMonthlyAccount(row)">
-              <el-tag type="info" size="small">包月</el-tag>
-            </template>
-            <template v-else>
-              <span :class="{ 'low-balance': Number(row.balance) < 10 }">{{ Number(row.balance || 0).toFixed(2) }}</span>
-            </template>
-          </template>
-        </el-table-column>
-        <el-table-column prop="expireAt" label="到期时间" width="160">
-          <template #default="{ row }">
-            <template v-if="row.expireAt">
-              <span :class="{ expired: isExpired(row.expireAt) }">
-                {{ formatDate(row.expireAt) }}
-              </span>
-            </template>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="failCount" label="失败次数" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.failCount >= 3 ? 'danger' : row.failCount > 0 ? 'warning' : 'success'" size="small">
-              {{ row.failCount }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="balanceUpdatedAt" label="余额更新时间" width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.balanceUpdatedAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-              {{ row.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="160">
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleEdit(row)">编辑</el-button>
-            <el-button
-              v-if="!isMonthlyAccount(row)"
-              type="success"
-              link
-              size="small"
-              @click="handleRefreshBalance(row)"
-              :loading="row.refreshing"
-            >
-              刷新余额
-            </el-button>
-            <el-button
-              :type="row.status === 1 ? 'warning' : 'success'"
-              link
-              size="small"
-              @click="handleToggleStatus(row)"
-            >
-              {{ row.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
+        </a-table>
+      </a-spin>
 
       <!-- 移动端卡片列表 -->
-      <div v-else class="mobile-card-list" v-loading="loading">
-        <div v-for="item in tableData" :key="item.id" class="mobile-card">
-          <div class="card-header">
-            <span class="card-title">{{ item.name }}</span>
-            <el-tag :type="item.status === 1 ? 'success' : 'danger'" size="small">
-              {{ item.status === 1 ? '启用' : '禁用' }}
-            </el-tag>
+      <a-spin :loading="loading" style="width: 100%;">
+        <div v-if="isMobile" class="mobile-card-list">
+          <div v-for="item in tableData" :key="item.id" class="mobile-card">
+            <div class="card-header">
+              <span class="card-title">{{ item.name }}</span>
+              <a-tag :color="item.status === 1 ? 'green' : 'red'" size="small">
+                {{ item.status === 1 ? '启用' : '禁用' }}
+              </a-tag>
+            </div>
+            <div class="card-body">
+              <div class="card-row">
+                <span class="card-label">ID:</span>
+                <span class="card-value">{{ item.id }}</span>
+              </div>
+              <div class="card-row">
+                <span class="card-label">所属网站:</span>
+                <template v-if="item.site">
+                  <span class="card-value">{{ item.site.name }}</span>
+                </template>
+                <a-tag v-else color="orangered" size="small">独立包月</a-tag>
+              </div>
+              <div class="card-row">
+                <span class="card-label">余额:</span>
+                <template v-if="isMonthlyAccount(item)">
+                  <a-tag color="gray" size="small">包月</a-tag>
+                </template>
+                <template v-else>
+                  <span :class="{ 'low-balance': Number(item.balance) < 10 }">{{ Number(item.balance || 0).toFixed(2) }}</span>
+                </template>
+              </div>
+              <div class="card-row" v-if="item.expireAt">
+                <span class="card-label">到期时间:</span>
+                <span class="card-value" :class="{ expired: isExpired(item.expireAt) }">{{ formatDate(item.expireAt) }}</span>
+              </div>
+              <div class="card-row">
+                <span class="card-label">失败次数:</span>
+                <a-tag :color="item.failCount >= 3 ? 'red' : item.failCount > 0 ? 'orangered' : 'green'" size="small">
+                  {{ item.failCount }}
+                </a-tag>
+              </div>
+              <div class="card-row">
+                <span class="card-label">更新时间:</span>
+                <span class="card-value">{{ formatDate(item.balanceUpdatedAt) }}</span>
+              </div>
+            </div>
+            <div class="card-actions">
+              <a-button type="primary" size="small" @click="handleEdit(item)">编辑</a-button>
+              <a-button
+                v-if="!isMonthlyAccount(item)"
+                status="success"
+                size="small"
+                @click="handleRefreshBalance(item)"
+                :loading="item.refreshing"
+              >
+                刷新
+              </a-button>
+              <a-button
+                :type="item.status === 1 ? 'warning' : 'success'"
+                size="small"
+                @click="handleToggleStatus(item)"
+              >
+                {{ item.status === 1 ? '禁用' : '启用' }}
+              </a-button>
+              <a-button status="danger" size="small" @click="handleDelete(item)">删除</a-button>
+            </div>
           </div>
-          <div class="card-body">
-            <div class="card-row">
-              <span class="card-label">ID:</span>
-              <span class="card-value">{{ item.id }}</span>
-            </div>
-            <div class="card-row">
-              <span class="card-label">所属网站:</span>
-              <template v-if="item.site">
-                <span class="card-value">{{ item.site.name }}</span>
-              </template>
-              <el-tag v-else type="warning" size="small">独立包月</el-tag>
-            </div>
-            <div class="card-row">
-              <span class="card-label">余额:</span>
-              <template v-if="isMonthlyAccount(item)">
-                <el-tag type="info" size="small">包月</el-tag>
-              </template>
-              <template v-else>
-                <span :class="{ 'low-balance': Number(item.balance) < 10 }">{{ Number(item.balance || 0).toFixed(2) }}</span>
-              </template>
-            </div>
-            <div class="card-row" v-if="item.expireAt">
-              <span class="card-label">到期时间:</span>
-              <span class="card-value" :class="{ expired: isExpired(item.expireAt) }">{{ formatDate(item.expireAt) }}</span>
-            </div>
-            <div class="card-row">
-              <span class="card-label">失败次数:</span>
-              <el-tag :type="item.failCount >= 3 ? 'danger' : item.failCount > 0 ? 'warning' : 'success'" size="small">
-                {{ item.failCount }}
-              </el-tag>
-            </div>
-            <div class="card-row">
-              <span class="card-label">更新时间:</span>
-              <span class="card-value">{{ formatDate(item.balanceUpdatedAt) }}</span>
-            </div>
-          </div>
-          <div class="card-actions">
-            <el-button type="primary" size="small" @click="handleEdit(item)">编辑</el-button>
-            <el-button
-              v-if="!isMonthlyAccount(item)"
-              type="success"
-              size="small"
-              @click="handleRefreshBalance(item)"
-              :loading="item.refreshing"
-            >
-              刷新
-            </el-button>
-            <el-button
-              :type="item.status === 1 ? 'warning' : 'success'"
-              size="small"
-              @click="handleToggleStatus(item)"
-            >
-              {{ item.status === 1 ? '禁用' : '启用' }}
-            </el-button>
-            <el-button type="danger" size="small" @click="handleDelete(item)">删除</el-button>
-          </div>
+          <a-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
         </div>
-        <el-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
-      </div>
+      </a-spin>
 
       <!-- 分页 -->
       <div class="pagination">
-        <el-pagination
-          v-model:current-page="pagination.page"
+        <a-pagination
+          v-model:current="pagination.page"
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
-          :page-sizes="[10, 20, 50, 100]"
-          :layout="isMobile ? 'total, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
-          :small="isMobile"
-          @size-change="loadData"
-          @current-change="loadData"
+          :page-size-options="[10, 20, 50, 100]"
+          :show-total="true"
+          :show-jumper="!isMobile"
+          :show-page-size="!isMobile"
+          :simple="isMobile"
+          @change="loadData"
+          @page-size-change="loadData"
         />
       </div>
-    </el-card>
+    </a-card>
 
     <!-- 编辑对话框 -->
-    <el-dialog
-      v-model="dialog.visible"
+    <a-modal
+      v-model:visible="dialog.visible"
       :title="dialog.isEdit ? '编辑账号' : '添加账号'"
       :width="isMobile ? '95%' : '650px'"
-      destroy-on-close
+      :unmount-on-close="true"
+      @cancel="dialog.visible = false"
+      @ok="handleSubmit"
+      :confirm-loading="dialog.loading"
     >
-      <el-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-width="isMobile ? '90px' : '100px'">
-        <el-form-item label="账号类型">
-          <el-radio-group v-model="dialog.form.accountType" @change="handleAccountTypeChange">
-            <el-radio value="site">关联网站</el-radio>
-            <el-radio value="monthly">独立包月</el-radio>
-          </el-radio-group>
+      <a-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-col-props="{ span: isMobile ? 6 : 5 }" :wrapper-col-props="{ span: isMobile ? 18 : 19 }">
+        <a-form-item label="账号类型">
+          <a-radio-group v-model="dialog.form.accountType" @change="handleAccountTypeChange">
+            <a-radio value="site">关联网站</a-radio>
+            <a-radio value="monthly">独立包月</a-radio>
+          </a-radio-group>
           <div class="form-tip">独立包月账号无需关联网站，可自定义提取链接模板和参数</div>
-        </el-form-item>
-        <el-form-item v-if="dialog.form.accountType === 'site'" label="所属网站" prop="siteId">
-          <el-select v-model="dialog.form.siteId" placeholder="请选择网站" style="width: 100%" :disabled="dialog.isEdit" @change="handleSiteChange">
-            <el-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="账号名称" prop="name">
-          <el-input v-model="dialog.form.name" placeholder="账号备注名称" />
-        </el-form-item>
+        </a-form-item>
+        <a-form-item v-if="dialog.form.accountType === 'site'" label="所属网站" field="siteId">
+          <a-select v-model="dialog.form.siteId" placeholder="请选择网站" :disabled="dialog.isEdit" @change="handleSiteChange">
+            <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+          </a-select>
+        </a-form-item>
+        <a-form-item label="账号名称" field="name">
+          <a-input v-model="dialog.form.name" placeholder="账号备注名称" />
+        </a-form-item>
 
         <!-- 独立包月账号配置 -->
         <template v-if="dialog.form.accountType === 'monthly'">
-          <el-divider content-position="left">提取链接配置</el-divider>
-          <el-form-item label="提取链接模板" prop="extractUrlTemplate">
-            <el-input
+          <a-divider orientation="left">提取链接配置</a-divider>
+          <a-form-item label="提取链接模板" field="extractUrlTemplate">
+            <a-textarea
               v-model="dialog.form.extractUrlTemplate"
-              type="textarea"
-              :rows="3"
+              :auto-size="{ minRows: 3, maxRows: 5 }"
               placeholder="支持变量: {times}, {format}, {params.xxx}"
             />
             <div class="form-tip">
               示例: https://api.example.com/get?num=1&amp;format={format}&amp;minute={times}&amp;no={params.no}
             </div>
-          </el-form-item>
-          <el-form-item label="格式参数">
+          </a-form-item>
+          <a-form-item label="格式参数">
             <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-item">
-              <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-              <el-input v-model="item.value" placeholder="参数值" style="width: 100px; margin-left: 8px" />
-              <el-button type="danger" link @click="dialog.form.formatParams.splice(index, 1)" style="margin-left: 8px">
+              <a-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
+              <a-input v-model="item.value" placeholder="参数值" style="width: 100px; margin-left: 8px" />
+              <a-link status="danger" @click="dialog.form.formatParams.splice(index, 1)" style="margin-left: 8px">
                 删除
-              </el-button>
+              </a-link>
             </div>
-            <el-button type="primary" link @click="dialog.form.formatParams.push({ label: '', value: '' })">
+            <a-link @click="dialog.form.formatParams.push({ label: '', value: '' })">
               + 添加格式参数
-            </el-button>
-          </el-form-item>
-          <el-form-item label="时长参数">
+            </a-link>
+          </a-form-item>
+          <a-form-item label="时长参数">
             <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-item">
-              <el-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-              <el-input v-model="item.times" placeholder="分钟数" style="width: 80px; margin-left: 8px" />
+              <a-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
+              <a-input v-model="item.times" placeholder="分钟数" style="width: 80px; margin-left: 8px" />
               <span style="margin-left: 4px; color: #909399;">分钟</span>
-              <el-button type="danger" link @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
+              <a-link status="danger" @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
                 删除
-              </el-button>
+              </a-link>
             </div>
-            <el-button type="primary" link @click="dialog.form.durationParams.push({ label: '', times: '' })">
+            <a-link @click="dialog.form.durationParams.push({ label: '', times: '' })">
               + 添加时长参数
-            </el-button>
-          </el-form-item>
-          <el-form-item label="失败关键词">
-            <el-select
+            </a-link>
+          </a-form-item>
+          <a-form-item label="失败关键词">
+            <a-select
               v-model="dialog.form.failureKeywords"
               multiple
-              filterable
               allow-create
-              default-first-option
+              allow-clear
               placeholder="输入关键词后回车添加"
-              style="width: 100%"
             />
             <div class="form-tip">当提取响应包含这些关键词时，自动切换到下一个账号</div>
-          </el-form-item>
+          </a-form-item>
         </template>
 
         <!-- 智能参数提示（关联网站时显示） -->
         <template v-if="dialog.form.accountType === 'site' && paramHints.extractParams.length > 0">
-          <el-divider content-position="left">提取参数</el-divider>
-          <el-alert type="info" :closable="false" style="margin-bottom: 12px">
+          <a-divider orientation="left">提取参数</a-divider>
+          <a-alert type="info" style="margin-bottom: 12px">
             请填写以下参数，这些参数会替换到提取链接模板中
-          </el-alert>
-          <el-form-item v-for="param in paramHints.extractParams" :key="param" :label="param">
-            <el-input v-model="dialog.form.extractParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncExtractParams" />
-          </el-form-item>
+          </a-alert>
+          <a-form-item v-for="param in paramHints.extractParams" :key="param" :label="param">
+            <a-input v-model="dialog.form.extractParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncExtractParams" />
+          </a-form-item>
         </template>
 
         <template v-if="dialog.form.accountType === 'site' && paramHints.balanceParams.length > 0">
-          <el-divider content-position="left">余额查询参数</el-divider>
-          <el-alert type="info" :closable="false" style="margin-bottom: 12px">
+          <a-divider orientation="left">余额查询参数</a-divider>
+          <a-alert type="info" style="margin-bottom: 12px">
             请填写以下参数，这些参数会替换到余额查询接口中
-          </el-alert>
-          <el-form-item v-for="param in paramHints.balanceParams" :key="param" :label="param">
-            <el-input v-model="dialog.form.balanceParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncBalanceParams" />
-          </el-form-item>
+          </a-alert>
+          <a-form-item v-for="param in paramHints.balanceParams" :key="param" :label="param">
+            <a-input v-model="dialog.form.balanceParamValues[param]" :placeholder="`请输入 ${param}`" @input="syncBalanceParams" />
+          </a-form-item>
         </template>
 
         <!-- 时长参数提示（关联网站时显示） -->
         <template v-if="dialog.form.accountType === 'site' && paramHints.durationParams.length > 0">
-          <el-divider content-position="left">可用时长</el-divider>
+          <a-divider orientation="left">可用时长</a-divider>
           <div style="margin-bottom: 12px;">
-            <el-tag v-for="item in paramHints.durationParams" :key="item.times" style="margin-right: 8px; margin-bottom: 4px;">
+            <a-tag v-for="item in paramHints.durationParams" :key="item.times" style="margin-right: 8px; margin-bottom: 4px;">
               {{ item.label }} ({{ item.times }}分钟)
-            </el-tag>
+            </a-tag>
           </div>
           <div class="form-tip">调用代理接口时使用 times 参数选择对应时长，如 times=1 表示1分钟</div>
         </template>
 
-        <el-divider content-position="left">高级设置</el-divider>
-        <el-form-item label="到期时间">
-          <el-date-picker
+        <a-divider orientation="left">高级设置</a-divider>
+        <a-form-item label="到期时间">
+          <a-date-picker
             v-model="dialog.form.expireAt"
-            type="datetime"
-            placeholder="选择到期时间（包月账号专用）"
+            show-time
             format="YYYY-MM-DD HH:mm:ss"
+            placeholder="选择到期时间（包月账号专用）"
             style="width: 100%"
           />
           <div class="form-tip">设置后，在该时间之前账号视为包月账号，不会被自动禁用</div>
-        </el-form-item>
-        <el-form-item label="提取参数">
-          <el-input
+        </a-form-item>
+        <a-form-item label="提取参数">
+          <a-textarea
             v-model="dialog.form.extractParamsStr"
-            type="textarea"
-            :rows="3"
+            :auto-size="{ minRows: 3, maxRows: 5 }"
             placeholder='JSON格式，可手动编辑'
           />
           <div class="form-tip">
             上方填写的参数会自动同步到这里，也可以直接编辑JSON
           </div>
-        </el-form-item>
-        <el-form-item label="余额参数">
-          <el-input
+        </a-form-item>
+        <a-form-item label="余额参数">
+          <a-textarea
             v-model="dialog.form.balanceParamsStr"
-            type="textarea"
-            :rows="3"
+            :auto-size="{ minRows: 3, maxRows: 5 }"
             placeholder='JSON格式，可手动编辑'
           />
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-radio-group v-model="dialog.form.status">
-            <el-radio :value="1">启用</el-radio>
-            <el-radio :value="0">禁用</el-radio>
-          </el-radio-group>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="dialog.visible = false">取消</el-button>
-        <el-button type="primary" :loading="dialog.loading" @click="handleSubmit">确定</el-button>
-      </template>
-    </el-dialog>
+        </a-form-item>
+        <a-form-item label="状态">
+          <a-radio-group v-model="dialog.form.status">
+            <a-radio :value="1">启用</a-radio>
+            <a-radio :value="0">禁用</a-radio>
+          </a-radio-group>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -356,8 +356,8 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { getAccountList, getAccountDetail, createAccount, updateAccount, deleteAccount, toggleAccountStatus, refreshAccountBalance, refreshAllBalance } from '@/api/account'
 import { getAllActiveSites, getSiteParamHints } from '@/api/site'
 import { formatDateTimeForApi, formatLocalizedDateTime, parseLocalDateTime } from '@/utils/date'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Message, Modal } from '@arco-design/web-vue'
+import { IconPlus } from '@arco-design/web-vue/es/icon'
 
 const loading = ref(false)
 const refreshing = ref(false)
@@ -411,9 +411,9 @@ const dialog = reactive({
     status: 1
   },
   rules: {
-    siteId: [{ required: true, message: '请选择网站', trigger: 'change', validator: (rule, value, callback) => {
+    siteId: [{ required: true, message: '请选择网站', trigger: 'change', validator: (value, callback) => {
       if (dialog.form.accountType === 'site' && !value) {
-        callback(new Error('请选择网站'))
+        callback('请选择网站')
       } else {
         callback()
       }
@@ -636,101 +636,102 @@ const handleEdit = async (row) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
 
-  await formRef.value.validate(async (valid) => {
-    if (!valid) return
+  const valid = await formRef.value.validate()
+  if (valid) {
+    return
+  }
 
-    dialog.loading = true
-    try {
-      const data = {
-        name: dialog.form.name,
-        expireAt: formatDateTimeForApi(dialog.form.expireAt),
-        status: dialog.form.status
-      }
-
-      // 根据账号类型设置不同字段
-      if (dialog.form.accountType === 'monthly') {
-        // 独立包月账号
-        data.siteId = null
-        data.extractUrlTemplate = dialog.form.extractUrlTemplate || null
-        data.formatParams = dialog.form.formatParams.length > 0 ? dialog.form.formatParams : null
-        data.durationParams = dialog.form.durationParams.length > 0 ? dialog.form.durationParams : null
-        data.failureKeywords = dialog.form.failureKeywords.length > 0 ? dialog.form.failureKeywords : null
-        // 提取参数
-        if (dialog.form.extractParamsStr && dialog.form.extractParamsStr.trim()) {
-          try {
-            data.extractParams = JSON.parse(dialog.form.extractParamsStr)
-          } catch {
-            ElMessage.error('提取参数JSON格式错误')
-            return
-          }
-        } else {
-          const params = {}
-          Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
-            if (value) params[key] = value
-          })
-          data.extractParams = Object.keys(params).length > 0 ? params : null
-        }
-      } else {
-        // 关联网站的账号
-        data.siteId = dialog.form.siteId
-        data.extractUrlTemplate = null
-        data.formatParams = null
-        data.durationParams = null
-        data.failureKeywords = null
-
-        // 优先使用JSON字符串，如果为空则从参数值构建
-        if (dialog.form.extractParamsStr && dialog.form.extractParamsStr.trim()) {
-          try {
-            data.extractParams = JSON.parse(dialog.form.extractParamsStr)
-          } catch {
-            ElMessage.error('提取参数JSON格式错误')
-            return
-          }
-        } else {
-          const params = {}
-          Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
-            if (value) params[key] = value
-          })
-          data.extractParams = Object.keys(params).length > 0 ? params : null
-        }
-
-        if (dialog.form.balanceParamsStr && dialog.form.balanceParamsStr.trim()) {
-          try {
-            data.balanceParams = JSON.parse(dialog.form.balanceParamsStr)
-          } catch {
-            ElMessage.error('余额参数JSON格式错误')
-            return
-          }
-        } else {
-          const params = {}
-          Object.entries(dialog.form.balanceParamValues).forEach(([key, value]) => {
-            if (value) params[key] = value
-          })
-          data.balanceParams = Object.keys(params).length > 0 ? params : null
-        }
-      }
-
-      if (dialog.isEdit) {
-        await updateAccount(dialog.editId, data)
-        ElMessage.success('更新成功')
-      } else {
-        await createAccount(data)
-        ElMessage.success('创建成功')
-      }
-      dialog.visible = false
-      loadData()
-    } catch (error) {
-      // 错误已处理
-    } finally {
-      dialog.loading = false
+  dialog.loading = true
+  try {
+    const data = {
+      name: dialog.form.name,
+      expireAt: formatDateTimeForApi(dialog.form.expireAt),
+      status: dialog.form.status
     }
-  })
+
+    // 根据账号类型设置不同字段
+    if (dialog.form.accountType === 'monthly') {
+      // 独立包月账号
+      data.siteId = null
+      data.extractUrlTemplate = dialog.form.extractUrlTemplate || null
+      data.formatParams = dialog.form.formatParams.length > 0 ? dialog.form.formatParams : null
+      data.durationParams = dialog.form.durationParams.length > 0 ? dialog.form.durationParams : null
+      data.failureKeywords = dialog.form.failureKeywords.length > 0 ? dialog.form.failureKeywords : null
+      // 提取参数
+      if (dialog.form.extractParamsStr && dialog.form.extractParamsStr.trim()) {
+        try {
+          data.extractParams = JSON.parse(dialog.form.extractParamsStr)
+        } catch {
+          Message.error('提取参数JSON格式错误')
+          return
+        }
+      } else {
+        const params = {}
+        Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
+          if (value) params[key] = value
+        })
+        data.extractParams = Object.keys(params).length > 0 ? params : null
+      }
+    } else {
+      // 关联网站的账号
+      data.siteId = dialog.form.siteId
+      data.extractUrlTemplate = null
+      data.formatParams = null
+      data.durationParams = null
+      data.failureKeywords = null
+
+      // 优先使用JSON字符串，如果为空则从参数值构建
+      if (dialog.form.extractParamsStr && dialog.form.extractParamsStr.trim()) {
+        try {
+          data.extractParams = JSON.parse(dialog.form.extractParamsStr)
+        } catch {
+          Message.error('提取参数JSON格式错误')
+          return
+        }
+      } else {
+        const params = {}
+        Object.entries(dialog.form.extractParamValues).forEach(([key, value]) => {
+          if (value) params[key] = value
+        })
+        data.extractParams = Object.keys(params).length > 0 ? params : null
+      }
+
+      if (dialog.form.balanceParamsStr && dialog.form.balanceParamsStr.trim()) {
+        try {
+          data.balanceParams = JSON.parse(dialog.form.balanceParamsStr)
+        } catch {
+          Message.error('余额参数JSON格式错误')
+          return
+        }
+      } else {
+        const params = {}
+        Object.entries(dialog.form.balanceParamValues).forEach(([key, value]) => {
+          if (value) params[key] = value
+        })
+        data.balanceParams = Object.keys(params).length > 0 ? params : null
+      }
+    }
+
+    if (dialog.isEdit) {
+      await updateAccount(dialog.editId, data)
+      Message.success('更新成功')
+    } else {
+      await createAccount(data)
+      Message.success('创建成功')
+    }
+    dialog.visible = false
+    loadData()
+  } catch (error) {
+    // 错误已处理
+  } finally {
+    dialog.loading = false
+  }
 }
 
 const handleToggleStatus = async (row) => {
   try {
     await toggleAccountStatus(row.id)
-    ElMessage.success('状态更新成功')
+    Message.success('状态更新成功')
     loadData()
   } catch (error) {
     // 错误已处理
@@ -738,17 +739,19 @@ const handleToggleStatus = async (row) => {
 }
 
 const handleDelete = (row) => {
-  ElMessageBox.confirm('确定要删除该账号吗？', '提示', {
-    confirmButtonText: '确定',
-    cancelButtonText: '取消',
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteAccount(row.id)
-      ElMessage.success('删除成功')
-      loadData()
-    } catch (error) {
-      // 错误已处理
+  Modal.confirm({
+    title: '提示',
+    content: '确定要删除该账号吗？',
+    okText: '确定',
+    cancelText: '取消',
+    onOk: async () => {
+      try {
+        await deleteAccount(row.id)
+        Message.success('删除成功')
+        loadData()
+      } catch (error) {
+        // 错误已处理
+      }
     }
   })
 }
@@ -758,7 +761,7 @@ const handleRefreshBalance = async (row) => {
   try {
     const res = await refreshAccountBalance(row.id)
     if (res.success) {
-      ElMessage.success(`余额刷新成功: ${res.data.balance}`)
+      Message.success(`余额刷新成功: ${res.data.balance}`)
       loadData()
     }
   } catch (error) {
@@ -772,7 +775,7 @@ const handleRefreshAllBalance = async () => {
   refreshing.value = true
   try {
     await refreshAllBalance()
-    ElMessage.success('已开始刷新所有余额，请稍后刷新页面查看')
+    Message.success('已开始刷新所有余额，请稍后刷新页面查看')
   } catch (error) {
     // 错误已处理
   } finally {
@@ -800,23 +803,19 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.account-list > .el-card {
+.account-list > :deep(.arco-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.account-list > .el-card :deep(.el-card__body) {
+.account-list > :deep(.arco-card-body) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: auto;
-}
-
-.account-list > .el-card :deep(.el-table__wrapper) {
-  flex: 1;
 }
 
 .toolbar {
@@ -938,7 +937,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
-.card-actions .el-button {
+.card-actions .arco-btn {
   flex: 1;
   min-width: 60px;
 }
@@ -949,7 +948,7 @@ onUnmounted(() => {
     width: 100%;
   }
 
-  .toolbar-row .el-button {
+  .toolbar-row .arco-btn {
     flex: 1;
   }
 
@@ -968,13 +967,13 @@ onUnmounted(() => {
     align-items: stretch;
   }
 
-  .param-item .el-input {
+  .param-item .arco-input {
     width: 100% !important;
     margin-left: 0 !important;
     margin-bottom: 8px;
   }
 
-  .param-item .el-button {
+  .param-item .arco-link {
     align-self: flex-start;
   }
 }
