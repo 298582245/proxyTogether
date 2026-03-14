@@ -1,0 +1,1 @@
+import{r as s}from"./index-82gOJS0J.js";const e=t=>s.get("/admin/logs",{params:t}),a=t=>s.get(`/admin/logs/${t}`),o=t=>s.get("/admin/logs/stats",{params:t}),r=t=>s.get("/admin/logs/chart",{params:t});export{r as a,e as b,a as c,o as g};
