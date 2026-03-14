@@ -283,10 +283,14 @@ const handleChangePassword = async () => {
 <style scoped>
 .layout-container {
   height: 100vh;
+  width: 100vw;
+  overflow: hidden;
 }
 
 .layout-container :deep(.arco-layout) {
   height: 100%;
+  width: 100%;
+  overflow: hidden;
 }
 
 .sidebar {
@@ -359,11 +363,11 @@ const handleChangePassword = async () => {
 
 /* 移动端抽屉样式 */
 .mobile-drawer :deep(.arco-drawer) {
-  max-width: 100vw;
   position: fixed !important;
   left: 0 !important;
   top: 0 !important;
   height: 100vh !important;
+  max-width: 220px !important;
   overscroll-behavior: contain;
 }
 
@@ -386,20 +390,19 @@ const handleChangePassword = async () => {
   overscroll-behavior: contain;
 }
 
-/* 禁止抽屉内水平滚动 */
-.mobile-drawer-body {
-  touch-action: pan-y;
-  overscroll-behavior: contain;
+/* 移动端菜单样式 - 参考 desktop 端的 sidebar */
+.mobile-drawer :deep(.arco-menu) {
+  background-color: transparent;
+  height: calc(100% - 60px);
 }
 
-/* 移动端菜单项边距 */
 .mobile-drawer :deep(.arco-menu-item) {
-  margin: 4px 8px !important;
-  border-radius: 4px !important;
+  margin: 4px 8px;
+  border-radius: 4px;
 }
 
 .mobile-drawer :deep(.arco-menu-item.arco-menu-selected) {
-  background-color: rgb(var(--primary-6)) !important;
+  background-color: rgb(var(--primary-6));
 }
 
 .mobile-sidebar {
@@ -490,14 +493,7 @@ const handleChangePassword = async () => {
 /* 移动端适配 */
 @media (max-width: 768px) {
   .layout-container {
-    width: 100%;
-    max-width: 100%;
     overflow: hidden;
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
   }
 
   .header {
@@ -511,21 +507,10 @@ const handleChangePassword = async () => {
     width: 100%;
     box-sizing: border-box;
     overflow-x: hidden;
-    touch-action: pan-y;
   }
 
   .user-dropdown {
     font-size: 14px;
-  }
-
-  /* 完全固定抽屉，禁止水平滑动 */
-  .mobile-drawer :deep(.arco-drawer) {
-    position: fixed !important;
-    transform: none !important;
-    left: 0 !important;
-    top: 0 !important;
-    height: 100vh !important;
-    width: 220px !important;
   }
 }
 </style>
