@@ -288,9 +288,25 @@ const handleRefreshBalance = async () => {
   }
 }
 
-const copyProxyUrl = () => {
-  navigator.clipboard.writeText(proxyUrl.value)
-  Message.success('已复制到剪贴板')
+const copyProxyUrl = async () => {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(proxyUrl.value)
+    } else {
+      // 兼容非 HTTPS 环境
+      const textArea = document.createElement('textarea')
+      textArea.value = proxyUrl.value
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-9999px'
+      document.body.appendChild(textArea)
+      textArea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textArea)
+    }
+    Message.success('已复制到剪贴板')
+  } catch (error) {
+    Message.error('复制失败，请手动复制')
+  }
 }
 
 const handleResize = () => {
