@@ -25,6 +25,20 @@ onMounted(async () => {
 
 html, body, #app {
   height: 100%;
+  width: 100%;
+  overflow: hidden;
   font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', Arial, sans-serif;
+}
+
+/* 防止移动端橡皮筋效果 */
+body {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  touch-action: pan-y;
 }
 </style>

@@ -64,6 +64,11 @@
         :header="false"
         :width="220"
         :drawer-style="{ padding: '0', background: '#232323' }"
+        :unmount-on-close="true"
+        :mask-closable="true"
+        :closable="false"
+        :esc-to-close="false"
+        :drawer-class="'mobile-drawer-body'"
         class="mobile-drawer"
       >
         <div class="sidebar mobile-sidebar">
@@ -355,23 +360,45 @@ const handleChangePassword = async () => {
 /* 移动端抽屉样式 */
 .mobile-drawer :deep(.arco-drawer) {
   max-width: 100vw;
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
+  height: 100vh !important;
+  overscroll-behavior: contain;
+}
+
+.mobile-drawer :deep(.arco-drawer-wrapper) {
+  background-color: transparent;
+  overscroll-behavior: contain;
 }
 
 .mobile-drawer :deep(.arco-drawer-body) {
-  padding: 0;
-  background-color: #232323;
-  overflow: hidden;
+  padding: 0 !important;
+  background-color: #232323 !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
 }
 
 .mobile-drawer :deep(.arco-drawer-content) {
-  padding: 0;
-  background-color: #232323;
+  padding: 0 !important;
+  background-color: #232323 !important;
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
+/* 禁止抽屉内水平滚动 */
+.mobile-drawer-body {
+  touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 .mobile-sidebar {
   width: 220px;
   height: 100%;
   background-color: #232323;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 
 .header {
@@ -452,16 +479,43 @@ const handleChangePassword = async () => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .layout-container {
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+  }
+
   .header {
-    padding: 0 12px;
+    padding: 0 16px;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .main {
-    padding: 12px;
+    padding: 12px 16px;
+    width: 100%;
+    box-sizing: border-box;
+    overflow-x: hidden;
+    touch-action: pan-y;
   }
 
   .user-dropdown {
     font-size: 14px;
+  }
+
+  /* 完全固定抽屉，禁止水平滑动 */
+  .mobile-drawer :deep(.arco-drawer) {
+    position: fixed !important;
+    transform: none !important;
+    left: 0 !important;
+    top: 0 !important;
+    height: 100vh !important;
+    width: 220px !important;
   }
 }
 </style>

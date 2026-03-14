@@ -461,21 +461,21 @@ onUnmounted(() => {
     flex-direction: column;
     align-items: flex-start;
     height: auto;
-    padding-bottom: 0;
+    padding: 12px 16px;
+    gap: 8px;
   }
 
   .chart-card :deep(.arco-card-header-extra) {
     position: static;
-    margin-top: 12px;
     width: 100%;
   }
 
   .stat-cards {
-    margin: 0 -8px;
+    margin: 0 -4px;
   }
 
   .stat-cards :deep(.arco-col) {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   .stat-card-wrap :deep(.arco-card-body) {
@@ -519,19 +519,31 @@ onUnmounted(() => {
     padding: 2px 6px;
   }
 
+  /* 图表头部：标题和汇总在同一行，日期按钮换行 */
   .chart-header {
-    flex-direction: column;
-    align-items: flex-start;
+    width: 100%;
   }
 
   .chart-title {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  .chart-title > span:first-child {
+    font-weight: 600;
+    flex-shrink: 0;
   }
 
   .chart-summary {
-    font-size: 12px;
+    font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
   }
 
   :deep(.arco-radio-group) {
