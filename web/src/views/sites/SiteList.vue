@@ -357,7 +357,10 @@ const resetForm = () => {
   dialog.form = {
     name: '',
     extractUrlTemplate: '',
-    formatParams: [],
+    formatParams: [
+      { label: '纯IP', value: 'txt' },
+      { label: 'JSON', value: 'JSON' }
+    ],
     durationParams: [],
     balanceType: 'balance',
     balanceUrl: '',

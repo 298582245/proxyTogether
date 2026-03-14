@@ -858,7 +858,10 @@ const resetForm = () => {
     siteId: "",
     name: "",
     extractUrlTemplate: "",
-    formatParams: [],
+    formatParams: [
+      { label: '纯IP', value: 'txt' },
+      { label: 'JSON', value: 'JSON' }
+    ],
     durationParams: [],
     failureKeywords: [],
     extractParamValues: {},
