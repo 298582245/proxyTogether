@@ -392,6 +392,16 @@ const handleChangePassword = async () => {
   overscroll-behavior: contain;
 }
 
+/* 移动端菜单项边距 */
+.mobile-drawer :deep(.arco-menu-item) {
+  margin: 4px 8px !important;
+  border-radius: 4px !important;
+}
+
+.mobile-drawer :deep(.arco-menu-item.arco-menu-selected) {
+  background-color: rgb(var(--primary-6)) !important;
+}
+
 .mobile-sidebar {
   width: 220px;
   height: 100%;
@@ -399,19 +409,6 @@ const handleChangePassword = async () => {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-}
-
-.mobile-sidebar :deep(.arco-menu) {
-  background-color: transparent;
-}
-
-.mobile-sidebar :deep(.arco-menu-item) {
-  margin: 4px 8px;
-  border-radius: 4px;
-}
-
-.mobile-sidebar :deep(.arco-menu-item.arco-menu-selected) {
-  background-color: rgb(var(--primary-6));
 }
 
 .header {
