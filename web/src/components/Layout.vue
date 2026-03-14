@@ -285,6 +285,9 @@ const handleChangePassword = async () => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
 }
 
 .layout-container :deep(.arco-layout) {
@@ -293,6 +296,7 @@ const handleChangePassword = async () => {
   overflow: hidden;
 }
 
+/* 桌面端侧栏 */
 .sidebar {
   background-color: #232323 !important;
   height: 100%;
@@ -315,6 +319,17 @@ const handleChangePassword = async () => {
   background-color: rgb(var(--primary-6));
 }
 
+/* 折叠状态下的菜单项样式 */
+.sidebar :deep(.arco-menu-collapsed) .arco-menu-item {
+  margin: 4px 6px;
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.sidebar :deep(.arco-menu-collapsed) .arco-menu-item .arco-icon {
+  margin-right: 0 !important;
+}
+
 .logo {
   height: 60px;
   display: flex;
@@ -326,6 +341,7 @@ const handleChangePassword = async () => {
   border-bottom: 1px solid #333;
   white-space: nowrap;
   overflow: hidden;
+  padding: 0 8px;
 }
 
 .collapse-btn {
@@ -361,57 +377,66 @@ const handleChangePassword = async () => {
   z-index: 999;
 }
 
-/* 移动端抽屉样式 */
+/* 移动端抽屉 - 禁止所有滚动和拖拽 */
 .mobile-drawer :deep(.arco-drawer) {
   position: fixed !important;
   left: 0 !important;
   top: 0 !important;
-  height: 100vh !important;
+  height: 100% !important;
+  width: 220px !important;
   max-width: 220px !important;
-  overscroll-behavior: contain;
+  min-width: 220px !important;
+  overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-wrapper) {
-  background-color: transparent;
-  overscroll-behavior: contain;
+  width: 220px !important;
+  overflow: hidden !important;
+  touch-action: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-body) {
   padding: 0 !important;
   background-color: #232323 !important;
+  width: 220px !important;
   overflow: hidden !important;
-  overscroll-behavior: contain;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-content) {
   padding: 0 !important;
   background-color: #232323 !important;
+  width: 220px !important;
   overflow: hidden !important;
-  overscroll-behavior: contain;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
 }
 
-/* 移动端菜单样式 - 参考 desktop 端的 sidebar */
+/* 移动端菜单样式 */
 .mobile-drawer :deep(.arco-menu) {
   background-color: transparent;
-  height: calc(100% - 60px);
+  width: 100% !important;
 }
 
 .mobile-drawer :deep(.arco-menu-item) {
-  margin: 4px 8px;
-  border-radius: 4px;
+  margin: 4px 8px !important;
+  border-radius: 4px !important;
+  padding: 0 12px !important;
 }
 
 .mobile-drawer :deep(.arco-menu-item.arco-menu-selected) {
-  background-color: rgb(var(--primary-6));
+  background-color: rgb(var(--primary-6)) !important;
 }
 
 .mobile-sidebar {
   width: 220px;
   height: 100%;
   background-color: #232323;
-  overflow-y: auto;
-  overflow-x: hidden;
-  overscroll-behavior: contain;
+  overflow: hidden !important;
+  touch-action: none !important;
 }
 
 .header {
@@ -493,19 +518,16 @@ const handleChangePassword = async () => {
 /* 移动端适配 */
 @media (max-width: 768px) {
   .layout-container {
-    overflow: hidden;
+    width: 100%;
+    height: 100%;
   }
 
   .header {
     padding: 0 16px;
-    width: 100%;
-    box-sizing: border-box;
   }
 
   .main {
     padding: 12px 16px;
-    width: 100%;
-    box-sizing: border-box;
     overflow-x: hidden;
   }
 
