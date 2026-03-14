@@ -329,16 +329,6 @@ const handleChangePassword = async () => {
   background-color: rgb(var(--primary-6));
 }
 
-/* 折叠状态下菜单项居中 */
-.sidebar :deep(.arco-menu-collapsed .arco-menu-item) {
-  margin: 4px 6px;
-  padding: 0 !important;
-}
-
-.sidebar :deep(.arco-menu-collapsed .arco-menu-item .arco-menu-icon) {
-  margin-right: 0 !important;
-}
-
 .logo {
   height: 60px;
   display: flex;
@@ -526,7 +516,6 @@ const handleChangePassword = async () => {
 
 /* 电脑端折叠菜单项样式 */
 .sidebar .arco-menu-collapsed .arco-menu-item {
-  padding: 0 !important;
   display: flex !important;
   justify-content: center !important;
   align-items: center !important;
