@@ -27,7 +27,7 @@ export default defineConfig({
       output: {
         manualChunks: {
           'vue-vendor': ['vue', 'vue-router', 'pinia'],
-          'element-vendor': ['element-plus', '@element-plus/icons-vue'],
+          'arco-vendor': ['@arco-design/web-vue'],
           'echarts-vendor': ['echarts']
         }
       }

@@ -3,13 +3,30 @@
     <a-card :bordered="false">
       <!-- 工具栏 -->
       <div class="toolbar">
-        <a-select v-model="filters.success" placeholder="状态" allow-clear class="filter-select-auto" @change="loadData">
+        <a-select
+          v-model="filters.success"
+          placeholder="状态"
+          allow-clear
+          class="filter-select-auto"
+          @change="loadData"
+        >
           <a-option label="全部" value="" />
           <a-option label="成功" :value="1" />
           <a-option label="失败" :value="0" />
         </a-select>
-        <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select-auto" @change="loadData">
-          <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+        <a-select
+          v-model="filters.siteId"
+          placeholder="选择网站"
+          allow-clear
+          class="filter-select-auto"
+          @change="loadData"
+        >
+          <a-option
+            v-for="site in siteOptions"
+            :key="site.id"
+            :label="site.name"
+            :value="site.id"
+          />
         </a-select>
         <a-range-picker
           v-model="filters.dateRange"
@@ -34,18 +51,21 @@
           style="width: 100%"
         >
           <template #site="{ record }">
-            {{ record.site?.name || '-' }}
+            {{ record.site?.name || "-" }}
           </template>
           <template #account="{ record }">
-            {{ record.account?.name || '-' }}
+            {{ record.account?.name || "-" }}
           </template>
           <template #success="{ record }">
             <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
-              {{ record.success === 1 ? '成功' : '失败' }}
+              {{ record.success === 1 ? "成功" : "失败" }}
             </a-tag>
           </template>
           <template #errorMessage="{ record }">
-            <a-tooltip v-if="record.errorMessage" :content="record.errorMessage">
+            <a-tooltip
+              v-if="record.errorMessage"
+              :content="record.errorMessage"
+            >
               <span class="ellipsis-text">{{ record.errorMessage }}</span>
             </a-tooltip>
             <span v-else>-</span>
@@ -54,29 +74,31 @@
             {{ formatDate(record.createdAt) }}
           </template>
           <template #action="{ record }">
-            <a-button type="text" size="small" @click="handleViewDetail(record)">详情</a-button>
+            <a-button type="text" size="small" @click="handleViewDetail(record)"
+              >详情</a-button
+            >
           </template>
         </a-table>
       </div>
 
       <!-- 移动端卡片列表 -->
       <div v-else class="mobile-card-list">
-        <a-spin :loading="loading" style="width: 100%;">
+        <a-spin :loading="loading" style="width: 100%">
           <div v-for="item in tableData" :key="item.id" class="mobile-card">
             <div class="card-header">
               <span class="card-title">ID: {{ item.id }}</span>
               <a-tag :color="item.success === 1 ? 'green' : 'red'" size="small">
-                {{ item.success === 1 ? '成功' : '失败' }}
+                {{ item.success === 1 ? "成功" : "失败" }}
               </a-tag>
             </div>
             <div class="card-body">
               <div class="card-row">
                 <span class="card-label">网站:</span>
-                <span class="card-value">{{ item.site?.name || '-' }}</span>
+                <span class="card-value">{{ item.site?.name || "-" }}</span>
               </div>
               <div class="card-row">
                 <span class="card-label">账号:</span>
-                <span class="card-value">{{ item.account?.name || '-' }}</span>
+                <span class="card-value">{{ item.account?.name || "-" }}</span>
               </div>
               <div class="card-row">
                 <span class="card-label">客户端IP:</span>
@@ -84,11 +106,15 @@
               </div>
               <div class="card-row">
                 <span class="card-label">时长/格式:</span>
-                <span class="card-value">{{ item.duration || '-' }} / {{ item.format || '-' }}</span>
+                <span class="card-value"
+                  >{{ item.duration || "-" }} / {{ item.format || "-" }}</span
+                >
               </div>
               <div class="card-row" v-if="item.errorMessage">
                 <span class="card-label">错误信息:</span>
-                <span class="card-value error-text">{{ item.errorMessage }}</span>
+                <span class="card-value error-text">{{
+                  item.errorMessage
+                }}</span>
               </div>
               <div class="card-row">
                 <span class="card-label">时间:</span>
@@ -96,10 +122,18 @@
               </div>
             </div>
             <div class="card-actions">
-              <a-button type="primary" size="small" @click="handleViewDetail(item)">查看详情</a-button>
+              <a-button
+                type="primary"
+                size="small"
+                @click="handleViewDetail(item)"
+                >查看详情</a-button
+              >
             </div>
           </div>
-          <a-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+          <a-empty
+            v-if="!loading && tableData.length === 0"
+            description="暂无数据"
+          />
         </a-spin>
       </div>
 
@@ -128,24 +162,41 @@
       :footer="false"
     >
       <a-descriptions :column="isMobile ? 1 : 2" bordered size="small">
-        <a-descriptions-item label="ID">{{ detailDialog.data.id }}</a-descriptions-item>
+        <a-descriptions-item label="ID">{{
+          detailDialog.data.id
+        }}</a-descriptions-item>
         <a-descriptions-item label="状态">
-          <a-tag :color="detailDialog.data.success === 1 ? 'green' : 'red'" size="small">
-            {{ detailDialog.data.success === 1 ? '成功' : '失败' }}
+          <a-tag
+            :color="detailDialog.data.success === 1 ? 'green' : 'red'"
+            size="small"
+          >
+            {{ detailDialog.data.success === 1 ? "成功" : "失败" }}
           </a-tag>
         </a-descriptions-item>
-        <a-descriptions-item label="网站">{{ detailDialog.data.site?.name || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="账号">{{ detailDialog.data.account?.name || '-' }}</a-descriptions-item>
-        <a-descriptions-item label="客户端IP">{{ detailDialog.data.clientIp }}</a-descriptions-item>
-        <a-descriptions-item label="时长参数">{{ detailDialog.data.duration }}</a-descriptions-item>
-        <a-descriptions-item label="格式参数">{{ detailDialog.data.format }}</a-descriptions-item>
-        <a-descriptions-item label="时间">{{ formatDate(detailDialog.data.createdAt) }}</a-descriptions-item>
+        <a-descriptions-item label="网站">{{
+          detailDialog.data.site?.name || "-"
+        }}</a-descriptions-item>
+        <a-descriptions-item label="账号">{{
+          detailDialog.data.account?.name || "-"
+        }}</a-descriptions-item>
+        <a-descriptions-item label="客户端IP">{{
+          detailDialog.data.clientIp
+        }}</a-descriptions-item>
+        <a-descriptions-item label="时长参数">{{
+          detailDialog.data.duration
+        }}</a-descriptions-item>
+        <a-descriptions-item label="格式参数">{{
+          detailDialog.data.format
+        }}</a-descriptions-item>
+        <a-descriptions-item label="时间">{{
+          formatDate(detailDialog.data.createdAt)
+        }}</a-descriptions-item>
         <a-descriptions-item label="错误信息" :span="isMobile ? 1 : 2">
-          {{ detailDialog.data.errorMessage || '-' }}
+          {{ detailDialog.data.errorMessage || "-" }}
         </a-descriptions-item>
         <a-descriptions-item label="响应内容" :span="isMobile ? 1 : 2">
           <div class="response-preview">
-            {{ detailDialog.data.responsePreview || '-' }}
+            {{ detailDialog.data.responsePreview || "-" }}
           </div>
         </a-descriptions-item>
       </a-descriptions>
@@ -154,128 +205,139 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
-import { getLogList, getLogDetail } from '@/api/log'
-import { getAllActiveSites } from '@/api/site'
-import { IconSearch } from '@arco-design/web-vue/es/icon'
+import { ref, reactive, onMounted, onUnmounted } from "vue";
+import { getLogList, getLogDetail } from "@/api/log";
+import { getAllActiveSites } from "@/api/site";
+import { IconSearch } from "@arco-design/web-vue/es/icon";
 
-const loading = ref(false)
-const tableData = ref([])
-const siteOptions = ref([])
-const tableWrapperRef = ref(null)
-const tableScrollY = ref(300)
+const loading = ref(false);
+const tableData = ref([]);
+const siteOptions = ref([]);
+const tableWrapperRef = ref(null);
+const tableScrollY = ref(300);
 
 // 响应式检测
-const isMobile = ref(false)
+const isMobile = ref(false);
 const checkMobile = () => {
-  isMobile.value = window.innerWidth < 768
-}
+  isMobile.value = window.innerWidth < 768;
+};
 
 // 计算表格滚动高度
 const calcTableHeight = () => {
   if (tableWrapperRef.value) {
-    const wrapperHeight = tableWrapperRef.value.clientHeight
+    const wrapperHeight = tableWrapperRef.value.clientHeight;
     // 减去表头高度(约40px)和一点点缓冲
-    tableScrollY.value = wrapperHeight - 50
+    tableScrollY.value = wrapperHeight - 50;
   }
-}
+};
 
 const filters = reactive({
-  success: '',
-  siteId: '',
-  dateRange: null
-})
+  success: "",
+  siteId: "",
+  dateRange: null,
+});
 
 const pagination = reactive({
   page: 1,
   pageSize: 20,
-  total: 0
-})
+  total: 0,
+});
 
 const detailDialog = reactive({
   visible: false,
-  data: {}
-})
+  data: {},
+});
 
 // 表格列配置
 const columns = [
-  { title: 'ID', dataIndex: 'id', width: 80 },
-  { title: '网站', dataIndex: 'site', width: 120, slotName: 'site' },
-  { title: '账号', dataIndex: 'account', width: 120, slotName: 'account' },
-  { title: '客户端IP', dataIndex: 'clientIp', width: 140 },
-  { title: '时长参数', dataIndex: 'duration', width: 100, align: 'center' },
-  { title: '格式参数', dataIndex: 'format', width: 100, align: 'center' },
-  { title: '状态', dataIndex: 'success', width: 80, align: 'center', slotName: 'success' },
-  { title: '错误信息', dataIndex: 'errorMessage', minWidth: 150, slotName: 'errorMessage' },
-  { title: '时间', dataIndex: 'createdAt', width: 160, slotName: 'createdAt' },
-  { title: '操作', width: 100, fixed: 'right', slotName: 'action' }
-]
+  { title: "ID", dataIndex: "id", width: 80 },
+  { title: "网站", dataIndex: "site", width: 120, slotName: "site" },
+  { title: "账号", dataIndex: "account", width: 120, slotName: "account" },
+  { title: "客户端IP", dataIndex: "clientIp", width: 140 },
+  { title: "时长参数", dataIndex: "duration", width: 100, align: "center" },
+  { title: "格式参数", dataIndex: "format", width: 100, align: "center" },
+  {
+    title: "状态",
+    dataIndex: "success",
+    width: 80,
+    align: "center",
+    slotName: "success",
+  },
+  {
+    title: "错误信息",
+    dataIndex: "errorMessage",
+    minWidth: 150,
+    slotName: "errorMessage",
+  },
+  { title: "时间", dataIndex: "createdAt", width: 160, slotName: "createdAt" },
+  { title: "操作", width: 100, fixed: "right", slotName: "action" },
+];
 
 const formatDate = (date) => {
-  if (!date) return ''
-  return new Date(date).toLocaleString('zh-CN')
-}
+  if (!date) return "";
+  return new Date(date).toLocaleString("zh-CN");
+};
 
 const loadSites = async () => {
   try {
-    const res = await getAllActiveSites()
-    siteOptions.value = res.data
+    const res = await getAllActiveSites();
+    siteOptions.value = res.data;
   } catch (error) {
     // 错误已处理
   }
-}
+};
 
 const loadData = async () => {
-  loading.value = true
+  loading.value = true;
   try {
     const params = {
       page: pagination.page,
       pageSize: pagination.pageSize,
       success: filters.success,
-      siteId: filters.siteId
-    }
+      siteId: filters.siteId,
+    };
 
     if (filters.dateRange && filters.dateRange.length === 2) {
-      params.startDate = filters.dateRange[0]
-      params.endDate = filters.dateRange[1]
+      params.startDate = filters.dateRange[0];
+      params.endDate = filters.dateRange[1];
     }
 
-    const res = await getLogList(params)
-    tableData.value = res.data.list
-    pagination.total = res.data.total
+    const res = await getLogList(params);
+    tableData.value = res.data.list;
+    pagination.total = res.data.total;
   } catch (error) {
     // 错误已处理
   } finally {
-    loading.value = false
+    loading.value = false;
   }
-}
+};
 
 const handleViewDetail = async (row) => {
   try {
-    const res = await getLogDetail(row.id)
-    detailDialog.data = res.data
-    detailDialog.visible = true
+    const res = await getLogDetail(row.id);
+    detailDialog.data = res.data;
+    detailDialog.visible = true;
   } catch (error) {
     // 错误已处理
   }
-}
+};
 
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-  loadSites()
-  loadData()
+  checkMobile();
+  window.addEventListener("resize", checkMobile);
+  loadSites();
+  loadData();
   // 计算表格高度
   setTimeout(() => {
-    calcTableHeight()
-  }, 100)
-  window.addEventListener('resize', calcTableHeight)
-})
+    calcTableHeight();
+  }, 100);
+  window.addEventListener("resize", calcTableHeight);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-  window.removeEventListener('resize', calcTableHeight)
-})
+  window.removeEventListener("resize", checkMobile);
+  window.removeEventListener("resize", calcTableHeight);
+});
 </script>
 
 <style scoped>
@@ -313,14 +375,51 @@ onUnmounted(() => {
 }
 
 .toolbar {
+  width: 100%;
   margin-bottom: 16px;
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex-shrink: 0;
 }
 
+/* 为下拉菜单设置固定宽度 */
+.toolbar :deep(.arco-select) {
+  width: 120px; /* 设置固定宽度 */
+}
+
+/* 或者分别设置不同宽度 */
+.toolbar .filter-select-auto {
+  width: 120px; /* 状态下拉菜单宽度 */
+}
+
+.toolbar .filter-select-auto:last-of-type {
+  width: 150px; /* 网站下拉菜单宽度（如果是第二个） */
+}
+
+/* 日期选择器宽度 */
+.toolbar .date-picker {
+  width: 240px; /* 日期范围选择器宽度 */
+}
+
+/* 搜索按钮保持自动宽度 */
+.toolbar .arco-btn {
+  flex-shrink: 0;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .toolbar {
+    flex-wrap: wrap; /* 移动端允许换行 */
+    gap: 8px;
+  }
+
+  .toolbar :deep(.arco-select),
+  .toolbar .date-picker {
+    width: 100%; /* 移动端占满宽度 */
+  }
+}
 .filter-select-auto {
   width: auto !important;
   min-width: 80px;
@@ -435,7 +534,7 @@ onUnmounted(() => {
 }
 
 .error-text {
-  color: #F56C6C;
+  color: #f56c6c;
 }
 
 .card-actions {
