@@ -31,11 +31,11 @@
           v-if="!isMobile"
           :data="tableData"
           :pagination="false"
-          :bordered="{ cell: true }"
+          :bordered="{ wrapper: true, cell: true }"
           style="width: 100%"
         >
           <template #columns>
-            <a-table-column title="ID" data-index="id" :width="80" />
+            <a-table-column title="ID" data-index="id" :width="70" align="center" />
             <a-table-column title="账号名称" data-index="name" :min-width="120" />
             <a-table-column title="所属网站" :width="120">
               <template #cell="{ record }">
@@ -45,7 +45,7 @@
                 <a-tag v-else color="orangered" size="small">独立包月</a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="余额" data-index="balance" :width="120" align="right">
+            <a-table-column title="余额" data-index="balance" :width="100" align="right">
               <template #cell="{ record }">
                 <template v-if="isMonthlyAccount(record)">
                   <a-tag color="gray" size="small">包月</a-tag>
@@ -55,7 +55,7 @@
                 </template>
               </template>
             </a-table-column>
-            <a-table-column title="到期时间" data-index="expireAt" :width="160">
+            <a-table-column title="到期时间" data-index="expireAt" :width="150">
               <template #cell="{ record }">
                 <template v-if="record.expireAt">
                   <span :class="{ expired: isExpired(record.expireAt) }">
@@ -65,31 +65,31 @@
                 <span v-else>-</span>
               </template>
             </a-table-column>
-            <a-table-column title="失败次数" data-index="failCount" :width="100" align="center">
+            <a-table-column title="失败" data-index="failCount" :width="70" align="center">
               <template #cell="{ record }">
                 <a-tag :color="record.failCount >= 3 ? 'red' : record.failCount > 0 ? 'orangered' : 'green'" size="small">
                   {{ record.failCount }}
                 </a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="余额更新时间" data-index="balanceUpdatedAt" :width="160">
+            <a-table-column title="余额更新" data-index="balanceUpdatedAt" :width="150">
               <template #cell="{ record }">
                 {{ formatDate(record.balanceUpdatedAt) }}
               </template>
             </a-table-column>
-            <a-table-column title="状态" data-index="status" :width="100" align="center">
+            <a-table-column title="状态" data-index="status" :width="80" align="center">
               <template #cell="{ record }">
                 <a-tag :color="record.status === 1 ? 'green' : 'red'" size="small">
                   {{ record.status === 1 ? '启用' : '禁用' }}
                 </a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="创建时间" data-index="createdAt" :width="160">
+            <a-table-column title="创建时间" data-index="createdAt" :width="150">
               <template #cell="{ record }">
                 {{ formatDate(record.createdAt) }}
               </template>
             </a-table-column>
-            <a-table-column title="操作" :width="220" fixed="right">
+            <a-table-column title="操作" :width="260" fixed="right">
               <template #cell="{ record }">
                 <a-space>
                   <a-link @click="handleEdit(record)">编辑</a-link>
@@ -98,15 +98,11 @@
                     status="success"
                     @click="handleRefreshBalance(record)"
                     :loading="record.refreshing"
-                  >
-                    刷新余额
-                  </a-link>
+                  >刷新余额</a-link>
                   <a-link
                     :status="record.status === 1 ? 'warning' : 'success'"
                     @click="handleToggleStatus(record)"
-                  >
-                    {{ record.status === 1 ? '禁用' : '启用' }}
-                  </a-link>
+                  >{{ record.status === 1 ? '禁用' : '启用' }}</a-link>
                   <a-link status="danger" @click="handleDelete(record)">删除</a-link>
                 </a-space>
               </template>
@@ -207,67 +203,87 @@
     <a-modal
       v-model:visible="dialog.visible"
       :title="dialog.isEdit ? '编辑账号' : '添加账号'"
-      :width="isMobile ? '95%' : '650px'"
+      :width="isMobile ? '95%' : 600"
       :unmount-on-close="true"
       @cancel="dialog.visible = false"
       @ok="handleSubmit"
       :confirm-loading="dialog.loading"
+      :mask-closable="false"
     >
-      <a-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-col-props="{ span: isMobile ? 6 : 5 }" :wrapper-col-props="{ span: isMobile ? 18 : 19 }">
+      <a-form
+        :model="dialog.form"
+        :rules="dialog.rules"
+        ref="formRef"
+        layout="vertical"
+      >
         <a-form-item label="账号类型">
-          <a-radio-group v-model="dialog.form.accountType" @change="handleAccountTypeChange">
+          <a-radio-group v-model="dialog.form.accountType" type="button" @change="handleAccountTypeChange">
             <a-radio value="site">关联网站</a-radio>
             <a-radio value="monthly">独立包月</a-radio>
           </a-radio-group>
-          <div class="form-tip">独立包月账号无需关联网站，可自定义提取链接模板和参数</div>
+          <template #extra>
+            <span class="form-tip">独立包月账号无需关联网站，可自定义提取链接模板和参数</span>
+          </template>
         </a-form-item>
-        <a-form-item v-if="dialog.form.accountType === 'site'" label="所属网站" field="siteId">
+
+        <a-form-item v-if="dialog.form.accountType === 'site'" label="所属网站" field="siteId" required>
           <a-select v-model="dialog.form.siteId" placeholder="请选择网站" :disabled="dialog.isEdit" @change="handleSiteChange">
             <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
           </a-select>
         </a-form-item>
+
         <a-form-item label="账号名称" field="name">
           <a-input v-model="dialog.form.name" placeholder="账号备注名称" />
         </a-form-item>
 
         <!-- 独立包月账号配置 -->
         <template v-if="dialog.form.accountType === 'monthly'">
-          <a-divider orientation="left">提取链接配置</a-divider>
+          <a-divider>提取链接配置</a-divider>
+
           <a-form-item label="提取链接模板" field="extractUrlTemplate">
             <a-textarea
               v-model="dialog.form.extractUrlTemplate"
-              :auto-size="{ minRows: 3, maxRows: 5 }"
+              :auto-size="{ minRows: 2, maxRows: 4 }"
               placeholder="支持变量: {times}, {format}, {params.xxx}"
             />
-            <div class="form-tip">
-              示例: https://api.example.com/get?num=1&amp;format={format}&amp;minute={times}&amp;no={params.no}
-            </div>
+            <template #extra>
+              <span class="form-tip">示例: https://api.example.com/get?num=1&amp;format={format}&amp;minute={times}&amp;no={params.no}</span>
+            </template>
           </a-form-item>
+
           <a-form-item label="格式参数">
-            <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-item">
-              <a-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-              <a-input v-model="item.value" placeholder="参数值" style="width: 100px; margin-left: 8px" />
-              <a-link status="danger" @click="dialog.form.formatParams.splice(index, 1)" style="margin-left: 8px">
-                删除
-              </a-link>
+            <div class="param-group">
+              <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-row">
+                <a-input v-model="item.label" placeholder="显示名称" class="param-input" />
+                <a-input v-model="item.value" placeholder="参数值" class="param-input" />
+                <a-button type="text" status="danger" size="small" @click="dialog.form.formatParams.splice(index, 1)">
+                  <template #icon><icon-delete /></template>
+                </a-button>
+              </div>
+              <a-button type="dashed" long @click="dialog.form.formatParams.push({ label: '', value: '' })">
+                <template #icon><icon-plus /></template>
+                添加格式参数
+              </a-button>
             </div>
-            <a-link @click="dialog.form.formatParams.push({ label: '', value: '' })">
-              + 添加格式参数
-            </a-link>
           </a-form-item>
+
           <a-form-item label="时长参数">
-            <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-item">
-              <a-input v-model="item.label" placeholder="显示名称" style="width: 100px" />
-              <a-input v-model="item.times" placeholder="分钟数" style="width: 80px; margin-left: 8px" />
-              <span style="margin-left: 4px; color: #909399;">分钟</span>
-              <a-link status="danger" @click="dialog.form.durationParams.splice(index, 1)" style="margin-left: 8px">
-                删除
-              </a-link>
+            <div class="param-group">
+              <div v-for="(item, index) in dialog.form.durationParams" :key="index" class="param-row">
+                <a-input v-model="item.label" placeholder="显示名称" class="param-input-sm" />
+                <a-input-number v-model="item.times" placeholder="分钟" class="param-input-sm" :min="1" />
+                <span class="param-unit">分钟</span>
+                <a-button type="text" status="danger" size="small" @click="dialog.form.durationParams.splice(index, 1)">
+                  <template #icon><icon-delete /></template>
+                </a-button>
+              </div>
+              <a-button type="dashed" long @click="dialog.form.durationParams.push({ label: '', times: undefined })">
+                <template #icon><icon-plus /></template>
+                添加时长参数
+              </a-button>
             </div>
-            <a-link @click="dialog.form.durationParams.push({ label: '', times: '' })">
-              + 添加时长参数
-            </a-link>
           </a-form-item>
+
           <a-form-item label="失败关键词">
             <a-select
               v-model="dialog.form.failureKeywords"
@@ -276,14 +292,16 @@
               allow-clear
               placeholder="输入关键词后回车添加"
             />
-            <div class="form-tip">当提取响应包含这些关键词时，自动切换到下一个账号</div>
+            <template #extra>
+              <span class="form-tip">当提取响应包含这些关键词时，自动切换到下一个账号</span>
+            </template>
           </a-form-item>
         </template>
 
         <!-- 智能参数提示（关联网站时显示） -->
         <template v-if="dialog.form.accountType === 'site' && paramHints.extractParams.length > 0">
-          <a-divider orientation="left">提取参数</a-divider>
-          <a-alert type="info" style="margin-bottom: 12px">
+          <a-divider>提取参数</a-divider>
+          <a-alert type="info" style="margin-bottom: 16px">
             请填写以下参数，这些参数会替换到提取链接模板中
           </a-alert>
           <a-form-item v-for="param in paramHints.extractParams" :key="param" :label="param">
@@ -292,8 +310,8 @@
         </template>
 
         <template v-if="dialog.form.accountType === 'site' && paramHints.balanceParams.length > 0">
-          <a-divider orientation="left">余额查询参数</a-divider>
-          <a-alert type="info" style="margin-bottom: 12px">
+          <a-divider>余额查询参数</a-divider>
+          <a-alert type="info" style="margin-bottom: 16px">
             请填写以下参数，这些参数会替换到余额查询接口中
           </a-alert>
           <a-form-item v-for="param in paramHints.balanceParams" :key="param" :label="param">
@@ -303,16 +321,19 @@
 
         <!-- 时长参数提示（关联网站时显示） -->
         <template v-if="dialog.form.accountType === 'site' && paramHints.durationParams.length > 0">
-          <a-divider orientation="left">可用时长</a-divider>
-          <div style="margin-bottom: 12px;">
-            <a-tag v-for="item in paramHints.durationParams" :key="item.times" style="margin-right: 8px; margin-bottom: 4px;">
+          <a-divider>可用时长</a-divider>
+          <div class="duration-tags">
+            <a-tag v-for="item in paramHints.durationParams" :key="item.times" color="arcoblue">
               {{ item.label }} ({{ item.times }}分钟)
             </a-tag>
           </div>
-          <div class="form-tip">调用代理接口时使用 times 参数选择对应时长，如 times=1 表示1分钟</div>
+          <template #extra>
+            <span class="form-tip">调用代理接口时使用 times 参数选择对应时长</span>
+          </template>
         </template>
 
-        <a-divider orientation="left">高级设置</a-divider>
+        <a-divider>高级设置</a-divider>
+
         <a-form-item label="到期时间">
           <a-date-picker
             v-model="dialog.form.expireAt"
@@ -321,27 +342,32 @@
             placeholder="选择到期时间（包月账号专用）"
             style="width: 100%"
           />
-          <div class="form-tip">设置后，在该时间之前账号视为包月账号，不会被自动禁用</div>
+          <template #extra>
+            <span class="form-tip">设置后，在该时间之前账号视为包月账号，不会被自动禁用</span>
+          </template>
         </a-form-item>
+
         <a-form-item label="提取参数">
           <a-textarea
             v-model="dialog.form.extractParamsStr"
-            :auto-size="{ minRows: 3, maxRows: 5 }"
-            placeholder='JSON格式，可手动编辑'
+            :auto-size="{ minRows: 2, maxRows: 4 }"
+            placeholder="JSON格式，可手动编辑"
           />
-          <div class="form-tip">
-            上方填写的参数会自动同步到这里，也可以直接编辑JSON
-          </div>
+          <template #extra>
+            <span class="form-tip">上方填写的参数会自动同步到这里，也可以直接编辑JSON</span>
+          </template>
         </a-form-item>
+
         <a-form-item label="余额参数">
           <a-textarea
             v-model="dialog.form.balanceParamsStr"
-            :auto-size="{ minRows: 3, maxRows: 5 }"
-            placeholder='JSON格式，可手动编辑'
+            :auto-size="{ minRows: 2, maxRows: 4 }"
+            placeholder="JSON格式，可手动编辑"
           />
         </a-form-item>
+
         <a-form-item label="状态">
-          <a-radio-group v-model="dialog.form.status">
+          <a-radio-group v-model="dialog.form.status" type="button">
             <a-radio :value="1">启用</a-radio>
             <a-radio :value="0">禁用</a-radio>
           </a-radio-group>
@@ -357,7 +383,7 @@ import { getAccountList, getAccountDetail, createAccount, updateAccount, deleteA
 import { getAllActiveSites, getSiteParamHints } from '@/api/site'
 import { formatDateTimeForApi, formatLocalizedDateTime, parseLocalDateTime } from '@/utils/date'
 import { Message, Modal } from '@arco-design/web-vue'
-import { IconPlus } from '@arco-design/web-vue/es/icon'
+import { IconPlus, IconDelete } from '@arco-design/web-vue/es/icon'
 
 const loading = ref(false)
 const refreshing = ref(false)
@@ -848,18 +874,47 @@ onUnmounted(() => {
   flex-shrink: 0;
 }
 
+/* 表单样式 */
 .form-tip {
-  color: #909399;
+  color: var(--color-text-3);
   font-size: 12px;
-  margin-top: 4px;
+  line-height: 1.5;
 }
 
-.param-item {
+.param-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.param-row {
   display: flex;
   align-items: center;
-  margin-bottom: 8px;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-fill-1);
+  border-radius: 4px;
+}
+
+.param-input {
+  flex: 1;
+}
+
+.param-input-sm {
+  width: 100px;
+}
+
+.param-unit {
+  color: var(--color-text-3);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.duration-tags {
+  display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 
 .low-balance {
@@ -962,19 +1017,17 @@ onUnmounted(() => {
     justify-content: center;
   }
 
-  .param-item {
-    flex-direction: column;
-    align-items: stretch;
+  .param-row {
+    flex-wrap: wrap;
+    padding: 12px;
   }
 
-  .param-item .arco-input {
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-bottom: 8px;
+  .param-input-sm {
+    width: calc(50% - 12px);
   }
 
-  .param-item .arco-link {
-    align-self: flex-start;
+  .param-unit {
+    width: 30px;
   }
 }
 </style>
