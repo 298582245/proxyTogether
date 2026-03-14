@@ -5,7 +5,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgb(var(--primary-6))">
+            <div class="stat-icon" style="background: #165DFF">
               <icon-code-square :size="20" />
             </div>
             <div class="stat-info">
@@ -18,7 +18,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgb(var(--success-6))">
+            <div class="stat-icon" style="background: #00B42A">
               <icon-user :size="20" />
             </div>
             <div class="stat-info">
@@ -31,7 +31,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgb(var(--warning-6))">
+            <div class="stat-icon" style="background: #FF7D00">
               <icon-check-circle :size="20" />
             </div>
             <div class="stat-info">
@@ -44,7 +44,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: rgb(var(--danger-6))">
+            <div class="stat-icon" style="background: #F53F3F">
               <icon-close-circle :size="20" />
             </div>
             <div class="stat-info">
@@ -57,7 +57,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
-            <div class="stat-icon" style="background: var(--color-text-3)">
+            <div class="stat-icon" style="background: #86909C">
               <icon-storage :size="20" />
             </div>
             <div class="stat-info">
@@ -249,7 +249,7 @@ const renderChart = (data) => {
         type: 'bar',
         data: requests,
         itemStyle: {
-          color: 'rgb(var(--primary-6))'
+          color: '#165DFF'
         }
       },
       {
@@ -257,7 +257,7 @@ const renderChart = (data) => {
         type: 'bar',
         data: successCount,
         itemStyle: {
-          color: 'rgb(var(--success-6))'
+          color: '#00B42A'
         }
       },
       {
@@ -266,7 +266,7 @@ const renderChart = (data) => {
         yAxisIndex: 1,
         data: costs,
         itemStyle: {
-          color: 'rgb(var(--warning-6))'
+          color: '#FF7D00'
         },
         smooth: true
       }
