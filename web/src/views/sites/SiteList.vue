@@ -89,9 +89,10 @@
       </div>
 
       <!-- 移动端卡片列表 -->
-      <div v-else class="mobile-card-list">
+      <div v-else class="mobile-card-wrapper">
         <a-spin :loading="loading" style="width: 100%">
-          <div v-for="item in tableData" :key="item.id" class="mobile-card">
+          <div class="mobile-card-list">
+            <div v-for="item in tableData" :key="item.id" class="mobile-card">
             <div class="card-header">
               <span class="card-title">{{ item.name }}</span>
               <a-tag :color="item.status === 1 ? 'green' : 'red'" size="small">
@@ -139,6 +140,7 @@
             </div>
           </div>
           <a-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+          </div>
         </a-spin>
       </div>
 
@@ -580,11 +582,27 @@ onUnmounted(() => {
 }
 
 /* 移动端卡片样式 */
+.mobile-card-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-card-wrapper :deep(.arco-spin) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .mobile-card-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
