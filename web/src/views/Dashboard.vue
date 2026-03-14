@@ -6,7 +6,7 @@
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: rgb(var(--primary-6))">
-              <icon-wallet :size="20" />
+              <icon-code-square :size="20" />
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ stats.totalBalance.toFixed(2) }}</div>
@@ -129,7 +129,7 @@ import { getAccountStats, refreshAllBalance } from '@/api/account'
 import { getLogChart, getLogStats } from '@/api/log'
 import { Message } from '@arco-design/web-vue'
 import {
-  IconWallet,
+  IconCodeSquare,
   IconUser,
   IconCheckCircle,
   IconCloseCircle,
