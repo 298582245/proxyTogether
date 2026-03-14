@@ -470,7 +470,7 @@ const handleChangePassword = async () => {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .main :deep(> *) {
@@ -478,6 +478,7 @@ const handleChangePassword = async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .main :deep(> * > .arco-card) {
@@ -485,6 +486,7 @@ const handleChangePassword = async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .main :deep(> * > .arco-card > .arco-card-body) {
@@ -492,7 +494,8 @@ const handleChangePassword = async () => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* ========== 移动端适配 ========== */

@@ -27,39 +27,41 @@
       </div>
 
       <!-- 桌面端表格 -->
-      <a-table
-        v-if="!isMobile"
-        :data="tableData"
-        :loading="loading"
-        :pagination="false"
-        :columns="columns"
-        stripe
-        style="width: 100%"
-      >
-        <template #site="{ record }">
-          {{ record.site?.name || '-' }}
-        </template>
-        <template #account="{ record }">
-          {{ record.account?.name || '-' }}
-        </template>
-        <template #success="{ record }">
-          <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
-            {{ record.success === 1 ? '成功' : '失败' }}
-          </a-tag>
-        </template>
-        <template #errorMessage="{ record }">
-          <a-tooltip v-if="record.errorMessage" :content="record.errorMessage">
-            <span class="ellipsis-text">{{ record.errorMessage }}</span>
-          </a-tooltip>
-          <span v-else>-</span>
-        </template>
-        <template #createdAt="{ record }">
-          {{ formatDate(record.createdAt) }}
-        </template>
-        <template #action="{ record }">
-          <a-button type="text" size="small" @click="handleViewDetail(record)">详情</a-button>
-        </template>
-      </a-table>
+      <div v-if="!isMobile" class="table-wrapper" ref="tableWrapperRef">
+        <a-table
+          :data="tableData"
+          :loading="loading"
+          :pagination="false"
+          :columns="columns"
+          :scroll="{ y: tableScrollY }"
+          stripe
+          style="width: 100%"
+        >
+          <template #site="{ record }">
+            {{ record.site?.name || '-' }}
+          </template>
+          <template #account="{ record }">
+            {{ record.account?.name || '-' }}
+          </template>
+          <template #success="{ record }">
+            <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
+              {{ record.success === 1 ? '成功' : '失败' }}
+            </a-tag>
+          </template>
+          <template #errorMessage="{ record }">
+            <a-tooltip v-if="record.errorMessage" :content="record.errorMessage">
+              <span class="ellipsis-text">{{ record.errorMessage }}</span>
+            </a-tooltip>
+            <span v-else>-</span>
+          </template>
+          <template #createdAt="{ record }">
+            {{ formatDate(record.createdAt) }}
+          </template>
+          <template #action="{ record }">
+            <a-button type="text" size="small" @click="handleViewDetail(record)">详情</a-button>
+          </template>
+        </a-table>
+      </div>
 
       <!-- 移动端卡片列表 -->
       <div v-else class="mobile-card-list">
@@ -164,11 +166,22 @@ import { IconSearch } from '@arco-design/web-vue/es/icon'
 const loading = ref(false)
 const tableData = ref([])
 const siteOptions = ref([])
+const tableWrapperRef = ref(null)
+const tableScrollY = ref(300)
 
 // 响应式检测
 const isMobile = ref(false)
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
+}
+
+// 计算表格滚动高度
+const calcTableHeight = () => {
+  if (tableWrapperRef.value) {
+    const wrapperHeight = tableWrapperRef.value.clientHeight
+    // 减去表头高度(约40px)和一点点缓冲
+    tableScrollY.value = wrapperHeight - 50
+  }
 }
 
 const filters = reactive({
@@ -256,10 +269,16 @@ onMounted(() => {
   window.addEventListener('resize', checkMobile)
   loadSites()
   loadData()
+  // 计算表格高度
+  setTimeout(() => {
+    calcTableHeight()
+  }, 100)
+  window.addEventListener('resize', calcTableHeight)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('resize', calcTableHeight)
 })
 </script>
 
@@ -269,21 +288,24 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
-.log-list > .a-card {
+.log-list > :deep(.arco-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
-.log-list > :deep(.a-card-body) {
+.log-list > :deep(.arco-card-body) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 .ellipsis-text {
@@ -318,6 +340,26 @@ onUnmounted(() => {
   max-width: 280px;
 }
 
+/* 表格容器 - 固定高度，内部滚动 */
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-wrapper :deep(.arco-table-container) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table-body) {
+  overflow-y: auto !important;
+}
+
+/* 分页固定在底部 */
 .pagination {
   margin-top: 16px;
   display: flex;
@@ -405,7 +447,7 @@ onUnmounted(() => {
   border-top: 1px solid #ebeef5;
 }
 
-.card-actions .a-button {
+.card-actions .arco-btn {
   flex: 1;
 }
 
@@ -425,7 +467,7 @@ onUnmounted(() => {
     max-width: none;
   }
 
-  .toolbar-row .a-button {
+  .toolbar-row .arco-btn {
     flex: 1;
   }
 
