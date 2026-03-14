@@ -54,7 +54,10 @@
             {{ record.site?.name || "-" }}
           </template>
           <template #account="{ record }">
-            {{ record.account?.name || "-" }}
+            <a-tooltip v-if="record.account?.name" :content="record.account.name">
+              <span>{{ formatAccountName(record.account.name) }}</span>
+            </a-tooltip>
+            <span v-else>-</span>
           </template>
           <template #success="{ record }">
             <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
@@ -276,6 +279,13 @@ const columns = [
 const formatDate = (date) => {
   if (!date) return "";
   return new Date(date).toLocaleString("zh-CN");
+};
+
+// 账号名显示：前三后二，中间用...代替
+const formatAccountName = (name) => {
+  if (!name) return "-";
+  if (name.length <= 5) return name;
+  return name.slice(0, 3) + "..." + name.slice(-2);
 };
 
 const loadSites = async () => {
