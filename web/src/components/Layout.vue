@@ -519,7 +519,7 @@ const handleChangePassword = async () => {
   padding: 0 !important;
 }
 
-/* 电脑端折叠菜单项样式 */
+/* 电脑端折叠菜单项样式 - 保持高度，只隐藏文字 */
 .sidebar .arco-menu-collapsed .arco-menu-item {
   display: flex !important;
   justify-content: center !important;
@@ -531,12 +531,14 @@ const handleChangePassword = async () => {
   margin-left: 0 !important;
 }
 
-/* 折叠时隐藏标题，只显示图标 */
 .sidebar .arco-menu-collapsed .arco-menu-item-inner {
   justify-content: center !important;
 }
 
+/* 折叠时隐藏文字但保留布局空间 */
 .sidebar .arco-menu-collapsed .arco-menu-title {
-  display: none !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
 }
 </style>
