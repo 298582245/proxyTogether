@@ -322,8 +322,7 @@ onUnmounted(() => {
 }
 
 .filter-select-auto {
-  width: auto;
-  min-width: 80px;
+  width: fit-content;
 }
 
 .date-picker {
@@ -443,21 +442,20 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .toolbar-row {
-    width: 100%;
+  .toolbar {
+    flex-wrap: wrap;
   }
 
-  .filter-select {
+  .filter-select-auto {
     flex: 1;
     min-width: 100px;
   }
 
   .date-picker {
     width: 100%;
-    max-width: none;
   }
 
-  .toolbar-row .arco-btn {
+  .toolbar .arco-btn {
     flex: 1;
   }
 

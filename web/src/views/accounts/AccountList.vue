@@ -22,12 +22,13 @@
       </div>
 
       <!-- 桌面端表格 -->
-      <a-spin :loading="loading" style="width: 100%;">
+      <div v-if="!isMobile" class="table-wrapper" ref="tableWrapperRef">
         <a-table
-          v-if="!isMobile"
           :data="tableData"
+          :loading="loading"
           :pagination="false"
           :bordered="{ wrapper: true }"
+          :scroll="{ y: tableScrollY }"
           style="width: 100%"
         >
           <template #columns>
@@ -105,7 +106,7 @@
             </a-table-column>
           </template>
         </a-table>
-      </a-spin>
+      </div>
 
       <!-- 移动端卡片列表 -->
       <a-spin :loading="loading" style="width: 100%;">
@@ -384,11 +385,21 @@ const refreshing = ref(false)
 const tableData = ref([])
 const siteOptions = ref([])
 const formRef = ref(null)
+const tableWrapperRef = ref(null)
+const tableScrollY = ref(300)
 
 // 响应式检测
 const isMobile = ref(false)
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
+}
+
+// 计算表格滚动高度
+const calcTableHeight = () => {
+  if (tableWrapperRef.value) {
+    const wrapperHeight = tableWrapperRef.value.clientHeight
+    tableScrollY.value = wrapperHeight - 50
+  }
 }
 
 const filters = reactive({
@@ -808,10 +819,16 @@ onMounted(() => {
   window.addEventListener('resize', checkMobile)
   loadSites()
   loadData()
+  // 计算表格高度
+  setTimeout(() => {
+    calcTableHeight()
+  }, 100)
+  window.addEventListener('resize', calcTableHeight)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('resize', calcTableHeight)
 })
 </script>
 
@@ -821,6 +838,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .account-list > :deep(.arco-card) {
@@ -828,6 +846,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .account-list > :deep(.arco-card-body) {
@@ -835,32 +854,47 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 .toolbar {
   margin-bottom: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.toolbar-row {
-  display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.filter-select {
-  width: 140px;
+.filter-select-auto {
+  width: fit-content;
 }
 
 .filter-input {
   width: 180px;
 }
 
+/* 表格容器 - 固定高度，内部滚动 */
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-wrapper :deep(.arco-table-container) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table-body) {
+  overflow-y: auto !important;
+}
+
+/* 分页固定在底部 */
 .pagination {
   margin-top: 16px;
   display: flex;
@@ -993,17 +1027,18 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .toolbar-row {
-    width: 100%;
+  .toolbar {
+    flex-wrap: wrap;
   }
 
-  .toolbar-row .arco-btn {
+  .toolbar .arco-btn {
     flex: 1;
   }
 
-  .filter-select,
+  .filter-select-auto,
   .filter-input {
-    width: 100%;
+    flex: 1;
+    min-width: 100px;
   }
 
   .pagination {

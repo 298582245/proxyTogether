@@ -7,7 +7,7 @@
           <template #icon><icon-plus /></template>
           <span class="btn-text">添加网站</span>
         </a-button>
-        <a-select v-model="filters.status" placeholder="状态" allow-clear style="width: 120px" @change="loadData">
+        <a-select v-model="filters.status" placeholder="状态" allow-clear class="filter-select-auto" @change="loadData">
           <a-option label="全部" value="" />
           <a-option :value="1">启用</a-option>
           <a-option :value="0">禁用</a-option>
@@ -15,14 +15,15 @@
       </div>
 
       <!-- 桌面端表格 -->
-      <a-table
-        v-if="!isMobile"
-        :data="tableData"
-        :loading="loading"
-        :pagination="false"
-        :stripe="true"
-        style="width: 100%"
-      >
+      <div v-if="!isMobile" class="table-wrapper" ref="tableWrapperRef">
+        <a-table
+          :data="tableData"
+          :loading="loading"
+          :pagination="false"
+          :stripe="true"
+          :scroll="{ y: tableScrollY }"
+          style="width: 100%"
+        >
         <template #columns>
           <a-table-column title="ID" data-index="id" :width="80" />
           <a-table-column title="网站名称" data-index="name" :min-width="120" />
@@ -85,6 +86,7 @@
           </a-table-column>
         </template>
       </a-table>
+      </div>
 
       <!-- 移动端卡片列表 -->
       <div v-else class="mobile-card-list">
@@ -284,11 +286,21 @@ import { IconPlus, IconDelete } from '@arco-design/web-vue/es/icon'
 const loading = ref(false)
 const tableData = ref([])
 const formRef = ref(null)
+const tableWrapperRef = ref(null)
+const tableScrollY = ref(300)
 
 // 响应式检测
 const isMobile = ref(false)
 const checkMobile = () => {
   isMobile.value = window.innerWidth < 768
+}
+
+// 计算表格滚动高度
+const calcTableHeight = () => {
+  if (tableWrapperRef.value) {
+    const wrapperHeight = tableWrapperRef.value.clientHeight
+    tableScrollY.value = wrapperHeight - 50
+  }
 }
 
 const filters = reactive({
@@ -440,10 +452,16 @@ onMounted(() => {
   checkMobile()
   window.addEventListener('resize', checkMobile)
   loadData()
+  // 计算表格高度
+  setTimeout(() => {
+    calcTableHeight()
+  }, 100)
+  window.addEventListener('resize', calcTableHeight)
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', checkMobile)
+  window.removeEventListener('resize', calcTableHeight)
 })
 </script>
 
@@ -453,6 +471,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .site-list > :deep(.arco-card) {
@@ -460,6 +479,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .site-list > :deep(.arco-card-body) {
@@ -467,7 +487,8 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  height: 100%;
+  overflow: hidden;
 }
 
 .toolbar {
@@ -479,6 +500,30 @@ onUnmounted(() => {
   flex-wrap: wrap;
 }
 
+.filter-select-auto {
+  width: fit-content;
+}
+
+/* 表格容器 - 固定高度，内部滚动 */
+.table-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.table-wrapper :deep(.arco-table-container) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table) {
+  height: 100%;
+}
+
+.table-wrapper :deep(.arco-table-body) {
+  overflow-y: auto !important;
+}
+
+/* 分页固定在底部 */
 .pagination {
   margin-top: 16px;
   display: flex;
@@ -600,19 +645,20 @@ onUnmounted(() => {
 /* 移动端适配 */
 @media (max-width: 768px) {
   .toolbar {
-    padding: 0;
+    flex-wrap: wrap;
   }
 
   .toolbar :deep(.arco-btn) {
     flex: 1;
   }
 
-  .btn-text {
-    display: inline;
+  .filter-select-auto {
+    flex: 1;
+    min-width: 100px;
   }
 
-  .toolbar :deep(.arco-select) {
-    width: 100% !important;
+  .btn-text {
+    display: inline;
   }
 
   .pagination {
