@@ -66,7 +66,14 @@
               data-index="name"
               :min-width="120"
               align="center"
-            />
+            >
+              <template #cell="{ record }">
+                <a-tooltip v-if="record.name" :content="record.name">
+                  <span>{{ formatAccountName(record.name) }}</span>
+                </a-tooltip>
+                <span v-else>-</span>
+              </template>
+            </a-table-column>
             <a-table-column title="所属网站" :width="120" align="center">
               <template #cell="{ record }">
                 <template v-if="record.site">
@@ -724,6 +731,13 @@ const formatCount = (count) => {
   if (count < 100000) return (count / 10000).toFixed(2) + 'w';
   if (count < 100000000) return Math.floor(count / 10000) + 'w';
   return '1亿+';
+};
+
+// 账号名显示：前三后二，中间用...代替
+const formatAccountName = (name) => {
+  if (!name) return "-";
+  if (name.length <= 5) return name;
+  return name.slice(0, 3) + "..." + name.slice(-2);
 };
 
 const isExpired = (date) => {
