@@ -3,27 +3,23 @@
     <a-card :bordered="false">
       <!-- 工具栏 -->
       <div class="toolbar">
-        <div class="toolbar-row">
-          <a-select v-model="filters.success" placeholder="状态" allow-clear class="filter-select" @change="loadData">
-            <a-option label="全部" value="" />
-            <a-option label="成功" :value="1" />
-            <a-option label="失败" :value="0" />
-          </a-select>
-          <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select" @change="loadData">
-            <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
-          </a-select>
-        </div>
-        <div class="toolbar-row">
-          <a-range-picker
-            v-model="filters.dateRange"
-            class="date-picker"
-            @change="loadData"
-          />
-          <a-button type="primary" @click="loadData">
-            <template #icon><icon-search /></template>
-            <span class="btn-text">搜索</span>
-          </a-button>
-        </div>
+        <a-select v-model="filters.success" placeholder="状态" allow-clear class="filter-select-auto" @change="loadData">
+          <a-option label="全部" value="" />
+          <a-option label="成功" :value="1" />
+          <a-option label="失败" :value="0" />
+        </a-select>
+        <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select-auto" @change="loadData">
+          <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+        </a-select>
+        <a-range-picker
+          v-model="filters.dateRange"
+          class="date-picker"
+          @change="loadData"
+        />
+        <a-button type="primary" @click="loadData">
+          <template #icon><icon-search /></template>
+          <span class="btn-text">搜索</span>
+        </a-button>
       </div>
 
       <!-- 桌面端表格 -->
