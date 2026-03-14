@@ -109,6 +109,18 @@
               </template>
             </a-table-column>
             <a-table-column
+              title="成功"
+              data-index="successCount"
+              :width="80"
+              align="center"
+            >
+              <template #cell="{ record }">
+                <a-tooltip :content="`成功次数: ${record.successCount || 0}`">
+                  <span class="success-count">{{ formatCount(record.successCount || 0) }}</span>
+                </a-tooltip>
+              </template>
+            </a-table-column>
+            <a-table-column
               title="失败"
               data-index="failCount"
               :width="70"
@@ -235,6 +247,10 @@
                   :class="{ expired: isExpired(item.expireAt) }"
                   >{{ formatDate(item.expireAt) }}</span
                 >
+              </div>
+              <div class="card-row">
+                <span class="card-label">成功:</span>
+                <span class="card-value">{{ formatCount(item.successCount || 0) }}</span>
               </div>
               <div class="card-row">
                 <span class="card-label">失败次数:</span>
@@ -699,6 +715,16 @@ const dialog = reactive({
 });
 
 const formatDate = (date) => formatLocalizedDateTime(date);
+
+// 格式化成功次数显示
+const formatCount = (count) => {
+  if (count === 0) return '0';
+  if (count < 1000) return count.toString();
+  if (count < 10000) return (count / 1000).toFixed(2) + 'k';
+  if (count < 100000) return (count / 10000).toFixed(2) + 'w';
+  if (count < 100000000) return Math.floor(count / 10000) + 'w';
+  return '1亿+';
+};
 
 const isExpired = (date) => {
   const expireDate = parseLocalDateTime(date);
@@ -1269,6 +1295,14 @@ onUnmounted(() => {
 .low-balance {
   color: #f56c6c;
   font-weight: bold;
+}
+
+.success-count {
+  display: inline-block;
+  min-width: 40px;
+  text-align: center;
+  font-weight: 500;
+  color: var(--color-text-1);
 }
 
 .expired {

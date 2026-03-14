@@ -1,9 +1,11 @@
 const Account = require('../models/Account');
 const Site = require('../models/Site');
+const ProxyLog = require('../models/ProxyLog');
 const cacheService = require('../services/cacheService');
 const balanceService = require('../services/balanceService');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
+const { sequelize } = require('../config/database');
 
 /**
  * 获取账号列表
@@ -46,10 +48,37 @@ const getList = async (req, res) => {
       ],
     });
 
+    // 获取每个账号的成功请求数
+    const accountIds = rows.map(account => account.id);
+    let successCounts = {};
+
+    if (accountIds.length > 0) {
+      const [results] = await sequelize.query(`
+        SELECT account_id, COUNT(*) as success_count
+        FROM proxy_logs
+        WHERE account_id IN (:accountIds) AND success = 1
+        GROUP BY account_id
+      `, {
+        replacements: { accountIds },
+        type: sequelize.QueryTypes.SELECT
+      });
+
+      results.forEach(row => {
+        successCounts[row.account_id] = row.success_count;
+      });
+    }
+
+    // 为每个账号添加成功请求数
+    const accountsWithSuccessCount = rows.map(account => {
+      const accountJson = account.toJSON();
+      accountJson.successCount = successCounts[account.id] || 0;
+      return accountJson;
+    });
+
     res.json({
       success: true,
       data: {
-        list: rows,
+        list: accountsWithSuccessCount,
         total: count,
         page: parseInt(page, 10),
         pageSize: limit,
