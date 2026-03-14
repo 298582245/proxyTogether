@@ -527,10 +527,13 @@ const handleChangePassword = async () => {
 /* 电脑端折叠菜单项样式 */
 .sidebar .arco-menu-collapsed .arco-menu-item {
   padding: 0 !important;
-  text-align: center !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
 }
 
 .sidebar .arco-menu-collapsed .arco-menu-item .arco-menu-icon {
   margin-right: 0 !important;
+  margin-left: 0 !important;
 }
 </style>
