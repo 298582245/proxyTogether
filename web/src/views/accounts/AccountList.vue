@@ -327,9 +327,7 @@
               {{ item.label }} ({{ item.times }}分钟)
             </a-tag>
           </div>
-          <template #extra>
-            <span class="form-tip">调用代理接口时使用 times 参数选择对应时长</span>
-          </template>
+          <div class="form-tip" style="margin-bottom: 16px;">调用代理接口时使用 times 参数选择对应时长</div>
         </template>
 
         <a-divider>高级设置</a-divider>
