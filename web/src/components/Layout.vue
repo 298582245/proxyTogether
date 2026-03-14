@@ -18,7 +18,7 @@
         :trigger="null"
       >
         <div class="logo">
-          <span v-if="!sidebarCollapsed">代理管理系统</span>
+          <template v-if="!sidebarCollapsed">代理管理系统</template>
           <icon-dashboard v-else :size="20" />
         </div>
         <a-menu
@@ -29,24 +29,24 @@
           @menu-item-click="handleMenuClick"
         >
           <a-menu-item key="/">
-            <icon-dashboard />
-            <span>仪表盘</span>
+            <template #icon><icon-dashboard /></template>
+            仪表盘
           </a-menu-item>
           <a-menu-item key="/sites">
-            <icon-link />
-            <span>网站管理</span>
+            <template #icon><icon-link /></template>
+            网站管理
           </a-menu-item>
           <a-menu-item key="/accounts">
-            <icon-user />
-            <span>账号管理</span>
+            <template #icon><icon-user /></template>
+            账号管理
           </a-menu-item>
           <a-menu-item key="/logs">
-            <icon-file />
-            <span>提取日志</span>
+            <template #icon><icon-file /></template>
+            提取日志
           </a-menu-item>
           <a-menu-item key="/settings">
-            <icon-settings />
-            <span>系统设置</span>
+            <template #icon><icon-settings /></template>
+            系统设置
           </a-menu-item>
         </a-menu>
         <!-- 折叠按钮 -->
@@ -63,42 +63,38 @@
         :footer="false"
         :header="false"
         :width="220"
-        :drawer-style="{ padding: '0', background: '#232323' }"
         :unmount-on-close="true"
         :mask-closable="true"
         :closable="false"
         :esc-to-close="false"
-        :drawer-class="'mobile-drawer-body'"
         class="mobile-drawer"
       >
-        <div class="sidebar mobile-sidebar">
-          <div class="logo">
-            <span>代理管理系统</span>
-          </div>
+        <div class="mobile-menu-wrapper">
+          <div class="mobile-logo">代理管理系统</div>
           <a-menu
             :selected-keys="[activeMenu]"
             theme="dark"
             @menu-item-click="handleMobileMenuClick"
           >
             <a-menu-item key="/">
-              <icon-dashboard />
-              <span>仪表盘</span>
+              <template #icon><icon-dashboard /></template>
+              仪表盘
             </a-menu-item>
             <a-menu-item key="/sites">
-              <icon-link />
-              <span>网站管理</span>
+              <template #icon><icon-link /></template>
+              网站管理
             </a-menu-item>
             <a-menu-item key="/accounts">
-              <icon-user />
-              <span>账号管理</span>
+              <template #icon><icon-user /></template>
+              账号管理
             </a-menu-item>
             <a-menu-item key="/logs">
-              <icon-file />
-              <span>提取日志</span>
+              <template #icon><icon-file /></template>
+              提取日志
             </a-menu-item>
             <a-menu-item key="/settings">
-              <icon-settings />
-              <span>系统设置</span>
+              <template #icon><icon-settings /></template>
+              系统设置
             </a-menu-item>
           </a-menu>
         </div>
@@ -136,16 +132,36 @@
     </a-layout>
 
     <!-- 修改密码对话框 -->
-    <a-modal v-model:visible="passwordDialog.visible" title="修改密码" :width="400" @ok="handleChangePassword" @cancel="passwordDialog.visible = false">
-      <a-form :model="passwordDialog.form" :rules="passwordDialog.rules" ref="passwordFormRef" layout="vertical">
+    <a-modal
+      v-model:visible="passwordDialog.visible"
+      title="修改密码"
+      :width="400"
+      @ok="handleChangePassword"
+      @cancel="passwordDialog.visible = false"
+    >
+      <a-form
+        :model="passwordDialog.form"
+        :rules="passwordDialog.rules"
+        ref="passwordFormRef"
+        layout="vertical"
+      >
         <a-form-item field="oldPassword" label="旧密码">
-          <a-input-password v-model="passwordDialog.form.oldPassword" placeholder="请输入旧密码" />
+          <a-input-password
+            v-model="passwordDialog.form.oldPassword"
+            placeholder="请输入旧密码"
+          />
         </a-form-item>
         <a-form-item field="newPassword" label="新密码">
-          <a-input-password v-model="passwordDialog.form.newPassword" placeholder="请输入新密码" />
+          <a-input-password
+            v-model="passwordDialog.form.newPassword"
+            placeholder="请输入新密码"
+          />
         </a-form-item>
         <a-form-item field="confirmPassword" label="确认密码">
-          <a-input-password v-model="passwordDialog.form.confirmPassword" placeholder="请再次输入新密码" />
+          <a-input-password
+            v-model="passwordDialog.form.confirmPassword"
+            placeholder="请再次输入新密码"
+          />
         </a-form-item>
       </a-form>
     </a-modal>
@@ -153,11 +169,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
-import { changePassword } from '@/api/auth'
-import { Message, Modal } from '@arco-design/web-vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { useAuthStore } from "@/stores/auth";
+import { changePassword } from "@/api/auth";
+import { Message, Modal } from "@arco-design/web-vue";
 import {
   IconDashboard,
   IconLink,
@@ -167,117 +183,120 @@ import {
   IconDown,
   IconMenu,
   IconLeft,
-  IconRight
-} from '@arco-design/web-vue/es/icon'
+  IconRight,
+} from "@arco-design/web-vue/es/icon";
 
-const route = useRoute()
-const router = useRouter()
-const authStore = useAuthStore()
+const route = useRoute();
+const router = useRouter();
+const authStore = useAuthStore();
 
-const activeMenu = computed(() => route.path)
+const activeMenu = computed(() => route.path);
 
 // 响应式布局状态
-const isMobile = ref(false)
-const sidebarOpen = ref(false)
-const sidebarCollapsed = ref(false)
+const isMobile = ref(false);
+const sidebarOpen = ref(false);
+const sidebarCollapsed = ref(false);
 
 // 检测屏幕宽度
 const checkMobile = () => {
-  isMobile.value = window.innerWidth < 768
+  isMobile.value = window.innerWidth < 768;
   if (!isMobile.value) {
-    sidebarOpen.value = false
+    sidebarOpen.value = false;
   }
-}
+};
 
 // 监听窗口变化
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
-})
+  checkMobile();
+  window.addEventListener("resize", checkMobile);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
-})
+  window.removeEventListener("resize", checkMobile);
+});
 
 // 菜单点击
 const handleMenuClick = (key) => {
-  router.push(key)
-}
+  router.push(key);
+};
 
 const handleMobileMenuClick = (key) => {
-  sidebarOpen.value = false
-  router.push(key)
-}
+  sidebarOpen.value = false;
+  router.push(key);
+};
 
-const passwordFormRef = ref(null)
+const passwordFormRef = ref(null);
 const passwordDialog = reactive({
   visible: false,
   loading: false,
   form: {
-    oldPassword: '',
-    newPassword: '',
-    confirmPassword: ''
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: "",
   },
   rules: {
-    oldPassword: [{ required: true, message: '请输入旧密码' }],
+    oldPassword: [{ required: true, message: "请输入旧密码" }],
     newPassword: [
-      { required: true, message: '请输入新密码' },
-      { minLength: 6, message: '密码长度不能少于6位' }
+      { required: true, message: "请输入新密码" },
+      { minLength: 6, message: "密码长度不能少于6位" },
     ],
     confirmPassword: [
-      { required: true, message: '请确认新密码' },
+      { required: true, message: "请确认新密码" },
       {
         validator: (value, callback) => {
           if (value !== passwordDialog.form.newPassword) {
-            callback('两次输入的密码不一致')
+            callback("两次输入的密码不一致");
           } else {
-            callback()
+            callback();
           }
-        }
-      }
-    ]
-  }
-})
+        },
+      },
+    ],
+  },
+});
 
 const handleCommand = (command) => {
-  if (command === 'logout') {
+  if (command === "logout") {
     Modal.confirm({
-      title: '提示',
-      content: '确定要退出登录吗？',
+      title: "提示",
+      content: "确定要退出登录吗？",
       onOk: () => {
-        authStore.logout()
-        router.push('/login')
-      }
-    })
-  } else if (command === 'password') {
-    passwordDialog.visible = true
+        authStore.logout();
+        router.push("/login");
+      },
+    });
+  } else if (command === "password") {
+    passwordDialog.visible = true;
     passwordDialog.form = {
-      oldPassword: '',
-      newPassword: '',
-      confirmPassword: ''
-    }
+      oldPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    };
   }
-}
+};
 
 const handleChangePassword = async () => {
-  if (!passwordFormRef.value) return
+  if (!passwordFormRef.value) return;
 
-  const valid = await passwordFormRef.value.validate()
-  if (valid) return
+  const valid = await passwordFormRef.value.validate();
+  if (valid) return;
 
-  passwordDialog.loading = true
+  passwordDialog.loading = true;
   try {
-    await changePassword(passwordDialog.form.oldPassword, passwordDialog.form.newPassword)
-    Message.success('密码修改成功，请重新登录')
-    passwordDialog.visible = false
-    authStore.logout()
-    router.push('/login')
+    await changePassword(
+      passwordDialog.form.oldPassword,
+      passwordDialog.form.newPassword
+    );
+    Message.success("密码修改成功，请重新登录");
+    passwordDialog.visible = false;
+    authStore.logout();
+    router.push("/login");
   } catch (error) {
     // 错误已处理
   } finally {
-    passwordDialog.loading = false
+    passwordDialog.loading = false;
   }
-}
+};
 </script>
 
 <style scoped>
@@ -285,28 +304,19 @@ const handleChangePassword = async () => {
   height: 100vh;
   width: 100vw;
   overflow: hidden;
-  position: fixed;
-  top: 0;
-  left: 0;
 }
 
 .layout-container :deep(.arco-layout) {
   height: 100%;
-  width: 100%;
-  overflow: hidden;
 }
 
-/* 桌面端侧栏 */
+/* ========== 桌面端侧栏 ========== */
 .sidebar {
   background-color: #232323 !important;
   height: 100%;
-  position: relative;
-  display: flex;
-  flex-direction: column;
 }
 
 .sidebar :deep(.arco-menu) {
-  height: calc(100% - 60px);
   background-color: transparent;
 }
 
@@ -317,27 +327,6 @@ const handleChangePassword = async () => {
 
 .sidebar :deep(.arco-menu-item.arco-menu-selected) {
   background-color: rgb(var(--primary-6));
-}
-
-/* 折叠状态 */
-.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-item) {
-  margin: 4px 6px;
-  padding: 0 !important;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-item.arco-menu-selected) {
-  background-color: rgb(var(--primary-6));
-}
-
-.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-icon) {
-  margin: 0 !important;
-}
-
-.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-title) {
-  display: none !important;
 }
 
 .logo {
@@ -351,7 +340,6 @@ const handleChangePassword = async () => {
   border-bottom: 1px solid #333;
   white-space: nowrap;
   overflow: hidden;
-  padding: 0 8px;
 }
 
 .collapse-btn {
@@ -369,6 +357,7 @@ const handleChangePassword = async () => {
   color: #aaa;
   cursor: pointer;
   transition: all 0.3s;
+  z-index: 10;
 }
 
 .collapse-btn:hover {
@@ -376,78 +365,56 @@ const handleChangePassword = async () => {
   color: #fff;
 }
 
-/* 移动端遮罩 */
+/* ========== 移动端遮罩 ========== */
 .sidebar-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background: rgba(0, 0, 0, 0.5);
   z-index: 999;
 }
 
-/* 移动端抽屉 */
+/* ========== 移动端抽屉 ========== */
 .mobile-drawer :deep(.arco-drawer) {
-  position: fixed !important;
-  left: 0 !important;
-  top: 0 !important;
-  height: 100% !important;
   width: 220px !important;
-}
-
-.mobile-drawer :deep(.arco-drawer-wrapper) {
-  position: fixed !important;
-  left: 0 !important;
-  top: 0 !important;
-  width: 220px !important;
-  height: 100% !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-body) {
-  position: fixed !important;
-  left: 0 !important;
-  top: 0 !important;
-  width: 220px !important;
-  height: 100% !important;
   padding: 0 !important;
-  margin: 0 !important;
-  background-color: #232323 !important;
-  overflow: hidden !important;
+  background: #232323 !important;
 }
 
-.mobile-drawer :deep(.arco-drawer-content) {
-  width: 220px !important;
-  height: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  background-color: #232323 !important;
-  overflow: hidden !important;
-}
-
-/* 移动端菜单样式 */
-.mobile-sidebar {
+.mobile-menu-wrapper {
   width: 220px;
   height: 100%;
-  background-color: #232323;
+  background: #232323;
   overflow: hidden;
 }
 
-.mobile-sidebar :deep(.arco-menu) {
-  background-color: transparent;
-  width: 100%;
-  height: calc(100% - 60px);
+.mobile-logo {
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  border-bottom: 1px solid #333;
 }
 
-.mobile-sidebar :deep(.arco-menu-item) {
+.mobile-menu-wrapper :deep(.arco-menu) {
+  background: transparent;
+}
+
+.mobile-menu-wrapper :deep(.arco-menu-item) {
   margin: 4px 8px;
   border-radius: 4px;
 }
 
-.mobile-sidebar :deep(.arco-menu-item.arco-menu-selected) {
+.mobile-menu-wrapper :deep(.arco-menu-item.arco-menu-selected) {
   background-color: rgb(var(--primary-6));
 }
 
+/* ========== 头部 ========== */
 .header {
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
@@ -476,7 +443,6 @@ const handleChangePassword = async () => {
 .mobile-title {
   font-size: 16px;
   font-weight: 600;
-  color: var(--color-text-1);
   margin-right: auto;
   margin-left: 8px;
 }
@@ -490,10 +456,10 @@ const handleChangePassword = async () => {
   cursor: pointer;
   display: flex;
   align-items: center;
-  color: var(--color-text-1);
   gap: 4px;
 }
 
+/* ========== 主内容区 ========== */
 .main {
   background: #f0f2f5;
   padding: 20px;
@@ -524,13 +490,8 @@ const handleChangePassword = async () => {
   overflow: auto;
 }
 
-/* 移动端适配 */
+/* ========== 移动端适配 ========== */
 @media (max-width: 768px) {
-  .layout-container {
-    width: 100%;
-    height: 100%;
-  }
-
   .header {
     padding: 0 16px;
   }
