@@ -3,26 +3,22 @@
     <a-card :bordered="false">
       <!-- 工具栏 -->
       <div class="toolbar">
-        <div class="toolbar-row">
-          <a-button type="primary" @click="handleAdd">
-            <template #icon><icon-plus /></template>
-            <span class="btn-text">添加账号</span>
-          </a-button>
-          <a-button @click="handleRefreshAllBalance" :loading="refreshing">
-            <span class="btn-text">刷新所有余额</span>
-          </a-button>
-        </div>
-        <div class="toolbar-row">
-          <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select" @change="loadData">
-            <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
-          </a-select>
-          <a-select v-model="filters.status" placeholder="状态" allow-clear class="filter-select" @change="loadData">
-            <a-option label="全部" value="" />
-            <a-option label="启用" :value="1" />
-            <a-option label="禁用" :value="0" />
-          </a-select>
-          <a-input v-model="filters.name" placeholder="搜索账号名称" allow-clear class="filter-input" @press-enter="loadData" />
-        </div>
+        <a-button type="primary" @click="handleAdd">
+          <template #icon><icon-plus /></template>
+          <span class="btn-text">添加账号</span>
+        </a-button>
+        <a-button @click="handleRefreshAllBalance" :loading="refreshing">
+          <span class="btn-text">刷新所有余额</span>
+        </a-button>
+        <a-select v-model="filters.siteId" placeholder="选择网站" allow-clear class="filter-select-auto" @change="loadData">
+          <a-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+        </a-select>
+        <a-select v-model="filters.status" placeholder="状态" allow-clear class="filter-select-auto" @change="loadData">
+          <a-option label="全部" value="" />
+          <a-option label="启用" :value="1" />
+          <a-option label="禁用" :value="0" />
+        </a-select>
+        <a-input v-model="filters.name" placeholder="搜索账号名称" allow-clear class="filter-input" @press-enter="loadData" />
       </div>
 
       <!-- 桌面端表格 -->

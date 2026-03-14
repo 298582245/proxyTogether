@@ -315,25 +315,19 @@ onUnmounted(() => {
 .toolbar {
   margin-bottom: 16px;
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.toolbar-row {
-  display: flex;
   align-items: center;
   gap: 12px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
-.filter-select {
-  width: 120px;
+.filter-select-auto {
+  width: auto;
+  min-width: 80px;
 }
 
 .date-picker {
-  flex: 1;
-  max-width: 280px;
+  flex: 0 0 auto;
 }
 
 /* 表格容器 - 固定高度，内部滚动 */
