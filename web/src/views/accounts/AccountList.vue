@@ -1337,13 +1337,23 @@ onUnmounted(() => {
   flex: 1;
   min-height: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.mobile-card-wrapper :deep(.arco-spin) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-card-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
 }
 
