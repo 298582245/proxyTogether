@@ -5,16 +5,23 @@
         <span>系统设置</span>
       </template>
 
-      <a-form :model="form" layout="horizontal" :label-col-props="{ span: isMobile ? 6 : 5 }" :wrapper-col-props="{ span: isMobile ? 18 : 19 }">
+      <a-form :model="form" layout="vertical" class="config-form">
         <a-divider orientation="left">安全设置</a-divider>
+
         <a-form-item label="后台密码">
           <a-input-password v-model="form.admin_password" placeholder="修改后台登录密码" allow-clear />
-          <div class="form-tip">留空表示不修改</div>
+          <template #extra>
+            <span class="form-tip">留空表示不修改</span>
+          </template>
         </a-form-item>
+
         <a-form-item label="代理接口Token">
           <a-input v-model="form.proxy_token" placeholder="留空则不验证Token" allow-clear />
-          <div class="form-tip">设置后，调用/proxy/get接口时需要携带此Token</div>
+          <template #extra>
+            <span class="form-tip">设置后，调用/proxy/get接口时需要携带此Token</span>
+          </template>
         </a-form-item>
+
         <a-form-item label="IP白名单">
           <a-select
             v-model="form.ip_whitelist"
@@ -22,16 +29,21 @@
             allow-create
             allow-search
             placeholder="输入IP后回车添加"
-            style="width: 100%"
           />
-          <div class="form-tip">只有白名单中的IP才能调用代理接口，留空则不限制。支持通配符，如: 192.168.*.*</div>
+          <template #extra>
+            <span class="form-tip">只有白名单中的IP才能调用代理接口，留空则不限制。支持通配符，如: 192.168.*.*</span>
+          </template>
         </a-form-item>
 
         <a-divider orientation="left">代理设置</a-divider>
+
         <a-form-item label="最大失败次数">
-          <a-input-number v-model="form.max_fail_count" :min="1" :max="10" :style="{ width: '150px' }" />
-          <div class="form-tip">账号连续提取失败超过此次数后自动禁用</div>
+          <a-input-number v-model="form.max_fail_count" :min="1" :max="10" style="width: 150px" />
+          <template #extra>
+            <span class="form-tip">账号连续提取失败超过此次数后自动禁用</span>
+          </template>
         </a-form-item>
+
         <a-form-item label="失败关键词">
           <a-select
             v-model="form.proxy_failure_keywords"
@@ -39,23 +51,27 @@
             allow-create
             allow-search
             placeholder="输入关键词后回车添加"
-            style="width: 100%"
           />
-          <div class="form-tip">当提取响应包含这些关键词时，视为失败并切换账号</div>
+          <template #extra>
+            <span class="form-tip">当提取响应包含这些关键词时，视为失败并切换账号</span>
+          </template>
         </a-form-item>
 
         <a-divider orientation="left">定时任务</a-divider>
+
         <a-form-item label="余额查询间隔">
           <div class="inline-input">
-            <a-input-number v-model="form.balance_check_interval" :min="1" :max="1440" :style="{ width: '150px' }" />
+            <a-input-number v-model="form.balance_check_interval" :min="1" :max="1440" style="width: 150px" />
             <span class="input-suffix">分钟</span>
           </div>
-          <div class="form-tip">定时查询所有账号余额的间隔时间</div>
+          <template #extra>
+            <span class="form-tip">定时查询所有账号余额的间隔时间</span>
+          </template>
         </a-form-item>
 
-        <a-form-item :wrapper-col-props="{ offset: isMobile ? 0 : 5 }">
+        <div class="form-actions">
           <a-button type="primary" :loading="saving" @click="handleSave">保存设置</a-button>
-        </a-form-item>
+        </div>
       </a-form>
 
       <a-spin :loading="loading" dot />
@@ -70,12 +86,6 @@ import { Message } from '@arco-design/web-vue'
 
 const loading = ref(false)
 const saving = ref(false)
-
-// 响应式检测
-const isMobile = ref(false)
-const checkMobile = () => {
-  isMobile.value = window.innerWidth < 768
-}
 
 const form = reactive({
   admin_password: '',
@@ -147,13 +157,7 @@ const handleSave = async () => {
 }
 
 onMounted(() => {
-  checkMobile()
-  window.addEventListener('resize', checkMobile)
   loadConfig()
-})
-
-onUnmounted(() => {
-  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -165,30 +169,29 @@ onUnmounted(() => {
   min-height: 0;
 }
 
-.system-config > .a-card {
+.system-config > :deep(.arco-card) {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-.system-config > :deep(.a-card) {
+.system-config > :deep(.arco-card-body) {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: 0;
-}
-
-.system-config > :deep(.a-card .a-card-body) {
-  flex: 1;
   min-height: 0;
   overflow: auto;
+}
+
+.config-form {
+  max-width: 600px;
 }
 
 .form-tip {
   color: var(--color-text-3);
   font-size: 12px;
-  margin-top: 4px;
+  line-height: 1.5;
 }
 
 .inline-input {
@@ -202,24 +205,20 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.form-actions {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border);
+}
+
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .system-config > :deep(.a-card .a-card-body) {
-    padding: 12px;
-  }
-
-  :deep(.a-divider .a-divider-text) {
-    font-size: 14px;
+  .config-form {
+    max-width: 100%;
   }
 
   .inline-input {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .input-suffix {
-    margin-left: 0;
+    flex-wrap: wrap;
   }
 }
 </style>
