@@ -501,12 +501,16 @@ onUnmounted(() => {
 }
 
 .filter-select-auto {
-  width: fit-content !important;
+  width: auto !important;
   min-width: 80px;
 }
 
 .filter-select-auto :deep(.arco-select-view) {
-  width: fit-content !important;
+  width: auto !important;
+}
+
+.filter-select-auto :deep(.arco-select-view-input) {
+  width: auto !important;
 }
 
 /* 表格容器 - 固定高度，内部滚动 */

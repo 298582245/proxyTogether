@@ -168,6 +168,7 @@ onMounted(() => {
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .system-config > :deep(.arco-card) {
@@ -176,6 +177,7 @@ onMounted(() => {
   flex-direction: column;
   min-height: 0;
   height: 100%;
+  overflow: hidden;
 }
 
 .system-config > :deep(.arco-card-body) {
@@ -183,7 +185,6 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  height: 100%;
   overflow-y: auto;
 }
 
