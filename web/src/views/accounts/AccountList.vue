@@ -31,13 +31,13 @@
           v-if="!isMobile"
           :data="tableData"
           :pagination="false"
-          :bordered="{ wrapper: true, cell: true }"
+          :bordered="{ wrapper: true }"
           style="width: 100%"
         >
           <template #columns>
             <a-table-column title="ID" data-index="id" :width="70" align="center" />
-            <a-table-column title="账号名称" data-index="name" :min-width="120" />
-            <a-table-column title="所属网站" :width="120">
+            <a-table-column title="账号名称" data-index="name" :min-width="120" align="center" />
+            <a-table-column title="所属网站" :width="120" align="center">
               <template #cell="{ record }">
                 <template v-if="record.site">
                   {{ record.site.name }}
@@ -45,7 +45,7 @@
                 <a-tag v-else color="orangered" size="small">独立包月</a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="余额" data-index="balance" :width="100" align="right">
+            <a-table-column title="余额" data-index="balance" :width="100" align="center">
               <template #cell="{ record }">
                 <template v-if="isMonthlyAccount(record)">
                   <a-tag color="gray" size="small">包月</a-tag>
@@ -55,7 +55,7 @@
                 </template>
               </template>
             </a-table-column>
-            <a-table-column title="到期时间" data-index="expireAt" :width="150">
+            <a-table-column title="到期时间" data-index="expireAt" :width="150" align="center">
               <template #cell="{ record }">
                 <template v-if="record.expireAt">
                   <span :class="{ expired: isExpired(record.expireAt) }">
@@ -72,7 +72,7 @@
                 </a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="余额更新" data-index="balanceUpdatedAt" :width="150">
+            <a-table-column title="余额更新" data-index="balanceUpdatedAt" :width="170" align="center">
               <template #cell="{ record }">
                 {{ formatDate(record.balanceUpdatedAt) }}
               </template>
@@ -84,12 +84,12 @@
                 </a-tag>
               </template>
             </a-table-column>
-            <a-table-column title="创建时间" data-index="createdAt" :width="150">
+            <a-table-column title="创建时间" data-index="createdAt" :width="170" align="center">
               <template #cell="{ record }">
                 {{ formatDate(record.createdAt) }}
               </template>
             </a-table-column>
-            <a-table-column title="操作" :width="260" fixed="right">
+            <a-table-column title="操作" :width="260" fixed="right" align="center">
               <template #cell="{ record }">
                 <a-space>
                   <a-link @click="handleEdit(record)">编辑</a-link>
