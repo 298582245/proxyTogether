@@ -401,6 +401,19 @@ const handleChangePassword = async () => {
   overscroll-behavior: contain;
 }
 
+.mobile-sidebar :deep(.arco-menu) {
+  background-color: transparent;
+}
+
+.mobile-sidebar :deep(.arco-menu-item) {
+  margin: 4px 8px;
+  border-radius: 4px;
+}
+
+.mobile-sidebar :deep(.arco-menu-item.arco-menu-selected) {
+  background-color: rgb(var(--primary-6));
+}
+
 .header {
   background: #fff;
   box-shadow: 0 1px 4px rgba(0, 21, 41, 0.08);
