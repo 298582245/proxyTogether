@@ -319,16 +319,24 @@ const handleChangePassword = async () => {
   background-color: rgb(var(--primary-6));
 }
 
-/* 折叠状态 - 只显示图标，隐藏文字 */
-.sidebar :deep(.arco-menu-collapsed .arco-menu-item) {
+/* 折叠状态 */
+.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-item) {
+  margin: 4px 6px;
   padding: 0 !important;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.sidebar :deep(.arco-menu-collapsed .arco-menu-item .arco-menu-icon) {
-  margin-right: 0 !important;
+.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-item.arco-menu-selected) {
+  background-color: rgb(var(--primary-6));
 }
 
-.sidebar :deep(.arco-menu-collapsed .arco-menu-title) {
+.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-icon) {
+  margin: 0 !important;
+}
+
+.sidebar :deep(.arco-menu.arco-menu-collapsed .arco-menu-title) {
   display: none !important;
 }
 
@@ -386,48 +394,58 @@ const handleChangePassword = async () => {
   top: 0 !important;
   height: 100% !important;
   width: 220px !important;
-  max-width: 220px !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-wrapper) {
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
   width: 220px !important;
+  height: 100% !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-body) {
-  padding: 0 !important;
-  background-color: #232323 !important;
+  position: fixed !important;
+  left: 0 !important;
+  top: 0 !important;
   width: 220px !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background-color: #232323 !important;
   overflow: hidden !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-content) {
-  padding: 0 !important;
-  background-color: #232323 !important;
   width: 220px !important;
+  height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  background-color: #232323 !important;
   overflow: hidden !important;
 }
 
 /* 移动端菜单样式 */
-.mobile-drawer :deep(.arco-menu) {
-  background-color: transparent;
-  width: 204px !important;
-  margin: 0 auto;
-}
-
-.mobile-drawer :deep(.arco-menu-item) {
-  margin: 4px 0 !important;
-  border-radius: 4px !important;
-}
-
-.mobile-drawer :deep(.arco-menu-item.arco-menu-selected) {
-  background-color: rgb(var(--primary-6)) !important;
-}
-
 .mobile-sidebar {
   width: 220px;
   height: 100%;
   background-color: #232323;
   overflow: hidden;
+}
+
+.mobile-sidebar :deep(.arco-menu) {
+  background-color: transparent;
+  width: 100%;
+  height: calc(100% - 60px);
+}
+
+.mobile-sidebar :deep(.arco-menu-item) {
+  margin: 4px 8px;
+  border-radius: 4px;
+}
+
+.mobile-sidebar :deep(.arco-menu-item.arco-menu-selected) {
+  background-color: rgb(var(--primary-6));
 }
 
 .header {
