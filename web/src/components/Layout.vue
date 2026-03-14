@@ -319,15 +319,17 @@ const handleChangePassword = async () => {
   background-color: rgb(var(--primary-6));
 }
 
-/* 折叠状态下的菜单项样式 */
-.sidebar :deep(.arco-menu-collapsed) .arco-menu-item {
-  margin: 4px 6px;
+/* 折叠状态 - 只显示图标，隐藏文字 */
+.sidebar :deep(.arco-menu-collapsed .arco-menu-item) {
   padding: 0 !important;
-  justify-content: center !important;
 }
 
-.sidebar :deep(.arco-menu-collapsed) .arco-menu-item .arco-icon {
+.sidebar :deep(.arco-menu-collapsed .arco-menu-item .arco-menu-icon) {
   margin-right: 0 !important;
+}
+
+.sidebar :deep(.arco-menu-collapsed .arco-menu-title) {
+  display: none !important;
 }
 
 .logo {
@@ -377,7 +379,7 @@ const handleChangePassword = async () => {
   z-index: 999;
 }
 
-/* 移动端抽屉 - 禁止所有滚动和拖拽 */
+/* 移动端抽屉 */
 .mobile-drawer :deep(.arco-drawer) {
   position: fixed !important;
   left: 0 !important;
@@ -385,16 +387,10 @@ const handleChangePassword = async () => {
   height: 100% !important;
   width: 220px !important;
   max-width: 220px !important;
-  min-width: 220px !important;
-  overflow: hidden !important;
-  touch-action: none !important;
-  overscroll-behavior: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-wrapper) {
   width: 220px !important;
-  overflow: hidden !important;
-  touch-action: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-body) {
@@ -402,8 +398,6 @@ const handleChangePassword = async () => {
   background-color: #232323 !important;
   width: 220px !important;
   overflow: hidden !important;
-  touch-action: none !important;
-  overscroll-behavior: none !important;
 }
 
 .mobile-drawer :deep(.arco-drawer-content) {
@@ -411,20 +405,18 @@ const handleChangePassword = async () => {
   background-color: #232323 !important;
   width: 220px !important;
   overflow: hidden !important;
-  touch-action: none !important;
-  overscroll-behavior: none !important;
 }
 
 /* 移动端菜单样式 */
 .mobile-drawer :deep(.arco-menu) {
   background-color: transparent;
-  width: 100% !important;
+  width: 204px !important;
+  margin: 0 auto;
 }
 
 .mobile-drawer :deep(.arco-menu-item) {
-  margin: 4px 8px !important;
+  margin: 4px 0 !important;
   border-radius: 4px !important;
-  padding: 0 12px !important;
 }
 
 .mobile-drawer :deep(.arco-menu-item.arco-menu-selected) {
@@ -435,8 +427,7 @@ const handleChangePassword = async () => {
   width: 220px;
   height: 100%;
   background-color: #232323;
-  overflow: hidden !important;
-  touch-action: none !important;
+  overflow: hidden;
 }
 
 .header {
