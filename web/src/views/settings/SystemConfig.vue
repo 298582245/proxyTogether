@@ -5,7 +5,7 @@
         <span>系统设置</span>
       </template>
 
-      <el-form :model="form" label-width="150px" v-loading="loading">
+      <el-form :model="form" :label-width="isMobile ? '100px' : '150px'" v-loading="loading">
         <el-divider content-position="left">安全设置</el-divider>
         <el-form-item label="后台密码">
           <el-input v-model="form.admin_password" type="password" show-password placeholder="修改后台登录密码" />
@@ -48,8 +48,10 @@
 
         <el-divider content-position="left">定时任务</el-divider>
         <el-form-item label="余额查询间隔">
-          <el-input-number v-model="form.balance_check_interval" :min="1" :max="1440" />
-          <span style="margin-left: 8px;">分钟</span>
+          <div class="inline-input">
+            <el-input-number v-model="form.balance_check_interval" :min="1" :max="1440" />
+            <span class="input-suffix">分钟</span>
+          </div>
           <div class="form-tip">定时查询所有账号余额的间隔时间</div>
         </el-form-item>
 
@@ -62,12 +64,18 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { getConfig, updateConfig } from '@/api/config'
 import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
 const saving = ref(false)
+
+// 响应式检测
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
 
 const form = reactive({
   admin_password: '',
@@ -139,7 +147,13 @@ const handleSave = async () => {
 }
 
 onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
   loadConfig()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -168,5 +182,37 @@ onMounted(() => {
   color: #909399;
   font-size: 12px;
   margin-top: 4px;
+}
+
+.inline-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.input-suffix {
+  color: #606266;
+  white-space: nowrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .system-config > .el-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  :deep(.el-divider__text) {
+    font-size: 14px;
+  }
+
+  .inline-input {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .input-suffix {
+    margin-left: 0;
+  }
 }
 </style>

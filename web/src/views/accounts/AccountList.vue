@@ -3,26 +3,36 @@
     <el-card shadow="never">
       <!-- 工具栏 -->
       <div class="toolbar">
-        <el-button type="primary" @click="handleAdd">
-          <el-icon><Plus /></el-icon>
-          添加账号
-        </el-button>
-        <el-button @click="handleRefreshAllBalance" :loading="refreshing">
-          刷新所有余额
-        </el-button>
-        <el-select v-model="filters.siteId" placeholder="选择网站" clearable style="width: 150px; margin-left: 12px" @change="loadData">
-          <el-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
-        </el-select>
-        <el-select v-model="filters.status" placeholder="状态" clearable style="width: 120px; margin-left: 12px" @change="loadData">
-          <el-option label="全部" value="" />
-          <el-option label="启用" :value="1" />
-          <el-option label="禁用" :value="0" />
-        </el-select>
-        <el-input v-model="filters.name" placeholder="搜索账号名称" clearable style="width: 200px; margin-left: 12px" @keyup.enter="loadData" />
+        <div class="toolbar-row">
+          <el-button type="primary" @click="handleAdd">
+            <el-icon><Plus /></el-icon>
+            <span class="btn-text">添加账号</span>
+          </el-button>
+          <el-button @click="handleRefreshAllBalance" :loading="refreshing">
+            <span class="btn-text">刷新所有余额</span>
+          </el-button>
+        </div>
+        <div class="toolbar-row">
+          <el-select v-model="filters.siteId" placeholder="选择网站" clearable class="filter-select" @change="loadData">
+            <el-option v-for="site in siteOptions" :key="site.id" :label="site.name" :value="site.id" />
+          </el-select>
+          <el-select v-model="filters.status" placeholder="状态" clearable class="filter-select" @change="loadData">
+            <el-option label="全部" value="" />
+            <el-option label="启用" :value="1" />
+            <el-option label="禁用" :value="0" />
+          </el-select>
+          <el-input v-model="filters.name" placeholder="搜索账号名称" clearable class="filter-input" @keyup.enter="loadData" />
+        </div>
       </div>
 
-      <!-- 表格 -->
-      <el-table :data="tableData" v-loading="loading" stripe style="width: 100%">
+      <!-- 桌面端表格 -->
+      <el-table
+        v-if="!isMobile"
+        :data="tableData"
+        v-loading="loading"
+        stripe
+        style="width: 100%"
+      >
         <el-table-column prop="id" label="ID" width="80" />
         <el-table-column prop="name" label="账号名称" min-width="120" />
         <el-table-column prop="site" label="所属网站" width="120">
@@ -103,6 +113,75 @@
         </el-table-column>
       </el-table>
 
+      <!-- 移动端卡片列表 -->
+      <div v-else class="mobile-card-list" v-loading="loading">
+        <div v-for="item in tableData" :key="item.id" class="mobile-card">
+          <div class="card-header">
+            <span class="card-title">{{ item.name }}</span>
+            <el-tag :type="item.status === 1 ? 'success' : 'danger'" size="small">
+              {{ item.status === 1 ? '启用' : '禁用' }}
+            </el-tag>
+          </div>
+          <div class="card-body">
+            <div class="card-row">
+              <span class="card-label">ID:</span>
+              <span class="card-value">{{ item.id }}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">所属网站:</span>
+              <template v-if="item.site">
+                <span class="card-value">{{ item.site.name }}</span>
+              </template>
+              <el-tag v-else type="warning" size="small">独立包月</el-tag>
+            </div>
+            <div class="card-row">
+              <span class="card-label">余额:</span>
+              <template v-if="isMonthlyAccount(item)">
+                <el-tag type="info" size="small">包月</el-tag>
+              </template>
+              <template v-else>
+                <span :class="{ 'low-balance': Number(item.balance) < 10 }">{{ Number(item.balance || 0).toFixed(2) }}</span>
+              </template>
+            </div>
+            <div class="card-row" v-if="item.expireAt">
+              <span class="card-label">到期时间:</span>
+              <span class="card-value" :class="{ expired: isExpired(item.expireAt) }">{{ formatDate(item.expireAt) }}</span>
+            </div>
+            <div class="card-row">
+              <span class="card-label">失败次数:</span>
+              <el-tag :type="item.failCount >= 3 ? 'danger' : item.failCount > 0 ? 'warning' : 'success'" size="small">
+                {{ item.failCount }}
+              </el-tag>
+            </div>
+            <div class="card-row">
+              <span class="card-label">更新时间:</span>
+              <span class="card-value">{{ formatDate(item.balanceUpdatedAt) }}</span>
+            </div>
+          </div>
+          <div class="card-actions">
+            <el-button type="primary" size="small" @click="handleEdit(item)">编辑</el-button>
+            <el-button
+              v-if="!isMonthlyAccount(item)"
+              type="success"
+              size="small"
+              @click="handleRefreshBalance(item)"
+              :loading="item.refreshing"
+            >
+              刷新
+            </el-button>
+            <el-button
+              :type="item.status === 1 ? 'warning' : 'success'"
+              size="small"
+              @click="handleToggleStatus(item)"
+            >
+              {{ item.status === 1 ? '禁用' : '启用' }}
+            </el-button>
+            <el-button type="danger" size="small" @click="handleDelete(item)">删除</el-button>
+          </div>
+        </div>
+        <el-empty v-if="!loading && tableData.length === 0" description="暂无数据" />
+      </div>
+
       <!-- 分页 -->
       <div class="pagination">
         <el-pagination
@@ -110,7 +189,8 @@
           v-model:page-size="pagination.pageSize"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
-          layout="total, sizes, prev, pager, next, jumper"
+          :layout="isMobile ? 'total, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
+          :small="isMobile"
           @size-change="loadData"
           @current-change="loadData"
         />
@@ -118,8 +198,13 @@
     </el-card>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="dialog.visible" :title="dialog.isEdit ? '编辑账号' : '添加账号'" width="650px" destroy-on-close>
-      <el-form :model="dialog.form" :rules="dialog.rules" ref="formRef" label-width="100px">
+    <el-dialog
+      v-model="dialog.visible"
+      :title="dialog.isEdit ? '编辑账号' : '添加账号'"
+      :width="isMobile ? '95%' : '650px'"
+      destroy-on-close
+    >
+      <el-form :model="dialog.form" :rules="dialog.rules" ref="formRef" :label-width="isMobile ? '90px' : '100px'">
         <el-form-item label="账号类型">
           <el-radio-group v-model="dialog.form.accountType" @change="handleAccountTypeChange">
             <el-radio value="site">关联网站</el-radio>
@@ -267,7 +352,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { getAccountList, getAccountDetail, createAccount, updateAccount, deleteAccount, toggleAccountStatus, refreshAccountBalance, refreshAllBalance } from '@/api/account'
 import { getAllActiveSites, getSiteParamHints } from '@/api/site'
 import { formatDateTimeForApi, formatLocalizedDateTime, parseLocalDateTime } from '@/utils/date'
@@ -279,6 +364,12 @@ const refreshing = ref(false)
 const tableData = ref([])
 const siteOptions = ref([])
 const formRef = ref(null)
+
+// 响应式检测
+const isMobile = ref(false)
+const checkMobile = () => {
+  isMobile.value = window.innerWidth < 768
+}
 
 const filters = reactive({
   siteId: '',
@@ -690,8 +781,14 @@ const handleRefreshAllBalance = async () => {
 }
 
 onMounted(() => {
+  checkMobile()
+  window.addEventListener('resize', checkMobile)
   loadSites()
   loadData()
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', checkMobile)
 })
 </script>
 
@@ -725,10 +822,24 @@ onMounted(() => {
 .toolbar {
   margin-bottom: 16px;
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 12px;
   flex-shrink: 0;
+}
+
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 8px 0;
+}
+
+.filter-select {
+  width: 140px;
+}
+
+.filter-input {
+  width: 180px;
 }
 
 .pagination {
@@ -744,6 +855,14 @@ onMounted(() => {
   margin-top: 4px;
 }
 
+.param-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
 .low-balance {
   color: #F56C6C;
   font-weight: bold;
@@ -751,5 +870,112 @@ onMounted(() => {
 
 .expired {
   color: #F56C6C;
+}
+
+/* 移动端卡片样式 */
+.mobile-card-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.mobile-card {
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06);
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-label {
+  color: #909399;
+  font-size: 13px;
+  min-width: 70px;
+  flex-shrink: 0;
+}
+
+.card-value {
+  color: #606266;
+  font-size: 13px;
+  word-break: break-all;
+}
+
+.card-actions {
+  display: flex;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid #ebeef5;
+  flex-wrap: wrap;
+}
+
+.card-actions .el-button {
+  flex: 1;
+  min-width: 60px;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .toolbar-row {
+    width: 100%;
+  }
+
+  .toolbar-row .el-button {
+    flex: 1;
+  }
+
+  .filter-select,
+  .filter-input {
+    width: 100%;
+  }
+
+  .pagination {
+    overflow-x: auto;
+    justify-content: center;
+  }
+
+  .param-item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .param-item .el-input {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-bottom: 8px;
+  }
+
+  .param-item .el-button {
+    align-self: flex-start;
+  }
 }
 </style>

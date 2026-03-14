@@ -74,10 +74,12 @@ const handleLogin = async () => {
   justify-content: center;
   align-items: center;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 20px;
 }
 
 .login-box {
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
   padding: 40px;
   background: #fff;
   border-radius: 8px;
@@ -89,5 +91,18 @@ const handleLogin = async () => {
   margin-bottom: 30px;
   color: #333;
   font-size: 24px;
+}
+
+/* 移动端适配 */
+@media (max-width: 480px) {
+  .login-box {
+    padding: 24px 20px;
+    border-radius: 12px;
+  }
+
+  .title {
+    font-size: 20px;
+    margin-bottom: 24px;
+  }
 }
 </style>

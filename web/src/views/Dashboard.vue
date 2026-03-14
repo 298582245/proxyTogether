@@ -2,7 +2,7 @@
   <div class="dashboard">
     <!-- 统计卡片 - 第一行 -->
     <el-row :gutter="16" class="stat-cards">
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #409EFF">
@@ -15,7 +15,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #67C23A">
@@ -28,7 +28,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #E6A23C">
@@ -41,7 +41,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #F56C6C">
@@ -54,7 +54,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #909399">
@@ -67,7 +67,7 @@
           </div>
         </el-card>
       </el-col>
-      <el-col :span="4">
+      <el-col :xs="12" :sm="8" :md="6" :lg="4">
         <el-card shadow="hover" class="stat-card-wrap">
           <div class="stat-card">
             <div class="stat-icon" style="background: #9C27B0">
@@ -84,13 +84,18 @@
 
     <!-- 快捷操作 -->
     <div class="quick-actions-bar">
-      <el-button type="primary" size="small" @click="handleRefreshBalance" :loading="refreshing">
-        刷新余额
-      </el-button>
-      <el-button size="small" @click="copyProxyUrl">
-        复制接口
-      </el-button>
-      <span class="proxy-url">代理接口：<code>{{ proxyUrl }}</code></span>
+      <div class="action-buttons">
+        <el-button type="primary" size="small" @click="handleRefreshBalance" :loading="refreshing">
+          刷新余额
+        </el-button>
+        <el-button size="small" @click="copyProxyUrl">
+          复制接口
+        </el-button>
+      </div>
+      <span class="proxy-url">
+        <span class="proxy-label">代理接口：</span>
+        <code>{{ proxyUrl }}</code>
+      </span>
     </div>
 
     <!-- 图表区域 -->
@@ -341,6 +346,7 @@ onUnmounted(() => {
 .stat-info {
   margin-left: 12px;
   min-width: 0;
+  flex: 1;
 }
 
 .stat-value {
@@ -367,12 +373,26 @@ onUnmounted(() => {
   border-radius: 8px;
   box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
 }
 
 .quick-actions-bar .proxy-url {
   margin-left: auto;
   color: #909399;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.quick-actions-bar .proxy-label {
+  white-space: nowrap;
 }
 
 .quick-actions-bar .proxy-url code {
@@ -381,6 +401,7 @@ onUnmounted(() => {
   border-radius: 4px;
   font-size: 13px;
   color: #606266;
+  word-break: break-all;
 }
 
 .chart-card {
@@ -407,12 +428,15 @@ onUnmounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .chart-title {
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-wrap: wrap;
 }
 
 .chart-summary {
@@ -424,5 +448,88 @@ onUnmounted(() => {
 .chart-container {
   flex: 1;
   min-height: 0;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .stat-cards {
+    margin: 0 -8px;
+  }
+
+  .stat-cards :deep(.el-col) {
+    margin-bottom: 12px;
+  }
+
+  .stat-card-wrap :deep(.el-card__body) {
+    padding: 10px 12px;
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .stat-icon :deep(.el-icon) {
+    font-size: 16px;
+  }
+
+  .stat-value {
+    font-size: 16px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+  }
+
+  .quick-actions-bar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .action-buttons {
+    width: 100%;
+  }
+
+  .action-buttons .el-button {
+    flex: 1;
+  }
+
+  .quick-actions-bar .proxy-url {
+    width: 100%;
+    margin-left: 0;
+    font-size: 12px;
+  }
+
+  .quick-actions-bar .proxy-url code {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+
+  .chart-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .chart-title {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .chart-summary {
+    font-size: 12px;
+  }
+
+  :deep(.el-radio-group) {
+    width: 100%;
+  }
+
+  :deep(.el-radio-button) {
+    flex: 1;
+  }
+
+  :deep(.el-radio-button__inner) {
+    width: 100%;
+  }
 }
 </style>
