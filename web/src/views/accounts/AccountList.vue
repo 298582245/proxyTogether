@@ -868,7 +868,12 @@ onUnmounted(() => {
 }
 
 .filter-select-auto {
-  width: fit-content;
+  width: fit-content !important;
+  min-width: 80px;
+}
+
+.filter-select-auto :deep(.arco-select-view) {
+  width: fit-content !important;
 }
 
 .filter-input {

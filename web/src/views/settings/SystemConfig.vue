@@ -167,6 +167,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .system-config > :deep(.arco-card) {
@@ -174,6 +175,7 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  height: 100%;
 }
 
 .system-config > :deep(.arco-card-body) {
@@ -181,7 +183,8 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: auto;
+  height: 100%;
+  overflow-y: auto;
 }
 
 .config-form {
