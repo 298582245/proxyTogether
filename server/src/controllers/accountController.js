@@ -53,7 +53,7 @@ const getList = async (req, res) => {
     let successCounts = {};
 
     if (accountIds.length > 0) {
-      const [results] = await sequelize.query(`
+      const results = await sequelize.query(`
         SELECT account_id, COUNT(*) as success_count
         FROM proxy_logs
         WHERE account_id IN (:accountIds) AND success = 1
