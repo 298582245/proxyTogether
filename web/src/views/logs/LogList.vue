@@ -151,6 +151,8 @@
           :show-jumper="!isMobile"
           :show-page-size="!isMobile"
           :size="isMobile ? 'mini' : 'medium'"
+          :simple="isMobile"
+          :max-count="isMobile ? 5 : 7"
           @change="loadData"
           @page-size-change="loadData"
         />
@@ -472,6 +474,28 @@ onUnmounted(() => {
   display: flex;
   justify-content: flex-end;
   flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.pagination :deep(.arco-pagination) {
+  flex-wrap: wrap;
+}
+
+/* 移动端分页器适配 */
+@media (max-width: 768px) {
+  .pagination {
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  .pagination :deep(.arco-pagination) {
+    justify-content: center;
+  }
+
+  .pagination :deep(.arco-pagination-item) {
+    min-width: 28px;
+    height: 28px;
+  }
 }
 
 .response-preview {
