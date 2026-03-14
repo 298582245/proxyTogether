@@ -380,7 +380,9 @@ const handleChangePassword = async () => {
 
 .mobile-drawer :deep(.arco-drawer-body) {
   padding: 0 !important;
+  margin: 0 !important;
   background: #232323 !important;
+  overflow: hidden !important;
 }
 
 .mobile-menu-wrapper {
