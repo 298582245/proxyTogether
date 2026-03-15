@@ -7,15 +7,11 @@
           <a-statistic title="今日请求" :value="overview.today.requests" :show-group-separator="true">
             <template #suffix>
               <span class="stat-suffix">次</span>
+              <span v-if="overview.yesterday.requests > 0" class="stat-compare-inline" :class="overview.today.requests >= overview.yesterday.requests ? 'up' : 'down'">
+                {{ overview.today.requests >= overview.yesterday.requests ? '↑' : '↓' }}{{ Math.abs(overview.today.requests - overview.yesterday.requests) }}
+              </span>
             </template>
           </a-statistic>
-          <div class="stat-compare" v-if="overview.yesterday.requests > 0">
-            <span :class="overview.today.requests >= overview.yesterday.requests ? 'up' : 'down'">
-              {{ overview.today.requests >= overview.yesterday.requests ? '↑' : '↓' }}
-              {{ Math.abs(overview.today.requests - overview.yesterday.requests) }}
-            </span>
-            <span class="compare-label">较昨日</span>
-          </div>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
@@ -23,11 +19,11 @@
           <a-statistic title="今日成功" :value="overview.today.successCount" :show-group-separator="true">
             <template #suffix>
               <span class="stat-suffix">次</span>
+              <span class="stat-rate-inline">
+                {{ overview.today.requests > 0 ? ((overview.today.successCount / overview.today.requests) * 100).toFixed(1) : 0 }}%
+              </span>
             </template>
           </a-statistic>
-          <div class="stat-rate">
-            成功率: {{ overview.today.requests > 0 ? ((overview.today.successCount / overview.today.requests) * 100).toFixed(1) : 0 }}%
-          </div>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
@@ -560,27 +556,24 @@ onUnmounted(() => {
   color: var(--color-text-3);
 }
 
-.stat-compare {
-  margin-top: 8px;
+.stat-compare-inline {
+  margin-left: 8px;
   font-size: 12px;
+  font-weight: normal;
 }
 
-.stat-compare .up {
+.stat-compare-inline.up {
   color: #00B42A;
 }
 
-.stat-compare .down {
+.stat-compare-inline.down {
   color: #F53F3F;
 }
 
-.compare-label {
-  color: var(--color-text-3);
-  margin-left: 4px;
-}
-
-.stat-rate {
-  margin-top: 8px;
+.stat-rate-inline {
+  margin-left: 8px;
   font-size: 12px;
+  font-weight: normal;
   color: var(--color-text-3);
 }
 
