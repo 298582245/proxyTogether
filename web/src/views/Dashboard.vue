@@ -94,7 +94,16 @@
       </div>
       <span class="proxy-url">
         <span class="proxy-label">代理接口：</span>
-        <code>{{ proxyUrl }}</code>
+        <code>
+          <span v-if="showDomain">{{ proxyUrl }}</span>
+          <span v-else>{{ maskedProxyUrl }}</span>
+        </code>
+        <a-button type="text" size="mini" class="toggle-visibility" @click="showDomain = !showDomain">
+          <template #icon>
+            <icon-eye v-if="!showDomain" />
+            <icon-eye-invisible v-else />
+          </template>
+        </a-button>
       </span>
     </div>
 
@@ -134,7 +143,9 @@ import {
   IconCheckCircle,
   IconCloseCircle,
   IconStorage,
-  IconFire
+  IconFire,
+  IconEye,
+  IconEyeInvisible
 } from '@arco-design/web-vue/es/icon'
 import * as echarts from 'echarts'
 
@@ -163,9 +174,24 @@ const chartSummary = computed(() => {
 
 const refreshing = ref(false)
 const proxyUrl = ref(`${window.location.origin}/api/proxy/get?times=1&format=txt`)
+const showDomain = ref(false)
 const chartType = ref('week')
 const chartRef = ref(null)
 let chartInstance = null
+
+// 隐藏域名的代理地址
+const maskedProxyUrl = computed(() => {
+  try {
+    const url = new URL(proxyUrl.value)
+    const host = url.host
+    const maskedHost = host.length > 8
+      ? host.slice(0, 4) + '****' + host.slice(-4)
+      : '****'
+    return proxyUrl.value.replace(host, maskedHost)
+  } catch {
+    return '****/api/proxy/get?times=1&format=txt'
+  }
+})
 
 const loadStats = async () => {
   try {
@@ -428,6 +454,18 @@ onUnmounted(() => {
   font-size: 13px;
   color: var(--color-text-2);
   word-break: break-all;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.quick-actions-bar .toggle-visibility {
+  padding: 2px;
+  margin-left: 4px;
+}
+
+.quick-actions-bar .toggle-visibility :deep(.arco-icon) {
+  font-size: 14px;
 }
 
 .chart-card {
