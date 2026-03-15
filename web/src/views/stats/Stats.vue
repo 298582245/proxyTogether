@@ -72,12 +72,10 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-tooltip
-            :content="`${overview.week.requests.toLocaleString()} 次`"
-          >
-            <a-statistic title="本周请求">
-              <template #value>
-                <span>{{ formatCount(overview.week.requests) }}</span>
+          <a-tooltip :content="`${overview.week.requests.toLocaleString()} 次`">
+            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)">
+              <template #suffix>
+                <span class="stat-suffix">{{ getStatSuffix(overview.week.requests) }}</span>
               </template>
             </a-statistic>
           </a-tooltip>
@@ -88,9 +86,9 @@
           <a-tooltip
             :content="`${overview.month.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="本月请求">
-              <template #value>
-                <span>{{ formatCount(overview.month.requests) }}</span>
+            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)">
+              <template #suffix>
+                <span class="stat-suffix">{{ getStatSuffix(overview.month.requests) }}</span>
               </template>
             </a-statistic>
           </a-tooltip>
@@ -101,9 +99,9 @@
           <a-tooltip
             :content="`${overview.total.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="累计请求">
-              <template #value>
-                <span>{{ formatCount(overview.total.requests) }}</span>
+            <a-statistic title="累计请求" :value="getStatValue(overview.total.requests)">
+              <template #suffix>
+                <span class="stat-suffix">{{ getStatSuffix(overview.total.requests) }}</span>
               </template>
             </a-statistic>
           </a-tooltip>
@@ -540,6 +538,22 @@ const formatCount = (count) => {
   if (count < 100000) return (count / 10000).toFixed(2) + "w";
   if (count < 100000000) return Math.floor(count / 10000) + "w";
   return "1亿+";
+};
+
+// 获取统计数字的数值部分（用于 a-statistic 的 value）
+const getStatValue = (count) => {
+  if (count === 0) return 0;
+  if (count < 10000) return count;
+  if (count < 100000000) return parseFloat((count / 10000).toFixed(2));
+  return parseFloat((count / 100000000).toFixed(2));
+};
+
+// 获取统计数字的后缀部分
+const getStatSuffix = (count) => {
+  if (count === 0) return "次";
+  if (count < 10000) return "次";
+  if (count < 100000000) return "w次";
+  return "亿次";
 };
 
 // 加载概览数据
