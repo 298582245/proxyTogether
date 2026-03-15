@@ -354,17 +354,19 @@ const getHourlyDistribution = async (req, res) => {
 
     const cacheKey = `${STATS_CACHE_PREFIX}hourly_distribution:${type}`;
     const data = await getWithCache(cacheKey, CACHE_TTL.realtime, async () => {
+      // 使用 CONVERT_TZ 函数将 UTC 时间转换为中国时区（+8小时）
+      // 然后提取小时
       const results = await ProxyLog.findAll({
         attributes: [
-          [sequelize.fn('HOUR', sequelize.col('created_at')), 'hour'],
+          [sequelize.literal('HOUR(CONVERT_TZ(created_at, "+00:00", "+08:00"))'), 'hour'],
           [sequelize.fn('COUNT', sequelize.col('id')), 'requests'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
         ],
         where: {
           created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
         },
-        group: [sequelize.fn('HOUR', sequelize.col('created_at'))],
-        order: [[sequelize.fn('HOUR', sequelize.col('created_at')), 'ASC']],
+        group: [sequelize.literal('HOUR(CONVERT_TZ(created_at, "+00:00", "+08:00"))')],
+        order: [[sequelize.literal('HOUR(CONVERT_TZ(created_at, "+00:00", "+08:00"))'), 'ASC']],
         raw: true,
       });
 
@@ -699,7 +701,9 @@ const getRemarkRequestRanking = async (req, res) => {
 
     const cacheKey = `${STATS_CACHE_PREFIX}remark_request_ranking:${type}:${limitNum}`;
     const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
-      const whereClause = {};
+      const whereClause = {
+        remark: { [Op.ne]: null }, // 只统计有备注的记录
+      };
       if (startDate && endDate) {
         whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
       }
@@ -718,7 +722,7 @@ const getRemarkRequestRanking = async (req, res) => {
         raw: true,
       });
 
-      // 获取总计
+      // 获取总计（只统计有备注的）
       const totalResult = await ProxyLog.findOne({
         attributes: [
           [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
@@ -762,6 +766,7 @@ const getRemarkCostRanking = async (req, res) => {
     const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
       const whereClause = {
         success: 1, // 只统计成功的请求
+        remark: { [Op.ne]: null }, // 只统计有备注的记录
       };
       if (startDate && endDate) {
         whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
@@ -780,7 +785,7 @@ const getRemarkCostRanking = async (req, res) => {
         raw: true,
       });
 
-      // 获取总计
+      // 获取总计（只统计有备注的）
       const totalResult = await ProxyLog.findOne({
         attributes: [
           [sequelize.fn('SUM', sequelize.col('cost')), 'totalCost'],

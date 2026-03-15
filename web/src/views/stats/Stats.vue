@@ -72,41 +72,59 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic
-            title="本周请求"
-            :value="overview.week.requests"
-            :show-group-separator="true"
+          <a-tooltip
+            :content="`本周请求: ${overview.week.requests.toLocaleString()} 次`"
           >
-            <template #suffix>
-              <span class="stat-suffix">次</span>
-            </template>
-          </a-statistic>
+            <a-statistic
+              title="本周请求"
+              :value="formatOverviewNumber(overview.week.requests)"
+              :show-group-separator="false"
+            >
+              <template #suffix>
+                <span class="stat-suffix">{{
+                  formatOverviewSuffix(overview.week.requests)
+                }}</span>
+              </template>
+            </a-statistic>
+          </a-tooltip>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic
-            title="本月请求"
-            :value="overview.month.requests"
-            :show-group-separator="true"
+          <a-tooltip
+            :content="`本月请求: ${overview.month.requests.toLocaleString()} 次`"
           >
-            <template #suffix>
-              <span class="stat-suffix">次</span>
-            </template>
-          </a-statistic>
+            <a-statistic
+              title="本月请求"
+              :value="formatOverviewNumber(overview.month.requests)"
+              :show-group-separator="false"
+            >
+              <template #suffix>
+                <span class="stat-suffix">{{
+                  formatOverviewSuffix(overview.month.requests)
+                }}</span>
+              </template>
+            </a-statistic>
+          </a-tooltip>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic
-            title="累计请求"
-            :value="overview.total.requests"
-            :show-group-separator="true"
+          <a-tooltip
+            :content="`累计请求: ${overview.total.requests.toLocaleString()} 次`"
           >
-            <template #suffix>
-              <span class="stat-suffix">次</span>
-            </template>
-          </a-statistic>
+            <a-statistic
+              title="累计请求"
+              :value="formatOverviewNumber(overview.total.requests)"
+              :show-group-separator="false"
+            >
+              <template #suffix>
+                <span class="stat-suffix">{{
+                  formatOverviewSuffix(overview.total.requests)
+                }}</span>
+              </template>
+            </a-statistic>
+          </a-tooltip>
         </a-card>
       </a-col>
     </a-row>
@@ -329,8 +347,8 @@
           <template #title>
             <div class="card-header">
               <span>备注请求排行</span>
-              <span class="total-text"
-                >共 {{ formatCount(remarkRequestTotal) }} 次</span
+              <span class="total-text hidden-mobile"
+                >{{ formatCount(remarkRequestTotal) }} 次</span
               >
             </div>
           </template>
@@ -368,7 +386,7 @@
                   </a-tag>
                 </template>
               </a-table-column>
-              <a-table-column title="备注" :width="120">
+              <a-table-column title="备注" :width="80">
                 <template #cell="{ record }">
                   <a-tooltip :content="record.remark || '-'">
                     <span class="ellipsis-text">{{
@@ -377,7 +395,7 @@
                   </a-tooltip>
                 </template>
               </a-table-column>
-              <a-table-column title="总请求" :width="80" align="right">
+              <a-table-column title="总请求" :width="100" align="right">
                 <template #cell="{ record }">
                   <span>{{ formatCount(record.totalRequests) }}</span>
                 </template>
@@ -405,8 +423,8 @@
           <template #title>
             <div class="card-header">
               <span>备注消费排行</span>
-              <span class="total-text"
-                >共 ¥{{ formatCost(remarkCostTotal) }}</span
+              <span class="total-text hidden-mobile"
+                >¥{{ formatCost(remarkCostTotal) }}</span
               >
             </div>
           </template>
@@ -540,6 +558,20 @@ const formatCount = (count) => {
   if (count < 100000) return (count / 10000).toFixed(2) + "w";
   if (count < 100000000) return Math.floor(count / 10000) + "w";
   return "1亿+";
+};
+
+// 概览卡片数字格式化（用于显示的值）
+const formatOverviewNumber = (count) => {
+  if (count < 10000) return count;
+  if (count < 100000000) return Math.floor(count / 10000);
+  return Math.floor(count / 100000000);
+};
+
+// 概览卡片后缀格式化
+const formatOverviewSuffix = (count) => {
+  if (count < 10000) return "次";
+  if (count < 100000000) return "w次";
+  return "亿次";
 };
 
 // 加载概览数据
@@ -942,6 +974,10 @@ onUnmounted(() => {
 
   .chart-container {
     min-height: 200px;
+  }
+
+  .hidden-mobile {
+    display: none !important;
   }
 }
 </style>

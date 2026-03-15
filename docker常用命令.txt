@@ -1,0 +1,6 @@
+# 进入MySQL容器执行SQL
+docker exec -i proxy-together-mysql mysql -uroot -proot123456 proxy_together < server/sqls/v2_add_remark.sql
+docker exec -i proxy-together-mysql mysql -uroot -proot123456 proxy_together < server/sqls/v3_account_usage_limits.sql
+
+#全部重新构建并启动
+docker-compose up -d --build
