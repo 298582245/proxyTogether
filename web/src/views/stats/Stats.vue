@@ -86,6 +86,7 @@
           <template #title>
             <div class="card-header">
               <span>网站请求分布</span>
+              <span class="total-text">共 {{ siteTotal }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -107,6 +108,7 @@
           <template #title>
             <div class="card-header">
               <span>成功排行</span>
+              <span class="total-text">共 {{ successTotal }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -118,21 +120,35 @@
           </template>
           <a-table :data="successRanking" :pagination="false" :bordered="false" size="small">
             <template #columns>
-              <a-table-column title="排名" :width="60" align="center">
+              <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
                   <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
                     {{ rowIndex + 1 }}
                   </a-tag>
                 </template>
               </a-table-column>
-              <a-table-column title="账号" data-index="accountName" :ellipsis="true" :tooltip="true" />
-              <a-table-column title="网站" data-index="siteName" :width="100" :ellipsis="true" :tooltip="true" />
-              <a-table-column title="成功数" data-index="successCount" :width="80" align="right">
+              <a-table-column title="账号" :width="100">
                 <template #cell="{ record }">
-                  <span class="success-num">{{ record.successCount }}</span>
+                  <a-tooltip :content="record.accountName">
+                    <span class="ellipsis-text">{{ record.accountName }}</span>
+                  </a-tooltip>
                 </template>
               </a-table-column>
-              <a-table-column title="成功率" :width="80" align="right">
+              <a-table-column title="网站" :width="70">
+                <template #cell="{ record }">
+                  <a-tooltip :content="record.siteName">
+                    <span class="ellipsis-text">{{ record.siteName }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="成功数" :width="90" align="right">
+                <template #cell="{ record }">
+                  <a-tooltip :content="`成功次数: ${record.successCount}`">
+                    <span class="success-num">{{ formatCount(record.successCount) }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="成功率" :width="85" align="right">
                 <template #cell="{ record }">
                   <span :class="parseFloat(record.successRate) >= 90 ? 'rate-good' : parseFloat(record.successRate) >= 70 ? 'rate-normal' : 'rate-bad'">
                     {{ record.successRate }}%
@@ -148,6 +164,7 @@
           <template #title>
             <div class="card-header">
               <span>失败排行</span>
+              <span class="total-text">共 {{ failTotal }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -159,19 +176,33 @@
           </template>
           <a-table :data="failRanking" :pagination="false" :bordered="false" size="small">
             <template #columns>
-              <a-table-column title="排名" :width="60" align="center">
+              <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
                   <span class="fail-rank">{{ rowIndex + 1 }}</span>
                 </template>
               </a-table-column>
-              <a-table-column title="账号" data-index="accountName" :ellipsis="true" :tooltip="true" />
-              <a-table-column title="请求数" data-index="totalRequests" :width="80" align="right" />
-              <a-table-column title="失败数" data-index="failCount" :width="80" align="right">
+              <a-table-column title="账号" :width="100">
                 <template #cell="{ record }">
-                  <span class="fail-num">{{ record.failCount }}</span>
+                  <a-tooltip :content="record.accountName">
+                    <span class="ellipsis-text">{{ record.accountName }}</span>
+                  </a-tooltip>
                 </template>
               </a-table-column>
-              <a-table-column title="连续失败" :width="80" align="right">
+              <a-table-column title="请求数" :width="80" align="right">
+                <template #cell="{ record }">
+                  <a-tooltip :content="`请求数: ${record.totalRequests}`">
+                    <span>{{ formatCount(record.totalRequests) }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="失败数" :width="80" align="right">
+                <template #cell="{ record }">
+                  <a-tooltip :content="`失败数: ${record.failCount}`">
+                    <span class="fail-num">{{ formatCount(record.failCount) }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="连续" :width="60" align="right">
                 <template #cell="{ record }">
                   <a-tag v-if="record.currentFailCount >= 3" color="red" size="small">
                     {{ record.currentFailCount }}
@@ -263,7 +294,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   getStatsOverview,
   getAccountSuccessRanking,
@@ -300,6 +331,12 @@ const failType = ref('today')
 // 排行数据
 const successRanking = ref([])
 const failRanking = ref([])
+const siteDistribution = ref([])
+
+// 计算总数
+const successTotal = computed(() => successRanking.value.reduce((sum, item) => sum + (item.successCount || 0), 0))
+const failTotal = computed(() => failRanking.value.reduce((sum, item) => sum + (item.failCount || 0), 0))
+const siteTotal = computed(() => siteDistribution.value.reduce((sum, item) => sum + (item.totalRequests || 0), 0))
 
 // 异常监控数据
 const abnormalAccounts = ref([])
@@ -311,6 +348,16 @@ const hourlyChartRef = ref(null)
 const siteChartRef = ref(null)
 let hourlyChart = null
 let siteChart = null
+
+// 数字格式化函数
+const formatCount = (count) => {
+  if (count === 0) return '0'
+  if (count < 1000) return count.toString()
+  if (count < 10000) return (count / 1000).toFixed(2) + 'k'
+  if (count < 100000) return (count / 10000).toFixed(2) + 'w'
+  if (count < 100000000) return Math.floor(count / 10000) + 'w'
+  return '1亿+'
+}
 
 // 加载概览数据
 const loadOverview = async () => {
@@ -346,6 +393,7 @@ const loadFailRanking = async () => {
 const loadSiteData = async () => {
   try {
     const res = await getSiteDistribution({ type: siteType.value })
+    siteDistribution.value = res.data
     renderSiteChart(res.data)
   } catch (error) {
     console.error('加载网站分布失败:', error)
@@ -537,6 +585,8 @@ onUnmounted(() => {
   gap: 16px;
   min-height: 0;
   overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .overview-cards {
@@ -608,8 +658,21 @@ onUnmounted(() => {
   gap: 8px;
 }
 
+.total-text {
+  font-size: 12px;
+  color: var(--color-text-3);
+  font-weight: normal;
+}
+
 .ranking-card :deep(.arco-card-body) {
   padding: 12px;
+}
+
+.ellipsis-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .success-num {
