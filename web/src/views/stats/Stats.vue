@@ -562,14 +562,18 @@ const formatCount = (count) => {
 
 // 概览卡片数字格式化（用于显示的值）
 const formatOverviewNumber = (count) => {
-  if (count < 10000) return count;
-  if (count < 100000000) return Math.floor(count / 10000);
-  return Math.floor(count / 100000000);
+  if (count === 0) return 0;
+  if (count < 1000) return count;
+  if (count < 10000) return (count / 1000).toFixed(2);
+  if (count < 100000000) return (count / 10000).toFixed(2);
+  return (count / 100000000).toFixed(2);
 };
 
 // 概览卡片后缀格式化
 const formatOverviewSuffix = (count) => {
-  if (count < 10000) return "次";
+  if (count === 0) return "次";
+  if (count < 1000) return "次";
+  if (count < 10000) return "k次";
   if (count < 100000000) return "w次";
   return "亿次";
 };
