@@ -75,12 +75,10 @@
           <a-tooltip
             :content="`本周请求: ${overview.week.requests.toLocaleString()} 次`"
           >
-            <a-statistic
-              title="本周请求"
-              :value="formatCount(overview.week.requests)"
-              :show-group-separator="false"
-            >
-            </a-statistic>
+            <div class="stat-item">
+              <div class="stat-title">本周请求</div>
+              <div class="stat-value">{{ formatCount(overview.week.requests) }}</div>
+            </div>
           </a-tooltip>
         </a-card>
       </a-col>
@@ -89,12 +87,10 @@
           <a-tooltip
             :content="`本月请求: ${overview.month.requests.toLocaleString()} 次`"
           >
-            <a-statistic
-              title="本月请求"
-              :value="formatCount(overview.month.requests)"
-              :show-group-separator="false"
-            >
-            </a-statistic>
+            <div class="stat-item">
+              <div class="stat-title">本月请求</div>
+              <div class="stat-value">{{ formatCount(overview.month.requests) }}</div>
+            </div>
           </a-tooltip>
         </a-card>
       </a-col>
@@ -103,12 +99,10 @@
           <a-tooltip
             :content="`累计请求: ${overview.total.requests.toLocaleString()} 次`"
           >
-            <a-statistic
-              title="累计请求"
-              :value="formatCount(overview.total.requests)"
-              :show-group-separator="false"
-            >
-            </a-statistic>
+            <div class="stat-item">
+              <div class="stat-title">累计请求</div>
+              <div class="stat-value">{{ formatCount(overview.total.requests) }}</div>
+            </div>
           </a-tooltip>
         </a-card>
       </a-col>
@@ -820,6 +814,24 @@ onUnmounted(() => {
 
 .stat-card :deep(.arco-card-body) {
   padding: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-title {
+  font-size: 14px;
+  color: var(--color-text-3);
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 500;
+  color: var(--color-text-1);
+  font-family: Arimo, sans-serif;
 }
 
 .stat-suffix {
