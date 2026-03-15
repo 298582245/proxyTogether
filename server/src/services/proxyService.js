@@ -3,6 +3,7 @@ const Account = require('../models/Account');
 const SystemConfig = require('../models/SystemConfig');
 const ProxyLog = require('../models/ProxyLog');
 const cacheService = require('../services/cacheService');
+const usageLimitService = require('../services/usageLimitService');
 const { get, buildUrl } = require('../utils/http');
 const logger = require('../utils/logger');
 
@@ -417,8 +418,41 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
   // 合并：包月账号优先，然后是余额账号
   const accountsWithBalance = [...monthlyAccounts, ...balanceAccounts];
 
+  // 过滤掉已达到使用限制的账号
+  const availableAccountsWithLimitCheck = [];
+  for (const item of accountsWithBalance) {
+    const limitCheck = await usageLimitService.checkUsageLimit(item.account.id);
+    if (!limitCheck.limited) {
+      availableAccountsWithLimitCheck.push(item);
+    } else {
+      logger.info(`账号 ${item.account.name} 已达到使用限制: ${limitCheck.reason}，跳过`);
+    }
+  }
+
+  if (availableAccountsWithLimitCheck.length === 0) {
+    // 记录无可用账号的日志
+    await logProxyRequest({
+      accountId: null,
+      siteId: null,
+      clientIp,
+      duration: durationValue,
+      format,
+      success: false,
+      cost: 0,
+      errorMessage: '所有可用账号都已达到使用限制',
+      responsePreview: null,
+      remark,
+    });
+
+    return {
+      success: false,
+      message: '所有可用账号都已达到使用限制',
+      data: null,
+    };
+  }
+
   // 选择第一个账号
-  const { account, balance, site } = accountsWithBalance[0];
+  const { account, balance, site } = availableAccountsWithLimitCheck[0];
   const isMonthly = isMonthlyAccount(account, site);
 
   // 计算消费金额（包月账号不扣费）
@@ -482,6 +516,9 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
 
     // 成功，重置失败次数
     await resetFailCount(account.id);
+
+    // 增加使用次数（用于限制计数）
+    await usageLimitService.incrementUsageCount(account.id);
 
     // 记录成功日志（包含消费金额）
     await logProxyRequest({

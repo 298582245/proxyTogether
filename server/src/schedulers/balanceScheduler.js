@@ -1,9 +1,11 @@
 const cron = require('node-cron');
 const SystemConfig = require('../models/SystemConfig');
 const balanceService = require('../services/balanceService');
+const usageLimitService = require('../services/usageLimitService');
 const logger = require('../utils/logger');
 
 let balanceCheckJob = null;
+let usageLimitResetJob = null;
 
 /**
  * 启动余额查询定时任务
@@ -45,6 +47,44 @@ const stopBalanceCheckJob = () => {
 };
 
 /**
+ * 启动使用限制重置定时任务
+ * 每分钟检查一次是否有账号需要重置
+ */
+const startUsageLimitResetJob = async () => {
+  // 先停止已有的任务
+  stopUsageLimitResetJob();
+
+  // 每分钟执行一次
+  const cronExpression = '* * * * *';
+
+  logger.info('启动使用限制重置定时任务');
+
+  usageLimitResetJob = cron.schedule(cronExpression, async () => {
+    try {
+      const result = await usageLimitService.resetLimitedAccounts();
+      if (result.resetCount > 0) {
+        logger.info(`使用限制重置: ${result.resetCount} 个账号已解禁`);
+      }
+    } catch (error) {
+      logger.error('使用限制重置失败:', error);
+    }
+  });
+
+  return usageLimitResetJob;
+};
+
+/**
+ * 停止使用限制重置定时任务
+ */
+const stopUsageLimitResetJob = () => {
+  if (usageLimitResetJob) {
+    usageLimitResetJob.stop();
+    usageLimitResetJob = null;
+    logger.info('使用限制重置定时任务已停止');
+  }
+};
+
+/**
  * 重启余额查询定时任务（用于配置更新后）
  */
 const restartBalanceCheckJob = async () => {
@@ -57,6 +97,7 @@ const restartBalanceCheckJob = async () => {
  */
 const initSchedulers = async () => {
   await startBalanceCheckJob();
+  await startUsageLimitResetJob();
   logger.info('定时任务初始化完成');
 };
 
@@ -65,6 +106,7 @@ const initSchedulers = async () => {
  */
 const stopAllSchedulers = () => {
   stopBalanceCheckJob();
+  stopUsageLimitResetJob();
   logger.info('所有定时任务已停止');
 };
 
@@ -72,6 +114,8 @@ module.exports = {
   startBalanceCheckJob,
   stopBalanceCheckJob,
   restartBalanceCheckJob,
+  startUsageLimitResetJob,
+  stopUsageLimitResetJob,
   initSchedulers,
   stopAllSchedulers,
 };

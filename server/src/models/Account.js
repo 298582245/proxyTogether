@@ -80,4 +80,12 @@ const Account = sequelize.define('Account', {
   updatedAt: 'updated_at',
 });
 
+// 定义关联关系
+Account.associate = (models) => {
+  Account.hasOne(models.AccountUsageLimit, {
+    foreignKey: 'accountId',
+    as: 'usageLimit',
+  });
+};
+
 module.exports = Account;
