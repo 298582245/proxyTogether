@@ -241,7 +241,7 @@
         <a-card hoverable class="monitor-card">
           <template #title>
             <div class="card-header">
-              <icon-clock-circle-fill class="warning-icon" />
+              <icon-exclamation-circle-fill class="warning-icon" />
               <span>即将过期账号 (7天内)</span>
             </div>
           </template>
@@ -281,7 +281,6 @@ import {
 import {
   IconExclamationCircleFill,
   IconExclamationPolygonFill,
-  IconClockCircleFill,
   IconCheckCircleFill
 } from '@arco-design/web-vue/es/icon'
 import * as echarts from 'echarts'
