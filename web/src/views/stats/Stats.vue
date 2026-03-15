@@ -4,58 +4,54 @@
     <a-row :gutter="16" class="overview-cards">
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic
-            title="今日请求"
-            :value="overview.today.requests"
-            :show-group-separator="true"
-          >
-            <template #suffix>
-              <span class="stat-suffix">次</span>
-              <span
-                v-if="overview.yesterday.requests > 0"
-                class="stat-compare-inline"
-                :class="
-                  overview.today.requests >= overview.yesterday.requests
-                    ? 'up'
-                    : 'down'
-                "
-              >
-                {{
-                  overview.today.requests >= overview.yesterday.requests
-                    ? "↑"
-                    : "↓"
-                }}{{
-                  Math.abs(
-                    overview.today.requests - overview.yesterday.requests
-                  )
-                }}
-              </span>
-            </template>
-          </a-statistic>
+          <a-tooltip :content="`${overview.today.requests.toLocaleString()} 次`">
+            <a-statistic title="今日请求" :value="getStatValue(overview.today.requests)">
+              <template #suffix>
+                <span class="stat-suffix">{{ getStatSuffix(overview.today.requests) }}</span>
+                <span
+                  v-if="overview.yesterday.requests > 0"
+                  class="stat-compare-inline"
+                  :class="
+                    overview.today.requests >= overview.yesterday.requests
+                      ? 'up'
+                      : 'down'
+                  "
+                >
+                  {{
+                    overview.today.requests >= overview.yesterday.requests
+                      ? "↑"
+                      : "↓"
+                  }}{{
+                    Math.abs(
+                      overview.today.requests - overview.yesterday.requests
+                    )
+                  }}
+                </span>
+              </template>
+            </a-statistic>
+          </a-tooltip>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic
-            title="今日成功"
-            :value="overview.today.successCount"
-            :show-group-separator="true"
-          >
-            <template #suffix>
-              <span class="stat-suffix">次</span>
-              <span class="stat-rate-inline">
-                {{
-                  overview.today.requests > 0
-                    ? (
-                        (overview.today.successCount /
-                          overview.today.requests) *
-                        100
-                      ).toFixed(1)
-                    : 0
-                }}%
-              </span>
-            </template>
-          </a-statistic>
+          <a-tooltip :content="`${overview.today.successCount.toLocaleString()} 次`">
+            <a-statistic title="今日成功" :value="getStatValue(overview.today.successCount)">
+              <template #suffix>
+                <span class="stat-suffix">{{ getStatSuffix(overview.today.successCount) }}</span>
+                <span class="stat-rate-inline">
+                  {{
+                    overview.today.requests > 0
+                      ? (
+                          (overview.today.successCount /
+                            overview.today.requests) *
+                          100
+                        ).toFixed(1)
+                      : 0
+                  }}%
+                </span>
+              </template>
+            </a-statistic>
+          </a-tooltip>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
@@ -543,15 +539,18 @@ const formatCount = (count) => {
 // 获取统计数字的数值部分（用于 a-statistic 的 value）
 const getStatValue = (count) => {
   if (count === 0) return 0;
-  if (count < 10000) return count;
-  if (count < 100000000) return parseFloat((count / 10000).toFixed(2));
-  return parseFloat((count / 100000000).toFixed(2));
+  if (count < 1000) return count;
+  if (count < 10000) return parseFloat((count / 1000).toFixed(2));
+  if (count < 100000) return parseFloat((count / 10000).toFixed(2));
+  if (count < 100000000) return Math.floor(count / 10000);
+  return 1;
 };
 
 // 获取统计数字的后缀部分
 const getStatSuffix = (count) => {
   if (count === 0) return "次";
-  if (count < 10000) return "次";
+  if (count < 1000) return "次";
+  if (count < 10000) return "k次";
   if (count < 100000000) return "w次";
   return "亿次";
 };
