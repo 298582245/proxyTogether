@@ -86,7 +86,7 @@
           <template #title>
             <div class="card-header">
               <span>网站请求分布</span>
-              <span class="total-text">共 {{ siteTotal }} 次</span>
+              <span class="total-text">共 {{ formatCount(siteTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -108,7 +108,7 @@
           <template #title>
             <div class="card-header">
               <span>成功排行</span>
-              <span class="total-text">共 {{ successTotal }} 次</span>
+              <span class="total-text">共 {{ formatCount(successTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -164,7 +164,7 @@
           <template #title>
             <div class="card-header">
               <span>失败排行</span>
-              <span class="total-text">共 {{ failTotal }} 次</span>
+              <span class="total-text">共 {{ formatCount(failTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -333,10 +333,15 @@ const successRanking = ref([])
 const failRanking = ref([])
 const siteDistribution = ref([])
 
-// 计算总数
-const successTotal = computed(() => successRanking.value.reduce((sum, item) => sum + (item.successCount || 0), 0))
-const failTotal = computed(() => failRanking.value.reduce((sum, item) => sum + (item.failCount || 0), 0))
-const siteTotal = computed(() => siteDistribution.value.reduce((sum, item) => sum + (item.totalRequests || 0), 0))
+// 总计数据（从后端获取）
+const successTotalData = ref({ successCount: 0, totalRequests: 0 })
+const failTotalData = ref({ failCount: 0, totalRequests: 0 })
+const siteTotalData = ref({ totalRequests: 0, successCount: 0 })
+
+// 计算总数（使用后端返回的数据）
+const successTotal = computed(() => successTotalData.value.successCount)
+const failTotal = computed(() => failTotalData.value.failCount)
+const siteTotal = computed(() => siteTotalData.value.totalRequests)
 
 // 异常监控数据
 const abnormalAccounts = ref([])
@@ -373,7 +378,10 @@ const loadOverview = async () => {
 const loadSuccessRanking = async () => {
   try {
     const res = await getAccountSuccessRanking({ type: successType.value, limit: 10 })
-    successRanking.value = res.data
+    successRanking.value = res.data.list || res.data
+    if (res.data.total) {
+      successTotalData.value = res.data.total
+    }
   } catch (error) {
     console.error('加载成功排行失败:', error)
   }
@@ -383,7 +391,10 @@ const loadSuccessRanking = async () => {
 const loadFailRanking = async () => {
   try {
     const res = await getAccountFailRanking({ type: failType.value, limit: 10 })
-    failRanking.value = res.data
+    failRanking.value = res.data.list || res.data
+    if (res.data.total) {
+      failTotalData.value = res.data.total
+    }
   } catch (error) {
     console.error('加载失败排行失败:', error)
   }
@@ -393,8 +404,11 @@ const loadFailRanking = async () => {
 const loadSiteData = async () => {
   try {
     const res = await getSiteDistribution({ type: siteType.value })
-    siteDistribution.value = res.data
-    renderSiteChart(res.data)
+    siteDistribution.value = res.data.list || res.data
+    if (res.data.total) {
+      siteTotalData.value = res.data.total
+    }
+    renderSiteChart(res.data.list || res.data)
   } catch (error) {
     console.error('加载网站分布失败:', error)
   }

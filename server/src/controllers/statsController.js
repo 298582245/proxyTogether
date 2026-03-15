@@ -115,7 +115,7 @@ const getAccountSuccessRanking = async (req, res) => {
     const { startDate, endDate } = getTimeRange(type);
 
     const cacheKey = `${STATS_CACHE_PREFIX}account_ranking:${type}:${limitNum}`;
-    const data = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+    const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
       const results = await ProxyLog.findAll({
         attributes: [
           'account_id',
@@ -130,6 +130,19 @@ const getAccountSuccessRanking = async (req, res) => {
         group: ['account_id'],
         order: [[sequelize.literal('successCount'), 'DESC']],
         limit: limitNum,
+        raw: true,
+      });
+
+      // 获取总计
+      const totalResult = await ProxyLog.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+          [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
+        ],
+        where: {
+          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
+          account_id: { [Op.ne]: null },
+        },
         raw: true,
       });
 
@@ -152,7 +165,7 @@ const getAccountSuccessRanking = async (req, res) => {
       const siteMap = {};
       sites.forEach(s => { siteMap[s.id] = s; });
 
-      return results.map(r => ({
+      const list = results.map(r => ({
         accountId: r.account_id,
         accountName: accountMap[r.account_id]?.name || '未知账号',
         siteName: accountMap[r.account_id]?.site_id ? (siteMap[accountMap[r.account_id].site_id]?.name || '未知网站') : '独立包月',
@@ -161,9 +174,17 @@ const getAccountSuccessRanking = async (req, res) => {
         successRate: r.totalRequests > 0 ? ((r.successCount / r.totalRequests) * 100).toFixed(2) : 0,
         totalCost: parseFloat(r.totalCost) || 0,
       }));
+
+      return {
+        list,
+        total: {
+          successCount: parseInt(totalResult?.successCount) || 0,
+          totalRequests: parseInt(totalResult?.totalRequests) || 0,
+        },
+      };
     });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: result });
   } catch (error) {
     logger.error('获取账号成功排行失败:', error);
     res.status(500).json({ success: false, message: '获取账号成功排行失败' });
@@ -180,7 +201,7 @@ const getAccountFailRanking = async (req, res) => {
     const { startDate, endDate } = getTimeRange(type);
 
     const cacheKey = `${STATS_CACHE_PREFIX}account_fail_ranking:${type}:${limitNum}`;
-    const data = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+    const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
       const results = await ProxyLog.findAll({
         attributes: [
           'account_id',
@@ -197,6 +218,19 @@ const getAccountFailRanking = async (req, res) => {
         raw: true,
       });
 
+      // 获取总计
+      const totalResult = await ProxyLog.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+          [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 0 THEN 1 ELSE 0 END')), 'failCount'],
+        ],
+        where: {
+          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
+          account_id: { [Op.ne]: null },
+        },
+        raw: true,
+      });
+
       const accountIds = results.map(r => r.account_id).filter(Boolean);
       const accounts = await Account.findAll({
         where: { id: accountIds },
@@ -207,16 +241,24 @@ const getAccountFailRanking = async (req, res) => {
       const accountMap = {};
       accounts.forEach(a => { accountMap[a.id] = a; });
 
-      return results.map(r => ({
+      const list = results.map(r => ({
         accountId: r.account_id,
         accountName: accountMap[r.account_id]?.name || '未知账号',
         totalRequests: parseInt(r.totalRequests) || 0,
         failCount: parseInt(r.failCount) || 0,
         currentFailCount: accountMap[r.account_id]?.fail_count || 0,
       }));
+
+      return {
+        list,
+        total: {
+          failCount: parseInt(totalResult?.failCount) || 0,
+          totalRequests: parseInt(totalResult?.totalRequests) || 0,
+        },
+      };
     });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: result });
   } catch (error) {
     logger.error('获取账号失败排行失败:', error);
     res.status(500).json({ success: false, message: '获取账号失败排行失败' });
@@ -232,7 +274,7 @@ const getSiteDistribution = async (req, res) => {
     const { startDate, endDate } = getTimeRange(type);
 
     const cacheKey = `${STATS_CACHE_PREFIX}site_distribution:${type}`;
-    const data = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+    const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
       const results = await ProxyLog.findAll({
         attributes: [
           'site_id',
@@ -247,6 +289,18 @@ const getSiteDistribution = async (req, res) => {
         raw: true,
       });
 
+      // 获取总计
+      const totalResult = await ProxyLog.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+          [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
+        ],
+        where: {
+          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
+        },
+        raw: true,
+      });
+
       const siteIds = results.map(r => r.site_id).filter(Boolean);
       const sites = await Site.findAll({
         where: { id: siteIds },
@@ -257,7 +311,7 @@ const getSiteDistribution = async (req, res) => {
       const siteMap = {};
       sites.forEach(s => { siteMap[s.id] = s; });
 
-      return results.map(r => ({
+      const list = results.map(r => ({
         siteId: r.site_id,
         siteName: r.site_id ? (siteMap[r.site_id]?.name || '未知网站') : '独立包月',
         totalRequests: parseInt(r.totalRequests) || 0,
@@ -265,9 +319,17 @@ const getSiteDistribution = async (req, res) => {
         successRate: r.totalRequests > 0 ? ((r.successCount / r.totalRequests) * 100).toFixed(2) : 0,
         totalCost: parseFloat(r.totalCost) || 0,
       })).sort((a, b) => b.totalRequests - a.totalRequests);
+
+      return {
+        list,
+        total: {
+          totalRequests: parseInt(totalResult?.totalRequests) || 0,
+          successCount: parseInt(totalResult?.successCount) || 0,
+        },
+      };
     });
 
-    res.json({ success: true, data });
+    res.json({ success: true, data: result });
   } catch (error) {
     logger.error('获取网站分布失败:', error);
     res.status(500).json({ success: false, message: '获取网站分布失败' });
