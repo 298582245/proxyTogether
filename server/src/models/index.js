@@ -3,6 +3,7 @@ const Site = require('./Site');
 const Account = require('./Account');
 const SystemConfig = require('./SystemConfig');
 const ProxyLog = require('./ProxyLog');
+const AccountUsageLimit = require('./AccountUsageLimit');
 
 // 定义关联关系
 Site.hasMany(Account, { foreignKey: 'siteId', as: 'accounts', allowNull: true });
@@ -13,6 +14,10 @@ Site.hasMany(ProxyLog, { foreignKey: 'siteId', as: 'logs' });
 ProxyLog.belongsTo(Site, { foreignKey: 'siteId', as: 'site' });
 Account.hasMany(ProxyLog, { foreignKey: 'accountId', as: 'logs' });
 ProxyLog.belongsTo(Account, { foreignKey: 'accountId', as: 'account' });
+
+// AccountUsageLimit关联
+Account.hasOne(AccountUsageLimit, { foreignKey: 'accountId', as: 'usageLimit' });
+AccountUsageLimit.belongsTo(Account, { foreignKey: 'accountId', as: 'account' });
 
 // 同步数据库
 const syncDatabase = async (force = false) => {
@@ -33,4 +38,5 @@ module.exports = {
   Account,
   SystemConfig,
   ProxyLog,
+  AccountUsageLimit,
 };

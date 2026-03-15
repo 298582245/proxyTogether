@@ -85,12 +85,4 @@ const AccountUsageLimit = sequelize.define('AccountUsageLimit', {
   ],
 });
 
-// 定义关联关系
-AccountUsageLimit.associate = (models) => {
-  AccountUsageLimit.belongsTo(models.Account, {
-    foreignKey: 'accountId',
-    as: 'account',
-  });
-};
-
 module.exports = AccountUsageLimit;

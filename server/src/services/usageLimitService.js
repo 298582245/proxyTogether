@@ -1,5 +1,4 @@
-const AccountUsageLimit = require('../models/AccountUsageLimit');
-const Account = require('../models/Account');
+const { Account, AccountUsageLimit } = require('../models');
 const logger = require('../utils/logger');
 
 /**
