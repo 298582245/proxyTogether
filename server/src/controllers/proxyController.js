@@ -16,6 +16,7 @@ const logProxyRequest = async (data) => {
       success: data.success ? 1 : 0,
       cost: data.cost || 0,
       errorMessage: data.errorMessage,
+      remark: data.remark,
       responsePreview: data.responsePreview,
     });
   } catch (error) {
@@ -26,12 +27,12 @@ const logProxyRequest = async (data) => {
 /**
  * 获取代理IP
  * GET /proxy/get
- * 参数: times(时长值), format, token
+ * 参数: times(时长值), format, token, remark(可选)
  * 兼容旧参数: duration
  */
 const getProxy = async (req, res) => {
   try {
-    const { duration, times, format } = req.query;
+    const { duration, times, format, remark } = req.query;
     const clientIp = req.clientIp;
 
     // 兼容 duration 和 times 参数
@@ -45,6 +46,7 @@ const getProxy = async (req, res) => {
         format: format || null,
         success: false,
         errorMessage: '缺少时长参数(times)',
+        remark: remark || null,
       });
       return res.status(400).json({
         success: false,
@@ -60,6 +62,7 @@ const getProxy = async (req, res) => {
         format: format || null,
         success: false,
         errorMessage: '时长参数格式错误',
+        remark: remark || null,
       });
       return res.status(400).json({
         success: false,
@@ -69,10 +72,10 @@ const getProxy = async (req, res) => {
 
     const formatValue = format || 'txt';
 
-    logger.info(`代理请求 - IP: ${clientIp}, 时长: ${durationNum}, 格式: ${formatValue}`);
+    logger.info(`代理请求 - IP: ${clientIp}, 时长: ${durationNum}, 格式: ${formatValue}, 备注: ${remark || '无'}`);
 
     // 获取代理
-    const result = await proxyService.getProxy(durationNum, formatValue, clientIp);
+    const result = await proxyService.getProxy(durationNum, formatValue, clientIp, [], remark);
 
     if (result.success) {
       // 直接返回原始响应
@@ -98,7 +101,7 @@ const getProxy = async (req, res) => {
  */
 const getProxyDetail = async (req, res) => {
   try {
-    const { duration, times, format } = req.query;
+    const { duration, times, format, remark } = req.query;
     const clientIp = req.clientIp;
 
     // 兼容 duration 和 times 参数
@@ -114,7 +117,7 @@ const getProxyDetail = async (req, res) => {
     const durationNum = parseInt(durationValue, 10);
     const formatValue = format || 'txt';
 
-    const result = await proxyService.getProxy(durationNum, formatValue, clientIp);
+    const result = await proxyService.getProxy(durationNum, formatValue, clientIp, [], remark);
 
     res.json(result);
   } catch (error) {

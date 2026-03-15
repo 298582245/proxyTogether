@@ -45,6 +45,10 @@ const ProxyLog = sequelize.define('ProxyLog', {
     field: 'error_message',
     comment: '错误信息',
   },
+  remark: {
+    type: DataTypes.STRING(255),
+    comment: '备注',
+  },
   responsePreview: {
     type: DataTypes.TEXT,
     field: 'response_preview',

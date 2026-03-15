@@ -136,6 +136,7 @@ const logProxyRequest = async (data) => {
       success: data.success ? 1 : 0,
       cost: data.cost || 0,
       errorMessage: data.errorMessage,
+      remark: data.remark,
       responsePreview: data.responsePreview,
     });
   } catch (error) {
@@ -315,8 +316,9 @@ const isAccountExpired = (account, site) => {
  * @param {string} format - 格式参数
  * @param {string} clientIp - 客户端IP
  * @param {array} triedAccountIds - 已尝试过的账号ID列表
+ * @param {string} remark - 备注（可选）
  */
-const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) => {
+const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], remark = null) => {
   const { Op } = require('sequelize');
 
   // 获取所有启用的账号（包括独立包月账号）
@@ -377,6 +379,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       cost: 0,
       errorMessage: triedAccountIds.length > 0 ? '所有可用账号都已尝试，无法获取代理' : '没有可用账号支持该时长参数或账号已过期',
       responsePreview: null,
+      remark,
     });
 
     return {
@@ -470,10 +473,11 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
         cost: 0,
         errorMessage: '响应包含失败关键词',
         responsePreview,
+        remark,
       });
 
       // 递归尝试下一个账号
-      return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id]);
+      return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark);
     }
 
     // 成功，重置失败次数
@@ -489,6 +493,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       success: true,
       cost: cost,
       responsePreview,
+      remark,
     });
 
     logger.info(`账号 ${account.name} 提取成功，消费: ${cost}`);
@@ -525,10 +530,11 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = []) =
       cost: 0,
       errorMessage: error.message,
       responsePreview: null,
+      remark,
     });
 
     // 递归尝试下一个账号
-    return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id]);
+    return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark);
   }
 };
 

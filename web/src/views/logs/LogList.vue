@@ -64,12 +64,12 @@
               {{ record.success === 1 ? "成功" : "失败" }}
             </a-tag>
           </template>
-          <template #errorMessage="{ record }">
+          <template #remark="{ record }">
             <a-tooltip
-              v-if="record.errorMessage"
-              :content="record.errorMessage"
+              v-if="record.remark"
+              :content="record.remark"
             >
-              <span class="ellipsis-text">{{ record.errorMessage }}</span>
+              <span class="ellipsis-text">{{ record.remark }}</span>
             </a-tooltip>
             <span v-else>-</span>
           </template>
@@ -112,6 +112,10 @@
                 <span class="card-value"
                   >{{ item.duration || "-" }} / {{ item.format || "-" }}</span
                 >
+              </div>
+              <div class="card-row">
+                <span class="card-label">备注:</span>
+                <span class="card-value">{{ item.remark || "-" }}</span>
               </div>
               <div class="card-row" v-if="item.errorMessage">
                 <span class="card-label">错误信息:</span>
@@ -193,6 +197,9 @@
         <a-descriptions-item label="格式参数">{{
           detailDialog.data.format
         }}</a-descriptions-item>
+        <a-descriptions-item label="备注">{{
+          detailDialog.data.remark || "-"
+        }}</a-descriptions-item>
         <a-descriptions-item label="时间">{{
           formatDate(detailDialog.data.createdAt)
         }}</a-descriptions-item>
@@ -269,10 +276,10 @@ const columns = [
     slotName: "success",
   },
   {
-    title: "错误信息",
-    dataIndex: "errorMessage",
+    title: "备注",
+    dataIndex: "remark",
     minWidth: 150,
-    slotName: "errorMessage",
+    slotName: "remark",
   },
   { title: "时间", dataIndex: "createdAt", width: 160, slotName: "createdAt" },
   { title: "操作", width: 100, fixed: "right", slotName: "action" },
