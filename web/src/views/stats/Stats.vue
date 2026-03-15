@@ -77,14 +77,9 @@
           >
             <a-statistic
               title="本周请求"
-              :value="formatOverviewNumber(overview.week.requests)"
+              :value="formatCount(overview.week.requests)"
               :show-group-separator="false"
             >
-              <template #suffix>
-                <span class="stat-suffix">{{
-                  formatOverviewSuffix(overview.week.requests)
-                }}</span>
-              </template>
             </a-statistic>
           </a-tooltip>
         </a-card>
@@ -96,14 +91,9 @@
           >
             <a-statistic
               title="本月请求"
-              :value="formatOverviewNumber(overview.month.requests)"
+              :value="formatCount(overview.month.requests)"
               :show-group-separator="false"
             >
-              <template #suffix>
-                <span class="stat-suffix">{{
-                  formatOverviewSuffix(overview.month.requests)
-                }}</span>
-              </template>
             </a-statistic>
           </a-tooltip>
         </a-card>
@@ -115,14 +105,9 @@
           >
             <a-statistic
               title="累计请求"
-              :value="formatOverviewNumber(overview.total.requests)"
+              :value="formatCount(overview.total.requests)"
               :show-group-separator="false"
             >
-              <template #suffix>
-                <span class="stat-suffix">{{
-                  formatOverviewSuffix(overview.total.requests)
-                }}</span>
-              </template>
             </a-statistic>
           </a-tooltip>
         </a-card>
@@ -558,24 +543,6 @@ const formatCount = (count) => {
   if (count < 100000) return (count / 10000).toFixed(2) + "w";
   if (count < 100000000) return Math.floor(count / 10000) + "w";
   return "1亿+";
-};
-
-// 概览卡片数字格式化（用于显示的值）
-const formatOverviewNumber = (count) => {
-  if (count === 0) return 0;
-  if (count < 1000) return count;
-  if (count < 10000) return (count / 1000).toFixed(2);
-  if (count < 100000000) return (count / 10000).toFixed(2);
-  return (count / 100000000).toFixed(2);
-};
-
-// 概览卡片后缀格式化
-const formatOverviewSuffix = (count) => {
-  if (count === 0) return "次";
-  if (count < 1000) return "次";
-  if (count < 10000) return "k次";
-  if (count < 100000000) return "w次";
-  return "亿次";
 };
 
 // 加载概览数据
