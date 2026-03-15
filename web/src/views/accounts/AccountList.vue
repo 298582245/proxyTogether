@@ -195,6 +195,12 @@
                 <a-space>
                   <a-link @click="handleEdit(record)">编辑</a-link>
                   <a-link
+                    v-if="isMonthlyAccount(record)"
+                    status="normal"
+                    @click="handleUsageLimit(record)"
+                    >限制</a-link
+                  >
+                  <a-link
                     v-if="!isMonthlyAccount(record)"
                     status="success"
                     @click="handleRefreshBalance(record)"
@@ -290,6 +296,14 @@
               <a-button type="primary" size="small" @click="handleEdit(item)"
                 >编辑</a-button
               >
+              <a-button
+                v-if="isMonthlyAccount(item)"
+                status="normal"
+                size="small"
+                @click="handleUsageLimit(item)"
+              >
+                限制
+              </a-button>
               <a-button
                 v-if="!isMonthlyAccount(item)"
                 status="success"
@@ -624,6 +638,106 @@
         </a-form-item>
       </a-form>
     </a-modal>
+
+    <!-- 使用限制对话框 -->
+    <a-modal
+      v-model:visible="usageLimitDialog.visible"
+      title="使用次数限制"
+      :width="isMobile ? '95%' : 500"
+      :unmount-on-close="true"
+      @cancel="usageLimitDialog.visible = false"
+      @ok="handleUsageLimitSubmit"
+      :confirm-loading="usageLimitDialog.loading"
+      :mask-closable="false"
+    >
+      <a-form :model="usageLimitDialog.form" layout="vertical">
+        <a-alert type="info" style="margin-bottom: 16px">
+          为包月账号设置使用次数限制，达到限制后自动禁用账号，周期结束后自动解禁
+        </a-alert>
+
+        <a-form-item label="限制类型" required>
+          <a-radio-group v-model="usageLimitDialog.form.limitType" type="button">
+            <a-radio value="daily">每天</a-radio>
+            <a-radio value="weekly">每周</a-radio>
+            <a-radio value="monthly">每月</a-radio>
+            <a-radio value="custom">自定义</a-radio>
+          </a-radio-group>
+        </a-form-item>
+
+        <a-form-item
+          v-if="usageLimitDialog.form.limitType === 'custom'"
+          label="自定义天数"
+          required
+        >
+          <a-input-number
+            v-model="usageLimitDialog.form.limitDays"
+            :min="1"
+            :max="365"
+            placeholder="输入天数"
+            style="width: 100%"
+          />
+        </a-form-item>
+
+        <a-form-item label="每周期最大次数" required>
+          <a-input-number
+            v-model="usageLimitDialog.form.limitCount"
+            :min="1"
+            placeholder="输入最大次数"
+            style="width: 100%"
+          />
+        </a-form-item>
+
+        <a-form-item label="重置时间点">
+          <a-time-picker
+            v-model="usageLimitDialog.form.resetTimeValue"
+            format="HH:mm:ss"
+            style="width: 100%"
+          />
+          <template #extra>
+            <span class="form-tip">默认0点重置，可设置为其他时间点如8点</span>
+          </template>
+        </a-form-item>
+
+        <a-divider v-if="usageLimitDialog.currentLimit">当前状态</a-divider>
+
+        <template v-if="usageLimitDialog.currentLimit">
+          <a-descriptions :column="1" bordered size="small">
+            <a-descriptions-item label="当前已使用">
+              {{ usageLimitDialog.currentLimit.currentCount || 0 }} 次
+            </a-descriptions-item>
+            <a-descriptions-item label="剩余次数">
+              {{ Math.max(0, (usageLimitDialog.currentLimit.limitCount || 0) - (usageLimitDialog.currentLimit.currentCount || 0)) }} 次
+            </a-descriptions-item>
+            <a-descriptions-item label="周期开始">
+              {{ formatLimitDate(usageLimitDialog.currentLimit.periodStart) }}
+            </a-descriptions-item>
+            <a-descriptions-item label="下次重置">
+              {{ formatLimitDate(usageLimitDialog.currentLimit.periodEnd) }}
+            </a-descriptions-item>
+            <a-descriptions-item label="状态">
+              <a-tag :color="usageLimitDialog.currentLimit.isLimited ? 'red' : 'green'">
+                {{ usageLimitDialog.currentLimit.isLimited ? '已禁用' : '正常' }}
+              </a-tag>
+            </a-descriptions-item>
+          </a-descriptions>
+
+          <div style="margin-top: 16px">
+            <a-button type="outline" @click="handleResetUsageCount" :loading="usageLimitDialog.resetting">
+              手动重置计数
+            </a-button>
+            <a-button
+              type="outline"
+              status="danger"
+              style="margin-left: 8px"
+              @click="handleRemoveUsageLimit"
+              :loading="usageLimitDialog.removing"
+            >
+              删除限制
+            </a-button>
+          </div>
+        </template>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -640,6 +754,12 @@ import {
   refreshAllBalance,
 } from "@/api/account";
 import { getAllActiveSites, getSiteParamHints } from "@/api/site";
+import {
+  getUsageLimit,
+  setUsageLimit,
+  removeUsageLimit,
+  resetUsageCount,
+} from "@/api/usageLimit";
 import {
   formatDateTimeForApi,
   formatLocalizedDateTime,
@@ -724,6 +844,23 @@ const dialog = reactive({
         },
       },
     ],
+  },
+});
+
+// 使用限制对话框
+const usageLimitDialog = reactive({
+  visible: false,
+  loading: false,
+  resetting: false,
+  removing: false,
+  accountId: null,
+  accountName: "",
+  currentLimit: null,
+  form: {
+    limitType: "daily",
+    limitCount: 1000,
+    limitDays: 1,
+    resetTimeValue: "00:00:00",
   },
 });
 
@@ -1135,6 +1272,113 @@ const handleRefreshAllBalance = async () => {
   } finally {
     refreshing.value = false;
   }
+};
+
+// 格式化限制日期
+const formatLimitDate = (date) => {
+  if (!date) return "-";
+  return formatLocalizedDateTime(date);
+};
+
+// 打开使用限制对话框
+const handleUsageLimit = async (row) => {
+  usageLimitDialog.accountId = row.id;
+  usageLimitDialog.accountName = row.name;
+  usageLimitDialog.currentLimit = null;
+  usageLimitDialog.form = {
+    limitType: "daily",
+    limitCount: 1000,
+    limitDays: 1,
+    resetTimeValue: "00:00:00",
+  };
+
+  try {
+    const res = await getUsageLimit(row.id);
+    if (res.data) {
+      usageLimitDialog.currentLimit = res.data;
+      usageLimitDialog.form.limitType = res.data.limitType || "daily";
+      usageLimitDialog.form.limitCount = res.data.limitCount || 1000;
+      usageLimitDialog.form.limitDays = res.data.limitDays || 1;
+      usageLimitDialog.form.resetTimeValue = res.data.resetTime || "00:00:00";
+    }
+  } catch (error) {
+    // 没有限制配置，使用默认值
+  }
+
+  usageLimitDialog.visible = true;
+};
+
+// 提交使用限制
+const handleUsageLimitSubmit = async () => {
+  if (!usageLimitDialog.form.limitCount || usageLimitDialog.form.limitCount < 1) {
+    Message.warning("请输入有效的次数限制");
+    return;
+  }
+
+  if (usageLimitDialog.form.limitType === "custom" && (!usageLimitDialog.form.limitDays || usageLimitDialog.form.limitDays < 1)) {
+    Message.warning("请输入有效的天数");
+    return;
+  }
+
+  usageLimitDialog.loading = true;
+  try {
+    const data = {
+      limitType: usageLimitDialog.form.limitType,
+      limitCount: usageLimitDialog.form.limitCount,
+      limitDays: usageLimitDialog.form.limitType === "custom" ? usageLimitDialog.form.limitDays : null,
+      resetTime: usageLimitDialog.form.resetTimeValue || "00:00:00",
+    };
+
+    await setUsageLimit(usageLimitDialog.accountId, data);
+    Message.success("设置使用限制成功");
+    usageLimitDialog.visible = false;
+    loadData();
+  } catch (error) {
+    // 错误已处理
+  } finally {
+    usageLimitDialog.loading = false;
+  }
+};
+
+// 重置使用计数
+const handleResetUsageCount = async () => {
+  usageLimitDialog.resetting = true;
+  try {
+    await resetUsageCount(usageLimitDialog.accountId);
+    Message.success("重置成功");
+    // 重新获取限制信息
+    const res = await getUsageLimit(usageLimitDialog.accountId);
+    if (res.data) {
+      usageLimitDialog.currentLimit = res.data;
+    }
+  } catch (error) {
+    // 错误已处理
+  } finally {
+    usageLimitDialog.resetting = false;
+  }
+};
+
+// 删除使用限制
+const handleRemoveUsageLimit = async () => {
+  Modal.confirm({
+    title: "确认删除",
+    content: "确定要删除该账号的使用限制吗？删除后账号将恢复正常使用。",
+    okText: "确定",
+    cancelText: "取消",
+    onOk: async () => {
+      usageLimitDialog.removing = true;
+      try {
+        await removeUsageLimit(usageLimitDialog.accountId);
+        Message.success("删除成功");
+        usageLimitDialog.visible = false;
+        loadData();
+      } catch (error) {
+        // 错误已处理
+      } finally {
+        usageLimitDialog.removing = false;
+      }
+    },
+  });
 };
 
 onMounted(() => {
