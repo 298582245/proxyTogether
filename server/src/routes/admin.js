@@ -5,6 +5,7 @@ const siteController = require('../controllers/siteController');
 const accountController = require('../controllers/accountController');
 const configController = require('../controllers/configController');
 const logController = require('../controllers/logController');
+const statsController = require('../controllers/statsController');
 
 const router = express.Router();
 
@@ -44,5 +45,16 @@ router.get('/logs', authMiddleware, logController.getList);
 router.get('/logs/stats', authMiddleware, logController.getStats);
 router.get('/logs/chart', authMiddleware, logController.getChartData);
 router.get('/logs/:id', authMiddleware, logController.getDetail);
+
+// 统计分析
+router.get('/stats/overview', authMiddleware, statsController.getOverview);
+router.get('/stats/account-success-ranking', authMiddleware, statsController.getAccountSuccessRanking);
+router.get('/stats/account-fail-ranking', authMiddleware, statsController.getAccountFailRanking);
+router.get('/stats/site-distribution', authMiddleware, statsController.getSiteDistribution);
+router.get('/stats/hourly-distribution', authMiddleware, statsController.getHourlyDistribution);
+router.get('/stats/abnormal-accounts', authMiddleware, statsController.getAbnormalAccounts);
+router.get('/stats/low-balance-accounts', authMiddleware, statsController.getLowBalanceAccounts);
+router.get('/stats/expiring-accounts', authMiddleware, statsController.getExpiringAccounts);
+router.delete('/stats/cache', authMiddleware, statsController.clearStatsCache);
 
 module.exports = router;

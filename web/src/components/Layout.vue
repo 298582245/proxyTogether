@@ -44,6 +44,10 @@
             <template #icon><icon-file /></template>
             提取日志
           </a-menu-item>
+          <a-menu-item key="/stats">
+            <template #icon><icon-bar-chart /></template>
+            统计分析
+          </a-menu-item>
           <a-menu-item key="/settings">
             <template #icon><icon-settings /></template>
             系统设置
@@ -91,6 +95,10 @@
             <a-menu-item key="/logs">
               <template #icon><icon-file /></template>
               提取日志
+            </a-menu-item>
+            <a-menu-item key="/stats">
+              <template #icon><icon-bar-chart /></template>
+              统计分析
             </a-menu-item>
             <a-menu-item key="/settings">
               <template #icon><icon-settings /></template>
@@ -184,6 +192,7 @@ import {
   IconMenu,
   IconLeft,
   IconRight,
+  IconBarChart,
 } from "@arco-design/web-vue/es/icon";
 
 const route = useRoute();
