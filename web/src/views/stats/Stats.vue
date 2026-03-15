@@ -94,6 +94,7 @@
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
+              <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
           <div ref="siteChartRef" class="chart-container"></div>
@@ -116,6 +117,7 @@
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
+              <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
           <a-table :data="successRanking" :pagination="false" :bordered="false" size="small">
@@ -172,6 +174,7 @@
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
+              <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
           <a-table :data="failRanking" :pagination="false" :bordered="false" size="small">
@@ -378,9 +381,12 @@ const loadOverview = async () => {
 const loadSuccessRanking = async () => {
   try {
     const res = await getAccountSuccessRanking({ type: successType.value, limit: 10 })
-    successRanking.value = res.data.list || res.data
-    if (res.data.total) {
-      successTotalData.value = res.data.total
+    console.log('success ranking res:', res)
+    if (res.data) {
+      successRanking.value = res.data.list || []
+      if (res.data.total) {
+        successTotalData.value = res.data.total
+      }
     }
   } catch (error) {
     console.error('加载成功排行失败:', error)
@@ -391,9 +397,12 @@ const loadSuccessRanking = async () => {
 const loadFailRanking = async () => {
   try {
     const res = await getAccountFailRanking({ type: failType.value, limit: 10 })
-    failRanking.value = res.data.list || res.data
-    if (res.data.total) {
-      failTotalData.value = res.data.total
+    console.log('fail ranking res:', res)
+    if (res.data) {
+      failRanking.value = res.data.list || []
+      if (res.data.total) {
+        failTotalData.value = res.data.total
+      }
     }
   } catch (error) {
     console.error('加载失败排行失败:', error)
@@ -404,11 +413,14 @@ const loadFailRanking = async () => {
 const loadSiteData = async () => {
   try {
     const res = await getSiteDistribution({ type: siteType.value })
-    siteDistribution.value = res.data.list || res.data
-    if (res.data.total) {
-      siteTotalData.value = res.data.total
+    console.log('site distribution res:', res)
+    if (res.data) {
+      siteDistribution.value = res.data.list || []
+      if (res.data.total) {
+        siteTotalData.value = res.data.total
+      }
+      renderSiteChart(res.data.list || [])
     }
-    renderSiteChart(res.data.list || res.data)
   } catch (error) {
     console.error('加载网站分布失败:', error)
   }

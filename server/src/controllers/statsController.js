@@ -71,6 +71,11 @@ const getTimeRange = (type) => {
       endDate = getChinaDayEnd(todayStr);
       break;
     }
+    case 'total':
+      // 总计：不限制时间范围
+      startDate = null;
+      endDate = null;
+      break;
     default:
       startDate = getChinaDayStart(todayStr);
       endDate = getChinaDayEnd(todayStr);
@@ -116,6 +121,13 @@ const getAccountSuccessRanking = async (req, res) => {
 
     const cacheKey = `${STATS_CACHE_PREFIX}account_ranking:${type}:${limitNum}`;
     const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+      const whereClause = {
+        account_id: { [Op.ne]: null },
+      };
+      if (startDate && endDate) {
+        whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
+      }
+
       const results = await ProxyLog.findAll({
         attributes: [
           'account_id',
@@ -123,10 +135,7 @@ const getAccountSuccessRanking = async (req, res) => {
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN cost ELSE 0 END')), 'totalCost'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-          account_id: { [Op.ne]: null },
-        },
+        where: whereClause,
         group: ['account_id'],
         order: [[sequelize.literal('successCount'), 'DESC']],
         limit: limitNum,
@@ -139,10 +148,7 @@ const getAccountSuccessRanking = async (req, res) => {
           [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-          account_id: { [Op.ne]: null },
-        },
+        where: whereClause,
         raw: true,
       });
 
@@ -202,16 +208,20 @@ const getAccountFailRanking = async (req, res) => {
 
     const cacheKey = `${STATS_CACHE_PREFIX}account_fail_ranking:${type}:${limitNum}`;
     const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+      const whereClause = {
+        account_id: { [Op.ne]: null },
+      };
+      if (startDate && endDate) {
+        whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
+      }
+
       const results = await ProxyLog.findAll({
         attributes: [
           'account_id',
           [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 0 THEN 1 ELSE 0 END')), 'failCount'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-          account_id: { [Op.ne]: null },
-        },
+        where: whereClause,
         group: ['account_id'],
         order: [[sequelize.literal('failCount'), 'DESC']],
         limit: limitNum,
@@ -224,10 +234,7 @@ const getAccountFailRanking = async (req, res) => {
           [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 0 THEN 1 ELSE 0 END')), 'failCount'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-          account_id: { [Op.ne]: null },
-        },
+        where: whereClause,
         raw: true,
       });
 
@@ -275,6 +282,11 @@ const getSiteDistribution = async (req, res) => {
 
     const cacheKey = `${STATS_CACHE_PREFIX}site_distribution:${type}`;
     const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+      const whereClause = {};
+      if (startDate && endDate) {
+        whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
+      }
+
       const results = await ProxyLog.findAll({
         attributes: [
           'site_id',
@@ -282,9 +294,7 @@ const getSiteDistribution = async (req, res) => {
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN cost ELSE 0 END')), 'totalCost'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-        },
+        where: whereClause,
         group: ['site_id'],
         raw: true,
       });
@@ -295,9 +305,7 @@ const getSiteDistribution = async (req, res) => {
           [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
           [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
         ],
-        where: {
-          created_at: { [Op.gte]: startDate, [Op.lte]: endDate },
-        },
+        where: whereClause,
         raw: true,
       });
 
