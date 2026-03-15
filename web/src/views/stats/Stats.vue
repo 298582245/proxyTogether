@@ -5,7 +5,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.today.requests.toLocaleString()} 次`">
-            <a-statistic title="今日请求" :value="getStatValue(overview.today.requests)">
+            <a-statistic title="今日请求" :value="getStatValue(overview.today.requests)" :precision="2">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.today.requests) }}</span>
                 <span
@@ -35,7 +35,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.today.successCount.toLocaleString()} 次`">
-            <a-statistic title="今日成功" :value="getStatValue(overview.today.successCount)">
+            <a-statistic title="今日成功" :value="getStatValue(overview.today.successCount)" :precision="2">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.today.successCount) }}</span>
                 <span class="stat-rate-inline">
@@ -69,7 +69,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.week.requests.toLocaleString()} 次`">
-            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)">
+            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)" :precision="2">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.week.requests) }}</span>
               </template>
@@ -82,7 +82,7 @@
           <a-tooltip
             :content="`${overview.month.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)">
+            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)" :precision="2">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.month.requests) }}</span>
               </template>
@@ -95,7 +95,7 @@
           <a-tooltip
             :content="`${overview.total.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="累计请求" :value="getStatValue(overview.total.requests)">
+            <a-statistic title="累计请求" :value="getStatValue(overview.total.requests)" :precision="2">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.total.requests) }}</span>
               </template>
