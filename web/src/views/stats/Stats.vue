@@ -219,77 +219,103 @@
       </a-col>
     </a-row>
 
-    <!-- 异常监控 -->
-    <a-row :gutter="16" class="monitor-row">
-      <a-col :xs="24" :lg="8">
-        <a-card hoverable class="monitor-card">
+    <!-- 备注排行 -->
+    <a-row :gutter="16" class="remark-row">
+      <a-col :xs="24" :lg="12">
+        <a-card hoverable class="ranking-card">
           <template #title>
             <div class="card-header">
-              <icon-exclamation-circle-fill class="warning-icon" />
-              <span>异常账号 (连续失败≥3)</span>
+              <span>备注请求排行</span>
+              <span class="total-text">共 {{ formatCount(remarkRequestTotal) }} 次</span>
             </div>
           </template>
-          <div v-if="abnormalAccounts.length === 0" class="empty-tip">
-            <icon-check-circle-fill class="success-icon" />
-            <span>暂无异常账号</span>
-          </div>
-          <div v-else class="monitor-list">
-            <div v-for="item in abnormalAccounts" :key="item.id" class="monitor-item">
-              <div class="item-info">
-                <span class="item-name">{{ item.name }}</span>
-                <span class="item-site">{{ item.siteName }}</span>
-              </div>
-              <a-tag color="red">连续失败 {{ item.failCount }} 次</a-tag>
-            </div>
-          </div>
+          <template #extra>
+            <a-radio-group v-model="remarkRequestType" size="small" type="button" @change="loadRemarkRequestRanking">
+              <a-radio value="today">今日</a-radio>
+              <a-radio value="week">本周</a-radio>
+              <a-radio value="month">本月</a-radio>
+              <a-radio value="total">总计</a-radio>
+            </a-radio-group>
+          </template>
+          <a-table :data="remarkRequestRanking" :pagination="false" :bordered="false" size="small">
+            <template #columns>
+              <a-table-column title="排名" :width="50" align="center">
+                <template #cell="{ rowIndex }">
+                  <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
+                    {{ rowIndex + 1 }}
+                  </a-tag>
+                </template>
+              </a-table-column>
+              <a-table-column title="备注" :width="120">
+                <template #cell="{ record }">
+                  <a-tooltip :content="record.remark || '-'">
+                    <span class="ellipsis-text">{{ record.remark || '-' }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="总请求" :width="80" align="right">
+                <template #cell="{ record }">
+                  <span>{{ formatCount(record.totalRequests) }}</span>
+                </template>
+              </a-table-column>
+              <a-table-column title="成功" :width="80" align="right">
+                <template #cell="{ record }">
+                  <span class="success-num">{{ formatCount(record.successCount) }}</span>
+                </template>
+              </a-table-column>
+              <a-table-column title="失败" :width="80" align="right">
+                <template #cell="{ record }">
+                  <span class="fail-num">{{ formatCount(record.failCount) }}</span>
+                </template>
+              </a-table-column>
+            </template>
+          </a-table>
         </a-card>
       </a-col>
-      <a-col :xs="24" :lg="8">
-        <a-card hoverable class="monitor-card">
+      <a-col :xs="24" :lg="12">
+        <a-card hoverable class="ranking-card">
           <template #title>
             <div class="card-header">
-              <icon-exclamation-polygon-fill class="warning-icon" />
-              <span>低余额账号 (&lt;10元)</span>
+              <span>备注消费排行</span>
+              <span class="total-text">共 ¥{{ formatCost(remarkCostTotal) }}</span>
             </div>
           </template>
-          <div v-if="lowBalanceAccounts.length === 0" class="empty-tip">
-            <icon-check-circle-fill class="success-icon" />
-            <span>暂无低余额账号</span>
-          </div>
-          <div v-else class="monitor-list">
-            <div v-for="item in lowBalanceAccounts" :key="item.id" class="monitor-item">
-              <div class="item-info">
-                <span class="item-name">{{ item.name }}</span>
-                <span class="item-site">{{ item.siteName }}</span>
-              </div>
-              <span class="balance-low">¥{{ item.balance.toFixed(2) }}</span>
-            </div>
-          </div>
-        </a-card>
-      </a-col>
-      <a-col :xs="24" :lg="8">
-        <a-card hoverable class="monitor-card">
-          <template #title>
-            <div class="card-header">
-              <icon-exclamation-circle-fill class="warning-icon" />
-              <span>即将过期账号 (7天内)</span>
-            </div>
+          <template #extra>
+            <a-radio-group v-model="remarkCostType" size="small" type="button" @change="loadRemarkCostRanking">
+              <a-radio value="today">今日</a-radio>
+              <a-radio value="week">本周</a-radio>
+              <a-radio value="month">本月</a-radio>
+              <a-radio value="total">总计</a-radio>
+            </a-radio-group>
           </template>
-          <div v-if="expiringAccounts.length === 0" class="empty-tip">
-            <icon-check-circle-fill class="success-icon" />
-            <span>暂无即将过期账号</span>
-          </div>
-          <div v-else class="monitor-list">
-            <div v-for="item in expiringAccounts" :key="item.id" class="monitor-item">
-              <div class="item-info">
-                <span class="item-name">{{ item.name }}</span>
-                <span class="item-site">{{ item.siteName }}</span>
-              </div>
-              <a-tag :color="item.daysLeft <= 3 ? 'red' : 'orange'">
-                {{ item.daysLeft }} 天后过期
-              </a-tag>
-            </div>
-          </div>
+          <a-table :data="remarkCostRanking" :pagination="false" :bordered="false" size="small">
+            <template #columns>
+              <a-table-column title="排名" :width="50" align="center">
+                <template #cell="{ rowIndex }">
+                  <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
+                    {{ rowIndex + 1 }}
+                  </a-tag>
+                </template>
+              </a-table-column>
+              <a-table-column title="备注" :width="140">
+                <template #cell="{ record }">
+                  <a-tooltip :content="record.remark || '-'">
+                    <span class="ellipsis-text">{{ record.remark || '-' }}</span>
+                  </a-tooltip>
+                </template>
+              </a-table-column>
+              <a-table-column title="消费金额" :width="100" align="right">
+                <template #cell="{ record }">
+                  <span class="cost-num">¥{{ record.totalCost.toFixed(4) }}</span>
+                </template>
+              </a-table-column>
+              <a-table-column title="请求数" :width="80" align="right">
+                <template #cell="{ record }">
+                  <span>{{ formatCount(record.totalRequests) }}</span>
+                </template>
+              </a-table-column>
+            </template>
+          </a-table>
         </a-card>
       </a-col>
     </a-row>
@@ -304,14 +330,10 @@ import {
   getAccountFailRanking,
   getSiteDistribution,
   getHourlyDistribution,
-  getAbnormalAccounts,
-  getLowBalanceAccounts,
-  getExpiringAccounts
+  getRemarkRequestRanking,
+  getRemarkCostRanking
 } from '@/api/stats'
 import {
-  IconExclamationCircleFill,
-  IconExclamationPolygonFill,
-  IconCheckCircleFill
 } from '@arco-design/web-vue/es/icon'
 import * as echarts from 'echarts'
 
@@ -346,10 +368,13 @@ const successTotal = computed(() => successTotalData.value.successCount)
 const failTotal = computed(() => failTotalData.value.failCount)
 const siteTotal = computed(() => siteTotalData.value.totalRequests)
 
-// 异常监控数据
-const abnormalAccounts = ref([])
-const lowBalanceAccounts = ref([])
-const expiringAccounts = ref([])
+// 备注排行数据
+const remarkRequestType = ref('today')
+const remarkCostType = ref('today')
+const remarkRequestRanking = ref([])
+const remarkCostRanking = ref([])
+const remarkRequestTotal = ref(0)
+const remarkCostTotal = ref(0)
 
 // 图表引用
 const hourlyChartRef = ref(null)
@@ -436,34 +461,40 @@ const loadHourlyData = async () => {
   }
 }
 
-// 加载异常账号
-const loadAbnormalAccounts = async () => {
+// 加载备注请求排行
+const loadRemarkRequestRanking = async () => {
   try {
-    const res = await getAbnormalAccounts()
-    abnormalAccounts.value = res.data
+    const res = await getRemarkRequestRanking({ type: remarkRequestType.value, limit: 10 })
+    if (res.data) {
+      remarkRequestRanking.value = res.data.list || []
+      remarkRequestTotal.value = res.data.total?.totalRequests || 0
+    }
   } catch (error) {
-    console.error('加载异常账号失败:', error)
+    console.error('加载备注请求排行失败:', error)
   }
 }
 
-// 加载低余额账号
-const loadLowBalanceAccounts = async () => {
+// 加载备注消费排行
+const loadRemarkCostRanking = async () => {
   try {
-    const res = await getLowBalanceAccounts({ threshold: 10 })
-    lowBalanceAccounts.value = res.data
+    const res = await getRemarkCostRanking({ type: remarkCostType.value, limit: 10 })
+    if (res.data) {
+      remarkCostRanking.value = res.data.list || []
+      remarkCostTotal.value = res.data.total?.totalCost || 0
+    }
   } catch (error) {
-    console.error('加载低余额账号失败:', error)
+    console.error('加载备注消费排行失败:', error)
   }
 }
 
-// 加载即将过期账号
-const loadExpiringAccounts = async () => {
-  try {
-    const res = await getExpiringAccounts({ days: 7 })
-    expiringAccounts.value = res.data
-  } catch (error) {
-    console.error('加载即将过期账号失败:', error)
-  }
+// 金额格式化函数
+const formatCost = (cost) => {
+  if (cost === 0) return '0'
+  if (cost < 0.01) return cost.toFixed(6)
+  if (cost < 1) return cost.toFixed(4)
+  if (cost < 1000) return cost.toFixed(2)
+  if (cost < 10000) return (cost / 1000).toFixed(2) + 'k'
+  return (cost / 10000).toFixed(2) + 'w'
 }
 
 // 渲染小时分布图表
@@ -584,9 +615,8 @@ onMounted(async () => {
     loadOverview(),
     loadSuccessRanking(),
     loadFailRanking(),
-    loadAbnormalAccounts(),
-    loadLowBalanceAccounts(),
-    loadExpiringAccounts()
+    loadRemarkRequestRanking(),
+    loadRemarkCostRanking()
   ])
 
   await nextTick()
@@ -655,7 +685,7 @@ onUnmounted(() => {
 
 .chart-row,
 .ranking-row,
-.monitor-row {
+.remark-row {
   flex-shrink: 0;
 }
 
@@ -727,72 +757,8 @@ onUnmounted(() => {
   color: #F53F3F;
 }
 
-.monitor-card {
-  height: 100%;
-}
-
-.monitor-card :deep(.arco-card-body) {
-  padding: 12px;
-  max-height: 250px;
-  overflow-y: auto;
-}
-
-.warning-icon {
-  color: #FF7D00;
-  margin-right: 4px;
-}
-
-.success-icon {
-  color: #00B42A;
-  margin-right: 4px;
-}
-
-.empty-tip {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
-  color: var(--color-text-3);
-}
-
-.monitor-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.monitor-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 12px;
-  background: var(--color-fill-1);
-  border-radius: 4px;
-}
-
-.item-info {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1;
-}
-
-.item-name {
-  font-weight: 500;
-  color: var(--color-text-1);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.item-site {
-  font-size: 12px;
-  color: var(--color-text-3);
-}
-
-.balance-low {
-  color: #F53F3F;
+.cost-num {
+  color: #165DFF;
   font-weight: 500;
 }
 

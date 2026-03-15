@@ -40,6 +40,16 @@ export const getExpiringAccounts = (params) => {
   return request.get('/admin/stats/expiring-accounts', { params })
 }
 
+// 获取备注请求排行
+export const getRemarkRequestRanking = (params) => {
+  return request.get('/admin/stats/remark-request-ranking', { params })
+}
+
+// 获取备注消费排行
+export const getRemarkCostRanking = (params) => {
+  return request.get('/admin/stats/remark-cost-ranking', { params })
+}
+
 // 清除统计缓存
 export const clearStatsCache = () => {
   return request.delete('/admin/stats/cache')

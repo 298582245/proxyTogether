@@ -55,6 +55,8 @@ router.get('/stats/hourly-distribution', authMiddleware, statsController.getHour
 router.get('/stats/abnormal-accounts', authMiddleware, statsController.getAbnormalAccounts);
 router.get('/stats/low-balance-accounts', authMiddleware, statsController.getLowBalanceAccounts);
 router.get('/stats/expiring-accounts', authMiddleware, statsController.getExpiringAccounts);
+router.get('/stats/remark-request-ranking', authMiddleware, statsController.getRemarkRequestRanking);
+router.get('/stats/remark-cost-ranking', authMiddleware, statsController.getRemarkCostRanking);
 router.delete('/stats/cache', authMiddleware, statsController.clearStatsCache);
 
 module.exports = router;

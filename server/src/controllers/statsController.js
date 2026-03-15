@@ -688,6 +688,128 @@ const clearStatsCache = async (req, res) => {
   }
 };
 
+/**
+ * 获取备注请求排行
+ */
+const getRemarkRequestRanking = async (req, res) => {
+  try {
+    const { type = 'today', limit = 10 } = req.query;
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const { startDate, endDate } = getTimeRange(type);
+
+    const cacheKey = `${STATS_CACHE_PREFIX}remark_request_ranking:${type}:${limitNum}`;
+    const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+      const whereClause = {};
+      if (startDate && endDate) {
+        whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
+      }
+
+      const results = await ProxyLog.findAll({
+        attributes: [
+          'remark',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+          [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
+          [sequelize.fn('SUM', sequelize.literal('CASE WHEN success = 0 THEN 1 ELSE 0 END')), 'failCount'],
+        ],
+        where: whereClause,
+        group: ['remark'],
+        order: [[sequelize.literal('totalRequests'), 'DESC']],
+        limit: limitNum,
+        raw: true,
+      });
+
+      // 获取总计
+      const totalResult = await ProxyLog.findOne({
+        attributes: [
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+        ],
+        where: whereClause,
+        raw: true,
+      });
+
+      const list = results.map(r => ({
+        remark: r.remark || '(无备注)',
+        totalRequests: parseInt(r.totalRequests) || 0,
+        successCount: parseInt(r.successCount) || 0,
+        failCount: parseInt(r.failCount) || 0,
+      }));
+
+      return {
+        list,
+        total: {
+          totalRequests: parseInt(totalResult?.totalRequests) || 0,
+        },
+      };
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('获取备注请求排行失败:', error);
+    res.status(500).json({ success: false, message: '获取备注请求排行失败' });
+  }
+};
+
+/**
+ * 获取备注消费排行
+ */
+const getRemarkCostRanking = async (req, res) => {
+  try {
+    const { type = 'today', limit = 10 } = req.query;
+    const limitNum = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const { startDate, endDate } = getTimeRange(type);
+
+    const cacheKey = `${STATS_CACHE_PREFIX}remark_cost_ranking:${type}:${limitNum}`;
+    const result = await getWithCache(cacheKey, CACHE_TTL.hourly, async () => {
+      const whereClause = {
+        success: 1, // 只统计成功的请求
+      };
+      if (startDate && endDate) {
+        whereClause.created_at = { [Op.gte]: startDate, [Op.lte]: endDate };
+      }
+
+      const results = await ProxyLog.findAll({
+        attributes: [
+          'remark',
+          [sequelize.fn('COUNT', sequelize.col('id')), 'totalRequests'],
+          [sequelize.fn('SUM', sequelize.col('cost')), 'totalCost'],
+        ],
+        where: whereClause,
+        group: ['remark'],
+        order: [[sequelize.literal('totalCost'), 'DESC']],
+        limit: limitNum,
+        raw: true,
+      });
+
+      // 获取总计
+      const totalResult = await ProxyLog.findOne({
+        attributes: [
+          [sequelize.fn('SUM', sequelize.col('cost')), 'totalCost'],
+        ],
+        where: whereClause,
+        raw: true,
+      });
+
+      const list = results.map(r => ({
+        remark: r.remark || '(无备注)',
+        totalRequests: parseInt(r.totalRequests) || 0,
+        totalCost: parseFloat(r.totalCost) || 0,
+      }));
+
+      return {
+        list,
+        total: {
+          totalCost: parseFloat(totalResult?.totalCost) || 0,
+        },
+      };
+    });
+
+    res.json({ success: true, data: result });
+  } catch (error) {
+    logger.error('获取备注消费排行失败:', error);
+    res.status(500).json({ success: false, message: '获取备注消费排行失败' });
+  }
+};
+
 module.exports = {
   getAccountSuccessRanking,
   getAccountFailRanking,
@@ -697,5 +819,9 @@ module.exports = {
   getLowBalanceAccounts,
   getExpiringAccounts,
   getOverview,
+  clearStatsCache,
+  getRemarkRequestRanking,
+  getRemarkCostRanking,
+};
   clearStatsCache,
 };
