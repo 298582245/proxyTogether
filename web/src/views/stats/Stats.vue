@@ -4,11 +4,31 @@
     <a-row :gutter="16" class="overview-cards">
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="今日请求" :value="overview.today.requests" :show-group-separator="true">
+          <a-statistic
+            title="今日请求"
+            :value="overview.today.requests"
+            :show-group-separator="true"
+          >
             <template #suffix>
               <span class="stat-suffix">次</span>
-              <span v-if="overview.yesterday.requests > 0" class="stat-compare-inline" :class="overview.today.requests >= overview.yesterday.requests ? 'up' : 'down'">
-                {{ overview.today.requests >= overview.yesterday.requests ? '↑' : '↓' }}{{ Math.abs(overview.today.requests - overview.yesterday.requests) }}
+              <span
+                v-if="overview.yesterday.requests > 0"
+                class="stat-compare-inline"
+                :class="
+                  overview.today.requests >= overview.yesterday.requests
+                    ? 'up'
+                    : 'down'
+                "
+              >
+                {{
+                  overview.today.requests >= overview.yesterday.requests
+                    ? "↑"
+                    : "↓"
+                }}{{
+                  Math.abs(
+                    overview.today.requests - overview.yesterday.requests
+                  )
+                }}
               </span>
             </template>
           </a-statistic>
@@ -16,11 +36,23 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="今日成功" :value="overview.today.successCount" :show-group-separator="true">
+          <a-statistic
+            title="今日成功"
+            :value="overview.today.successCount"
+            :show-group-separator="true"
+          >
             <template #suffix>
               <span class="stat-suffix">次</span>
               <span class="stat-rate-inline">
-                {{ overview.today.requests > 0 ? ((overview.today.successCount / overview.today.requests) * 100).toFixed(1) : 0 }}%
+                {{
+                  overview.today.requests > 0
+                    ? (
+                        (overview.today.successCount /
+                          overview.today.requests) *
+                        100
+                      ).toFixed(1)
+                    : 0
+                }}%
               </span>
             </template>
           </a-statistic>
@@ -28,14 +60,23 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="今日消费" :value="overview.today.cost" :precision="4" :show-group-separator="true">
+          <a-statistic
+            title="今日消费"
+            :value="overview.today.cost"
+            :precision="4"
+            :show-group-separator="true"
+          >
             <template #prefix>¥</template>
           </a-statistic>
         </a-card>
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="本周请求" :value="overview.week.requests" :show-group-separator="true">
+          <a-statistic
+            title="本周请求"
+            :value="overview.week.requests"
+            :show-group-separator="true"
+          >
             <template #suffix>
               <span class="stat-suffix">次</span>
             </template>
@@ -44,7 +85,11 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="本月请求" :value="overview.month.requests" :show-group-separator="true">
+          <a-statistic
+            title="本月请求"
+            :value="overview.month.requests"
+            :show-group-separator="true"
+          >
             <template #suffix>
               <span class="stat-suffix">次</span>
             </template>
@@ -53,7 +98,11 @@
       </a-col>
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
-          <a-statistic title="累计请求" :value="overview.total.requests" :show-group-separator="true">
+          <a-statistic
+            title="累计请求"
+            :value="overview.total.requests"
+            :show-group-separator="true"
+          >
             <template #suffix>
               <span class="stat-suffix">次</span>
             </template>
@@ -72,7 +121,12 @@
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="chartType" size="small" type="button" @change="loadHourlyData">
+            <a-radio-group
+              v-model="chartType"
+              size="small"
+              type="button"
+              @change="loadHourlyData"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
@@ -86,11 +140,15 @@
           <template #title>
             <div class="card-header">
               <span>网站请求分布</span>
-              <span class="total-text">共 {{ formatCount(siteTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="siteType" size="small" type="button" @change="loadSiteData">
+            <a-radio-group
+              v-model="siteType"
+              size="small"
+              type="button"
+              @change="loadSiteData"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
@@ -109,22 +167,41 @@
           <template #title>
             <div class="card-header">
               <span>成功排行</span>
-              <span class="total-text">共 {{ formatCount(successTotal) }} 次</span>
+              <span class="total-text"
+                >共 {{ formatCount(successTotal) }} 次</span
+              >
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="successType" size="small" type="button" @change="loadSuccessRanking">
+            <a-radio-group
+              v-model="successType"
+              size="small"
+              type="button"
+              @change="loadSuccessRanking"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
               <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
-          <a-table :data="successRanking" :pagination="false" :bordered="false" size="small">
+          <a-table
+            :data="successRanking"
+            :pagination="false"
+            :bordered="false"
+            size="small"
+          >
             <template #columns>
               <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
-                  <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
+                  <a-tag
+                    :color="
+                      rowIndex < 3
+                        ? ['gold', 'silver', '#cd7f32'][rowIndex]
+                        : 'gray'
+                    "
+                    size="small"
+                  >
                     {{ rowIndex + 1 }}
                   </a-tag>
                 </template>
@@ -146,13 +223,23 @@
               <a-table-column title="成功数" :width="90" align="right">
                 <template #cell="{ record }">
                   <a-tooltip :content="`成功次数: ${record.successCount}`">
-                    <span class="success-num">{{ formatCount(record.successCount) }}</span>
+                    <span class="success-num">{{
+                      formatCount(record.successCount)
+                    }}</span>
                   </a-tooltip>
                 </template>
               </a-table-column>
               <a-table-column title="成功率" :width="85" align="right">
                 <template #cell="{ record }">
-                  <span :class="parseFloat(record.successRate) >= 90 ? 'rate-good' : parseFloat(record.successRate) >= 70 ? 'rate-normal' : 'rate-bad'">
+                  <span
+                    :class="
+                      parseFloat(record.successRate) >= 90
+                        ? 'rate-good'
+                        : parseFloat(record.successRate) >= 70
+                        ? 'rate-normal'
+                        : 'rate-bad'
+                    "
+                  >
                     {{ record.successRate }}%
                   </span>
                 </template>
@@ -170,14 +257,24 @@
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="failType" size="small" type="button" @change="loadFailRanking">
+            <a-radio-group
+              v-model="failType"
+              size="small"
+              type="button"
+              @change="loadFailRanking"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
               <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
-          <a-table :data="failRanking" :pagination="false" :bordered="false" size="small">
+          <a-table
+            :data="failRanking"
+            :pagination="false"
+            :bordered="false"
+            size="small"
+          >
             <template #columns>
               <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
@@ -201,13 +298,19 @@
               <a-table-column title="失败数" :width="80" align="right">
                 <template #cell="{ record }">
                   <a-tooltip :content="`失败数: ${record.failCount}`">
-                    <span class="fail-num">{{ formatCount(record.failCount) }}</span>
+                    <span class="fail-num">{{
+                      formatCount(record.failCount)
+                    }}</span>
                   </a-tooltip>
                 </template>
               </a-table-column>
               <a-table-column title="连续" :width="60" align="right">
                 <template #cell="{ record }">
-                  <a-tag v-if="record.currentFailCount >= 3" color="red" size="small">
+                  <a-tag
+                    v-if="record.currentFailCount >= 3"
+                    color="red"
+                    size="small"
+                  >
                     {{ record.currentFailCount }}
                   </a-tag>
                   <span v-else>{{ record.currentFailCount }}</span>
@@ -226,22 +329,41 @@
           <template #title>
             <div class="card-header">
               <span>备注请求排行</span>
-              <span class="total-text">共 {{ formatCount(remarkRequestTotal) }} 次</span>
+              <span class="total-text"
+                >共 {{ formatCount(remarkRequestTotal) }} 次</span
+              >
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="remarkRequestType" size="small" type="button" @change="loadRemarkRequestRanking">
+            <a-radio-group
+              v-model="remarkRequestType"
+              size="small"
+              type="button"
+              @change="loadRemarkRequestRanking"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
               <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
-          <a-table :data="remarkRequestRanking" :pagination="false" :bordered="false" size="small">
+          <a-table
+            :data="remarkRequestRanking"
+            :pagination="false"
+            :bordered="false"
+            size="small"
+          >
             <template #columns>
               <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
-                  <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
+                  <a-tag
+                    :color="
+                      rowIndex < 3
+                        ? ['gold', 'silver', '#cd7f32'][rowIndex]
+                        : 'gray'
+                    "
+                    size="small"
+                  >
                     {{ rowIndex + 1 }}
                   </a-tag>
                 </template>
@@ -249,7 +371,9 @@
               <a-table-column title="备注" :width="120">
                 <template #cell="{ record }">
                   <a-tooltip :content="record.remark || '-'">
-                    <span class="ellipsis-text">{{ record.remark || '-' }}</span>
+                    <span class="ellipsis-text">{{
+                      record.remark || "-"
+                    }}</span>
                   </a-tooltip>
                 </template>
               </a-table-column>
@@ -260,12 +384,16 @@
               </a-table-column>
               <a-table-column title="成功" :width="80" align="right">
                 <template #cell="{ record }">
-                  <span class="success-num">{{ formatCount(record.successCount) }}</span>
+                  <span class="success-num">{{
+                    formatCount(record.successCount)
+                  }}</span>
                 </template>
               </a-table-column>
               <a-table-column title="失败" :width="80" align="right">
                 <template #cell="{ record }">
-                  <span class="fail-num">{{ formatCount(record.failCount) }}</span>
+                  <span class="fail-num">{{
+                    formatCount(record.failCount)
+                  }}</span>
                 </template>
               </a-table-column>
             </template>
@@ -277,22 +405,41 @@
           <template #title>
             <div class="card-header">
               <span>备注消费排行</span>
-              <span class="total-text">共 ¥{{ formatCost(remarkCostTotal) }}</span>
+              <span class="total-text"
+                >共 ¥{{ formatCost(remarkCostTotal) }}</span
+              >
             </div>
           </template>
           <template #extra>
-            <a-radio-group v-model="remarkCostType" size="small" type="button" @change="loadRemarkCostRanking">
+            <a-radio-group
+              v-model="remarkCostType"
+              size="small"
+              type="button"
+              @change="loadRemarkCostRanking"
+            >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
               <a-radio value="month">本月</a-radio>
               <a-radio value="total">总计</a-radio>
             </a-radio-group>
           </template>
-          <a-table :data="remarkCostRanking" :pagination="false" :bordered="false" size="small">
+          <a-table
+            :data="remarkCostRanking"
+            :pagination="false"
+            :bordered="false"
+            size="small"
+          >
             <template #columns>
               <a-table-column title="排名" :width="50" align="center">
                 <template #cell="{ rowIndex }">
-                  <a-tag :color="rowIndex < 3 ? ['gold', 'silver', '#cd7f32'][rowIndex] : 'gray'" size="small">
+                  <a-tag
+                    :color="
+                      rowIndex < 3
+                        ? ['gold', 'silver', '#cd7f32'][rowIndex]
+                        : 'gray'
+                    "
+                    size="small"
+                  >
                     {{ rowIndex + 1 }}
                   </a-tag>
                 </template>
@@ -300,13 +447,17 @@
               <a-table-column title="备注" :width="140">
                 <template #cell="{ record }">
                   <a-tooltip :content="record.remark || '-'">
-                    <span class="ellipsis-text">{{ record.remark || '-' }}</span>
+                    <span class="ellipsis-text">{{
+                      record.remark || "-"
+                    }}</span>
                   </a-tooltip>
                 </template>
               </a-table-column>
               <a-table-column title="消费金额" :width="100" align="right">
                 <template #cell="{ record }">
-                  <span class="cost-num">¥{{ record.totalCost.toFixed(4) }}</span>
+                  <span class="cost-num"
+                    >¥{{ record.totalCost.toFixed(4) }}</span
+                  >
                 </template>
               </a-table-column>
               <a-table-column title="请求数" :width="80" align="right">
@@ -323,7 +474,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from "vue";
 import {
   getStatsOverview,
   getAccountSuccessRanking,
@@ -331,11 +482,10 @@ import {
   getSiteDistribution,
   getHourlyDistribution,
   getRemarkRequestRanking,
-  getRemarkCostRanking
-} from '@/api/stats'
-import {
-} from '@arco-design/web-vue/es/icon'
-import * as echarts from 'echarts'
+  getRemarkCostRanking,
+} from "@/api/stats";
+import {} from "@arco-design/web-vue/es/icon";
+import * as echarts from "echarts";
 
 // 概览数据
 const overview = reactive({
@@ -344,271 +494,283 @@ const overview = reactive({
   week: { requests: 0, successCount: 0, cost: 0 },
   month: { requests: 0, successCount: 0, cost: 0 },
   total: { requests: 0, successCount: 0, cost: 0 },
-  accounts: { total: 0, active: 0, abnormal: 0, lowBalance: 0 }
-})
+  accounts: { total: 0, active: 0, abnormal: 0, lowBalance: 0 },
+});
 
 // 图表类型
-const chartType = ref('today')
-const siteType = ref('today')
-const successType = ref('today')
-const failType = ref('today')
+const chartType = ref("today");
+const siteType = ref("today");
+const successType = ref("today");
+const failType = ref("today");
 
 // 排行数据
-const successRanking = ref([])
-const failRanking = ref([])
-const siteDistribution = ref([])
+const successRanking = ref([]);
+const failRanking = ref([]);
+const siteDistribution = ref([]);
 
 // 总计数据（从后端获取）
-const successTotalData = ref({ successCount: 0, totalRequests: 0 })
-const failTotalData = ref({ failCount: 0, totalRequests: 0 })
-const siteTotalData = ref({ totalRequests: 0, successCount: 0 })
+const successTotalData = ref({ successCount: 0, totalRequests: 0 });
+const failTotalData = ref({ failCount: 0, totalRequests: 0 });
+const siteTotalData = ref({ totalRequests: 0, successCount: 0 });
 
 // 计算总数（使用后端返回的数据）
-const successTotal = computed(() => successTotalData.value.successCount)
-const failTotal = computed(() => failTotalData.value.failCount)
-const siteTotal = computed(() => siteTotalData.value.totalRequests)
+const successTotal = computed(() => successTotalData.value.successCount);
+const failTotal = computed(() => failTotalData.value.failCount);
+const siteTotal = computed(() => siteTotalData.value.totalRequests);
 
 // 备注排行数据
-const remarkRequestType = ref('today')
-const remarkCostType = ref('today')
-const remarkRequestRanking = ref([])
-const remarkCostRanking = ref([])
-const remarkRequestTotal = ref(0)
-const remarkCostTotal = ref(0)
+const remarkRequestType = ref("today");
+const remarkCostType = ref("today");
+const remarkRequestRanking = ref([]);
+const remarkCostRanking = ref([]);
+const remarkRequestTotal = ref(0);
+const remarkCostTotal = ref(0);
 
 // 图表引用
-const hourlyChartRef = ref(null)
-const siteChartRef = ref(null)
-let hourlyChart = null
-let siteChart = null
+const hourlyChartRef = ref(null);
+const siteChartRef = ref(null);
+let hourlyChart = null;
+let siteChart = null;
 
 // 数字格式化函数
 const formatCount = (count) => {
-  if (count === 0) return '0'
-  if (count < 1000) return count.toString()
-  if (count < 10000) return (count / 1000).toFixed(2) + 'k'
-  if (count < 100000) return (count / 10000).toFixed(2) + 'w'
-  if (count < 100000000) return Math.floor(count / 10000) + 'w'
-  return '1亿+'
-}
+  if (count === 0) return "0";
+  if (count < 1000) return count.toString();
+  if (count < 10000) return (count / 1000).toFixed(2) + "k";
+  if (count < 100000) return (count / 10000).toFixed(2) + "w";
+  if (count < 100000000) return Math.floor(count / 10000) + "w";
+  return "1亿+";
+};
 
 // 加载概览数据
 const loadOverview = async () => {
   try {
-    const res = await getStatsOverview()
-    Object.assign(overview, res.data)
+    const res = await getStatsOverview();
+    Object.assign(overview, res.data);
   } catch (error) {
-    console.error('加载概览数据失败:', error)
+    console.error("加载概览数据失败:", error);
   }
-}
+};
 
 // 加载成功排行
 const loadSuccessRanking = async () => {
   try {
-    const res = await getAccountSuccessRanking({ type: successType.value, limit: 10 })
-    console.log('success ranking res:', res)
+    const res = await getAccountSuccessRanking({
+      type: successType.value,
+      limit: 10,
+    });
+    console.log("success ranking res:", res);
     if (res.data) {
-      successRanking.value = res.data.list || []
+      successRanking.value = res.data.list || [];
       if (res.data.total) {
-        successTotalData.value = res.data.total
+        successTotalData.value = res.data.total;
       }
     }
   } catch (error) {
-    console.error('加载成功排行失败:', error)
+    console.error("加载成功排行失败:", error);
   }
-}
+};
 
 // 加载失败排行
 const loadFailRanking = async () => {
   try {
-    const res = await getAccountFailRanking({ type: failType.value, limit: 10 })
-    console.log('fail ranking res:', res)
+    const res = await getAccountFailRanking({
+      type: failType.value,
+      limit: 10,
+    });
+    console.log("fail ranking res:", res);
     if (res.data) {
-      failRanking.value = res.data.list || []
+      failRanking.value = res.data.list || [];
       if (res.data.total) {
-        failTotalData.value = res.data.total
+        failTotalData.value = res.data.total;
       }
     }
   } catch (error) {
-    console.error('加载失败排行失败:', error)
+    console.error("加载失败排行失败:", error);
   }
-}
+};
 
 // 加载网站分布
 const loadSiteData = async () => {
   try {
-    const res = await getSiteDistribution({ type: siteType.value })
-    console.log('site distribution res:', res)
+    const res = await getSiteDistribution({ type: siteType.value });
+    console.log("site distribution res:", res);
     if (res.data) {
-      siteDistribution.value = res.data.list || []
+      siteDistribution.value = res.data.list || [];
       if (res.data.total) {
-        siteTotalData.value = res.data.total
+        siteTotalData.value = res.data.total;
       }
-      renderSiteChart(res.data.list || [])
+      renderSiteChart(res.data.list || []);
     }
   } catch (error) {
-    console.error('加载网站分布失败:', error)
+    console.error("加载网站分布失败:", error);
   }
-}
+};
 
 // 加载每小时分布
 const loadHourlyData = async () => {
   try {
-    const res = await getHourlyDistribution({ type: chartType.value })
-    renderHourlyChart(res.data)
+    const res = await getHourlyDistribution({ type: chartType.value });
+    renderHourlyChart(res.data);
   } catch (error) {
-    console.error('加载小时分布失败:', error)
+    console.error("加载小时分布失败:", error);
   }
-}
+};
 
 // 加载备注请求排行
 const loadRemarkRequestRanking = async () => {
   try {
-    const res = await getRemarkRequestRanking({ type: remarkRequestType.value, limit: 10 })
+    const res = await getRemarkRequestRanking({
+      type: remarkRequestType.value,
+      limit: 10,
+    });
     if (res.data) {
-      remarkRequestRanking.value = res.data.list || []
-      remarkRequestTotal.value = res.data.total?.totalRequests || 0
+      remarkRequestRanking.value = res.data.list || [];
+      remarkRequestTotal.value = res.data.total?.totalRequests || 0;
     }
   } catch (error) {
-    console.error('加载备注请求排行失败:', error)
+    console.error("加载备注请求排行失败:", error);
   }
-}
+};
 
 // 加载备注消费排行
 const loadRemarkCostRanking = async () => {
   try {
-    const res = await getRemarkCostRanking({ type: remarkCostType.value, limit: 10 })
+    const res = await getRemarkCostRanking({
+      type: remarkCostType.value,
+      limit: 10,
+    });
     if (res.data) {
-      remarkCostRanking.value = res.data.list || []
-      remarkCostTotal.value = res.data.total?.totalCost || 0
+      remarkCostRanking.value = res.data.list || [];
+      remarkCostTotal.value = res.data.total?.totalCost || 0;
     }
   } catch (error) {
-    console.error('加载备注消费排行失败:', error)
+    console.error("加载备注消费排行失败:", error);
   }
-}
+};
 
 // 金额格式化函数
 const formatCost = (cost) => {
-  if (cost === 0) return '0'
-  if (cost < 0.01) return cost.toFixed(6)
-  if (cost < 1) return cost.toFixed(4)
-  if (cost < 1000) return cost.toFixed(2)
-  if (cost < 10000) return (cost / 1000).toFixed(2) + 'k'
-  return (cost / 10000).toFixed(2) + 'w'
-}
+  if (cost === 0) return "0";
+  if (cost < 0.01) return cost.toFixed(6);
+  if (cost < 1) return cost.toFixed(4);
+  if (cost < 1000) return cost.toFixed(2);
+  if (cost < 10000) return (cost / 1000).toFixed(2) + "k";
+  return (cost / 10000).toFixed(2) + "w";
+};
 
 // 渲染小时分布图表
 const renderHourlyChart = (data) => {
-  if (!hourlyChartRef.value) return
+  if (!hourlyChartRef.value) return;
 
   if (!hourlyChart) {
-    hourlyChart = echarts.init(hourlyChartRef.value)
+    hourlyChart = echarts.init(hourlyChartRef.value);
   }
 
   const option = {
     tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' }
+      trigger: "axis",
+      axisPointer: { type: "shadow" },
     },
     legend: {
-      data: ['请求数', '成功数'],
-      bottom: 0
+      data: ["请求数", "成功数"],
+      bottom: 0,
     },
     grid: {
-      left: '3%',
-      right: '4%',
-      bottom: '15%',
-      top: '10%',
-      containLabel: true
+      left: "3%",
+      right: "4%",
+      bottom: "15%",
+      top: "10%",
+      containLabel: true,
     },
     xAxis: {
-      type: 'category',
-      data: data.map(d => d.label),
+      type: "category",
+      data: data.map((d) => d.label),
       axisLabel: {
-        interval: chartType.value === 'today' ? 2 : 3
-      }
+        interval: chartType.value === "today" ? 2 : 3,
+      },
     },
     yAxis: {
-      type: 'value'
+      type: "value",
     },
     series: [
       {
-        name: '请求数',
-        type: 'bar',
-        data: data.map(d => d.requests),
-        itemStyle: { color: '#165DFF' }
+        name: "请求数",
+        type: "bar",
+        data: data.map((d) => d.requests),
+        itemStyle: { color: "#165DFF" },
       },
       {
-        name: '成功数',
-        type: 'bar',
-        data: data.map(d => d.successCount),
-        itemStyle: { color: '#00B42A' }
-      }
-    ]
-  }
+        name: "成功数",
+        type: "bar",
+        data: data.map((d) => d.successCount),
+        itemStyle: { color: "#00B42A" },
+      },
+    ],
+  };
 
-  hourlyChart.setOption(option)
-}
+  hourlyChart.setOption(option);
+};
 
 // 渲染网站分布图表
 const renderSiteChart = (data) => {
-  if (!siteChartRef.value) return
+  if (!siteChartRef.value) return;
 
   if (!siteChart) {
-    siteChart = echarts.init(siteChartRef.value)
+    siteChart = echarts.init(siteChartRef.value);
   }
 
-  const chartData = data.slice(0, 8).map(d => ({
+  const chartData = data.slice(0, 8).map((d) => ({
     name: d.siteName,
-    value: d.totalRequests
-  }))
+    value: d.totalRequests,
+  }));
 
   const option = {
     tooltip: {
-      trigger: 'item',
-      formatter: '{b}: {c} ({d}%)'
+      trigger: "item",
+      formatter: "{b}: {c} ({d}%)",
     },
     legend: {
-      type: 'scroll',
-      orient: 'vertical',
+      type: "scroll",
+      orient: "vertical",
       right: 10,
       top: 20,
-      bottom: 20
+      bottom: 20,
     },
     series: [
       {
-        type: 'pie',
-        radius: ['40%', '70%'],
-        center: ['35%', '50%'],
+        type: "pie",
+        radius: ["40%", "70%"],
+        center: ["35%", "50%"],
         avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 10,
-          borderColor: '#fff',
-          borderWidth: 2
+          borderColor: "#fff",
+          borderWidth: 2,
         },
         label: {
-          show: false
+          show: false,
         },
         emphasis: {
           label: {
             show: true,
             fontSize: 14,
-            fontWeight: 'bold'
-          }
+            fontWeight: "bold",
+          },
         },
-        data: chartData
-      }
-    ]
-  }
+        data: chartData,
+      },
+    ],
+  };
 
-  siteChart.setOption(option)
-}
+  siteChart.setOption(option);
+};
 
 // 窗口大小变化
 const handleResize = () => {
-  hourlyChart?.resize()
-  siteChart?.resize()
-}
+  hourlyChart?.resize();
+  siteChart?.resize();
+};
 
 onMounted(async () => {
   await Promise.all([
@@ -616,21 +778,21 @@ onMounted(async () => {
     loadSuccessRanking(),
     loadFailRanking(),
     loadRemarkRequestRanking(),
-    loadRemarkCostRanking()
-  ])
+    loadRemarkCostRanking(),
+  ]);
 
-  await nextTick()
-  loadHourlyData()
-  loadSiteData()
+  await nextTick();
+  loadHourlyData();
+  loadSiteData();
 
-  window.addEventListener('resize', handleResize)
-})
+  window.addEventListener("resize", handleResize);
+});
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  hourlyChart?.dispose()
-  siteChart?.dispose()
-})
+  window.removeEventListener("resize", handleResize);
+  hourlyChart?.dispose();
+  siteChart?.dispose();
+});
 </script>
 
 <style scoped>
@@ -669,11 +831,11 @@ onUnmounted(() => {
 }
 
 .stat-compare-inline.up {
-  color: #00B42A;
+  color: #00b42a;
 }
 
 .stat-compare-inline.down {
-  color: #F53F3F;
+  color: #f53f3f;
 }
 
 .stat-rate-inline {
@@ -732,33 +894,33 @@ onUnmounted(() => {
 }
 
 .success-num {
-  color: #00B42A;
+  color: #00b42a;
   font-weight: 500;
 }
 
 .fail-num {
-  color: #F53F3F;
+  color: #f53f3f;
   font-weight: 500;
 }
 
 .fail-rank {
-  color: #F53F3F;
+  color: #f53f3f;
 }
 
 .rate-good {
-  color: #00B42A;
+  color: #00b42a;
 }
 
 .rate-normal {
-  color: #FF7D00;
+  color: #ff7d00;
 }
 
 .rate-bad {
-  color: #F53F3F;
+  color: #f53f3f;
 }
 
 .cost-num {
-  color: #165DFF;
+  color: #165dff;
   font-weight: 500;
 }
 

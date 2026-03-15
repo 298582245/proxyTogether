@@ -822,6 +822,5 @@ module.exports = {
   clearStatsCache,
   getRemarkRequestRanking,
   getRemarkCostRanking,
-};
   clearStatsCache,
 };
