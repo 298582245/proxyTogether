@@ -294,7 +294,7 @@
             size="small"
           >
             <template #columns>
-              <a-table-column title="排名" :width="50" align="center">
+              <a-table-column title="排名" :width="65" align="center">
                 <template #cell="{ rowIndex }">
                   <span class="fail-rank">{{ rowIndex + 1 }}</span>
                 </template>
@@ -372,7 +372,7 @@
             size="small"
           >
             <template #columns>
-              <a-table-column title="排名" :width="50" align="center">
+              <a-table-column title="排名" :width="65" align="center">
                 <template #cell="{ rowIndex }">
                   <a-tag
                     :color="
@@ -386,7 +386,7 @@
                   </a-tag>
                 </template>
               </a-table-column>
-              <a-table-column title="备注" :width="80">
+              <a-table-column title="备注" :width="65">
                 <template #cell="{ record }">
                   <a-tooltip :content="record.remark || '-'">
                     <span class="ellipsis-text">{{
@@ -462,7 +462,7 @@
                   </a-tag>
                 </template>
               </a-table-column>
-              <a-table-column title="备注" :width="140">
+              <a-table-column title="备注" :width="50">
                 <template #cell="{ record }">
                   <a-tooltip :content="record.remark || '-'">
                     <span class="ellipsis-text">{{
@@ -478,7 +478,7 @@
                   >
                 </template>
               </a-table-column>
-              <a-table-column title="请求数" :width="80" align="right">
+              <a-table-column title="请求数" :width="100" align="right">
                 <template #cell="{ record }">
                   <span>{{ formatCount(record.totalRequests) }}</span>
                 </template>
