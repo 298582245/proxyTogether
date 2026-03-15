@@ -17,6 +17,7 @@ const getList = async (req, res) => {
       success,
       startDate,
       endDate,
+      remark,
     } = req.query;
 
     const offset = (parseInt(page, 10) - 1) * parseInt(pageSize, 10);
@@ -32,6 +33,9 @@ const getList = async (req, res) => {
     }
     if (success !== undefined && success !== '') {
       whereClause.success = parseInt(success, 10);
+    }
+    if (remark) {
+      whereClause.remark = { [Op.like]: `%${remark}%` };
     }
     if (startDate) {
       whereClause.created_at = {
@@ -394,9 +398,86 @@ const getChartData = async (req, res) => {
   }
 };
 
+/**
+ * 获取时长参数配置（用于日志列表显示）
+ */
+const getDurationConfig = async (req, res) => {
+  try {
+    // 获取所有网站的时长参数
+    const sites = await Site.findAll({
+      where: { status: 1 },
+      attributes: ['id', 'name', 'durationParams'],
+      raw: true,
+    });
+
+    // 获取所有独立包月账号的时长参数
+    const accounts = await Account.findAll({
+      where: {
+        status: 1,
+        siteId: null,
+        extractUrlTemplate: { [Op.ne]: null },
+      },
+      attributes: ['id', 'name', 'durationParams'],
+      raw: true,
+    });
+
+    // 构建配置映射
+    const siteDurationMap = {};
+    sites.forEach((site) => {
+      if (site.durationParams) {
+        const params = typeof site.durationParams === 'string'
+          ? JSON.parse(site.durationParams)
+          : site.durationParams;
+        if (Array.isArray(params)) {
+          siteDurationMap[`site_${site.id}`] = {
+            name: site.name,
+            params: params.map((p) => ({
+              times: p.times,
+              label: p.label || `${p.times}分钟`,
+            })),
+          };
+        }
+      }
+    });
+
+    const accountDurationMap = {};
+    accounts.forEach((account) => {
+      if (account.durationParams) {
+        const params = typeof account.durationParams === 'string'
+          ? JSON.parse(account.durationParams)
+          : account.durationParams;
+        if (Array.isArray(params)) {
+          accountDurationMap[`account_${account.id}`] = {
+            name: account.name,
+            params: params.map((p) => ({
+              times: p.times,
+              label: p.label || `${p.times}分钟`,
+            })),
+          };
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sites: siteDurationMap,
+        accounts: accountDurationMap,
+      },
+    });
+  } catch (error) {
+    logger.error('获取时长参数配置失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '获取时长参数配置失败',
+    });
+  }
+};
+
 module.exports = {
   getList,
   getDetail,
   getStats,
   getChartData,
+  getDurationConfig,
 };

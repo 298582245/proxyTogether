@@ -19,3 +19,8 @@ export const getLogStats = (params) => {
 export const getLogChart = (params) => {
   return request.get('/admin/logs/chart', { params })
 }
+
+// 获取时长参数配置
+export const getDurationConfig = () => {
+  return request.get('/admin/logs/duration-config')
+}

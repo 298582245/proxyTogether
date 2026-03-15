@@ -45,6 +45,7 @@ router.get('/config/:key', authMiddleware, configController.getConfigValue);
 router.get('/logs', authMiddleware, logController.getList);
 router.get('/logs/stats', authMiddleware, logController.getStats);
 router.get('/logs/chart', authMiddleware, logController.getChartData);
+router.get('/logs/duration-config', authMiddleware, logController.getDurationConfig);
 router.get('/logs/:id', authMiddleware, logController.getDetail);
 
 // 统计分析

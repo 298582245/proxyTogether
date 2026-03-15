@@ -28,6 +28,14 @@
             :value="site.id"
           />
         </a-select>
+        <a-input
+          v-model="filters.remark"
+          placeholder="搜索备注"
+          allow-clear
+          class="remark-input"
+          @press-enter="loadData"
+          @clear="loadData"
+        />
         <a-range-picker
           v-model="filters.dateRange"
           class="date-picker"
@@ -58,6 +66,9 @@
               <span>{{ formatAccountName(record.account.name) }}</span>
             </a-tooltip>
             <span v-else>-</span>
+          </template>
+          <template #duration="{ record }">
+            {{ getDurationLabel(record.duration, record.siteId, record.accountId) }}
           </template>
           <template #success="{ record }">
             <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
@@ -110,7 +121,7 @@
               <div class="card-row">
                 <span class="card-label">时长/格式:</span>
                 <span class="card-value"
-                  >{{ item.duration || "-" }} / {{ item.format || "-" }}</span
+                  >{{ getDurationLabel(item.duration, item.siteId, item.accountId) }} / {{ item.format || "-" }}</span
                 >
               </div>
               <div class="card-row">
@@ -192,7 +203,7 @@
           detailDialog.data.clientIp
         }}</a-descriptions-item>
         <a-descriptions-item label="时长参数">{{
-          detailDialog.data.duration
+          getDurationDetailLabel(detailDialog.data.duration, detailDialog.data.siteId, detailDialog.data.accountId)
         }}</a-descriptions-item>
         <a-descriptions-item label="格式参数">{{
           detailDialog.data.format
@@ -218,7 +229,7 @@
 
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from "vue";
-import { getLogList, getLogDetail } from "@/api/log";
+import { getLogList, getLogDetail, getDurationConfig } from "@/api/log";
 import { getAllActiveSites } from "@/api/site";
 import { IconSearch } from "@arco-design/web-vue/es/icon";
 
@@ -227,6 +238,7 @@ const tableData = ref([]);
 const siteOptions = ref([]);
 const tableWrapperRef = ref(null);
 const tableScrollY = ref(300);
+const durationConfig = ref({ sites: {}, accounts: {} });
 
 // 响应式检测
 const isMobile = ref(false);
@@ -247,6 +259,7 @@ const filters = reactive({
   success: "",
   siteId: "",
   dateRange: null,
+  remark: "",
 });
 
 const pagination = reactive({
@@ -266,7 +279,7 @@ const columns = [
   { title: "网站", dataIndex: "site", width: 120, slotName: "site" },
   { title: "账号", dataIndex: "account", width: 120, slotName: "account" },
   { title: "客户端IP", dataIndex: "clientIp", width: 140 },
-  { title: "时长参数", dataIndex: "duration", width: 100, align: "center" },
+  { title: "时长参数", dataIndex: "duration", width: 100, align: "center", slotName: "duration" },
   { title: "格式参数", dataIndex: "format", width: 100, align: "center" },
   {
     title: "状态",
@@ -306,6 +319,55 @@ const loadSites = async () => {
   }
 };
 
+// 获取时长参数配置
+const loadDurationConfig = async () => {
+  try {
+    const res = await getDurationConfig();
+    durationConfig.value = res.data;
+  } catch (error) {
+    // 错误已处理
+  }
+};
+
+// 根据网站ID或账号ID获取时长标签
+const getDurationLabel = (duration, siteId, accountId) => {
+  if (!duration) return "-";
+
+  // 将duration转为字符串进行比较
+  const durationStr = String(duration);
+
+  // 先尝试从独立包月账号配置中查找
+  if (accountId) {
+    const accountConfig = durationConfig.value.accounts[`account_${accountId}`];
+    if (accountConfig && accountConfig.params) {
+      const param = accountConfig.params.find((p) => String(p.times) === durationStr);
+      if (param) return param.label;
+    }
+  }
+
+  // 再从网站配置中查找
+  if (siteId) {
+    const siteConfig = durationConfig.value.sites[`site_${siteId}`];
+    if (siteConfig && siteConfig.params) {
+      const param = siteConfig.params.find((p) => String(p.times) === durationStr);
+      if (param) return param.label;
+    }
+  }
+
+  // 如果没有找到配置，返回原始值
+  return duration;
+};
+
+// 获取详情中的时长显示（包含label和原始值）
+const getDurationDetailLabel = (duration, siteId, accountId) => {
+  if (!duration) return "-";
+  const label = getDurationLabel(duration, siteId, accountId);
+  // 如果label和duration相同，说明没有配置，直接返回
+  if (label === duration) return duration;
+  // 否则返回 label(duration)
+  return `${label} (${duration})`;
+};
+
 const loadData = async () => {
   loading.value = true;
   try {
@@ -319,6 +381,10 @@ const loadData = async () => {
     if (filters.dateRange && filters.dateRange.length === 2) {
       params.startDate = filters.dateRange[0];
       params.endDate = filters.dateRange[1];
+    }
+
+    if (filters.remark) {
+      params.remark = filters.remark;
     }
 
     const res = await getLogList(params);
@@ -345,6 +411,7 @@ onMounted(() => {
   checkMobile();
   window.addEventListener("resize", checkMobile);
   loadSites();
+  loadDurationConfig();
   loadData();
   // 计算表格高度
   setTimeout(() => {
@@ -422,6 +489,11 @@ onUnmounted(() => {
   width: 240px; /* 日期范围选择器宽度 */
 }
 
+/* 备注输入框宽度 */
+.toolbar .remark-input {
+  width: 150px;
+}
+
 /* 搜索按钮保持自动宽度 */
 .toolbar .arco-btn {
   flex-shrink: 0;
@@ -435,7 +507,8 @@ onUnmounted(() => {
   }
 
   .toolbar :deep(.arco-select),
-  .toolbar .date-picker {
+  .toolbar .date-picker,
+  .toolbar .remark-input {
     width: 100%; /* 移动端占满宽度 */
   }
 }
