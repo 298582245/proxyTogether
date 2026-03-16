@@ -581,7 +581,8 @@ onUnmounted(() => {
 
   .chart-card :deep(.arco-card-body) {
     height: auto;
-    min-height: 300px;
+    min-height: 0;
+    padding: 16px;
   }
 
   .chart-header {
@@ -611,6 +612,7 @@ onUnmounted(() => {
   }
 
   .chart-container {
+    height: 300px;
     min-height: 300px;
     width: 100%;
   }
