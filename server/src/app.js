@@ -58,7 +58,7 @@ const startServer = async () => {
     await scheduler.initSchedulers();
 
     // 启动HTTP服务
-    app.listen(config.port, () => {
+    app.listen(config.port, '0.0.0.0', () => {
       logger.info(`服务器已启动，端口: ${config.port}`);
       logger.info(`代理接口地址: http://localhost:${config.port}/api/proxy/get`);
       logger.info(`后台管理地址: http://localhost:${config.port}/api/admin`);
