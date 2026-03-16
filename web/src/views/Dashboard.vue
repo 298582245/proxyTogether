@@ -561,7 +561,6 @@ onUnmounted(() => {
     padding: 2px 6px;
   }
 
-  /* 图表卡片移动端 */
   .chart-card {
     min-height: auto;
     height: auto;
@@ -583,7 +582,6 @@ onUnmounted(() => {
   .chart-card :deep(.arco-card-body) {
     height: auto;
     min-height: 300px;
-    overflow-x: auto;
   }
 
   .chart-header {
