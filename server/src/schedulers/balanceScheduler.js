@@ -160,8 +160,19 @@ const restartLogStatsJobs = async () => {
 const initSchedulers = async () => {
   await startBalanceCheckJob();
   await startUsageLimitResetJob();
-  await startLogStatsFlushJob();
-  await startLogCleanupJob();
+
+  try {
+    await startLogStatsFlushJob();
+  } catch (error) {
+    logger.error('log stats flush job init failed:', error);
+  }
+
+  try {
+    await startLogCleanupJob();
+  } catch (error) {
+    logger.error('log cleanup job init failed:', error);
+  }
+
   logger.info('all scheduler jobs initialized');
 };
 
