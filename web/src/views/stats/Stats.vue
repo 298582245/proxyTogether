@@ -313,24 +313,6 @@
         </a-card>
       </a-col>
     </a-row>
-              </a-table-column>
-              <a-table-column title="连续" :width="60" align="right">
-                <template #cell="{ record }">
-                  <a-tag
-                    v-if="record.currentFailCount >= 3"
-                    color="red"
-                    size="small"
-                  >
-                    {{ record.currentFailCount }}
-                  </a-tag>
-                  <span v-else>{{ record.currentFailCount }}</span>
-                </template>
-              </a-table-column>
-            </template>
-          </a-table>
-        </a-card>
-      </a-col>
-    </a-row>
 
     <!-- 备注排行 -->
     <a-row :gutter="16" class="remark-row">
@@ -414,9 +396,6 @@
             <div class="card-header">
               <span>备注消费排行</span>
               <span class="total-text">¥{{ formatCost(remarkCostTotal) }}</span>
-            </div>
-          </template>
-              >
             </div>
           </template>
           <template #extra>
