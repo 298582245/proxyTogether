@@ -4,3 +4,6 @@ docker exec -i proxy-together-mysql mysql -uroot -proot123456 proxy_together < s
 
 #全部重新构建并启动
 docker-compose up -d --build
+
+#日志
+docker-compose logs <服务名称>

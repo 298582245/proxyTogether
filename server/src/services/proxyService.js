@@ -129,12 +129,17 @@ const logProxyRequest = async (data) => {
  * @param {number} durationValue - 鏃堕暱鍊? * @returns {number} 浠锋牸
  */
 const getDurationPrice = (site, account, durationValue) => {
+  const durationNum = parseInt(durationValue, 10);
+  if (Number.isNaN(durationNum)) {
+    return 0;
+  }
+
   if (!site && account.durationParams) {
     const durationParams = typeof account.durationParams === 'string'
       ? JSON.parse(account.durationParams)
       : account.durationParams;
     if (Array.isArray(durationParams)) {
-      const duration = durationParams.find((dp) => dp.times === durationValue);
+      const duration = durationParams.find((dp) => parseInt(dp.times, 10) === durationNum);
       return duration ? parseFloat(duration.price) || 0 : 0;
     }
     return 0;
@@ -142,7 +147,7 @@ const getDurationPrice = (site, account, durationValue) => {
   if (!site || !site.durationParams || !Array.isArray(site.durationParams)) {
     return 0;
   }
-  const duration = site.durationParams.find((dp) => dp.times === durationValue);
+  const duration = site.durationParams.find((dp) => parseInt(dp.times, 10) === durationNum);
   return duration ? parseFloat(duration.price) || 0 : 0;
 };
 
