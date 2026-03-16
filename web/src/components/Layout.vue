@@ -509,33 +509,13 @@ const handleChangePassword = async () => {
 
 /* ========== 移动端适配 ========== */
 @media (max-width: 768px) {
-  .layout-container {
-    overflow: visible !important;
-    height: auto !important;
-    min-height: 100vh;
-  }
-
-  .layout-container :deep(.arco-layout) {
-    height: auto !important;
-    min-height: 100vh;
-  }
-
   .header {
     padding: 0 16px;
   }
 
   .main {
     padding: 12px 16px;
-    overflow: visible !important;
-    flex: none !important;
-    height: auto !important;
-    min-height: calc(100vh - 60px);
-  }
-
-  .main :deep(> *) {
-    flex: none !important;
-    height: auto !important;
-    min-height: 0;
+    overflow-x: hidden;
   }
 
   .user-dropdown {

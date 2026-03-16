@@ -35,13 +35,4 @@ body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
 }
-
-/* 移动端允许页面滚动 */
-@media (max-width: 768px) {
-  html, body, #app {
-    overflow: visible !important;
-    height: auto !important;
-    position: static !important;
-  }
-}
 </style>
