@@ -353,6 +353,8 @@ const recordRealtimeLogStat = async (logData, createdAt = new Date()) => {
 };
 
 const createProxyLog = async (data) => {
+  const normalizedRemark = normalizeRemark(data.remark);
+
   const log = await ProxyLog.create({
     accountId: data.accountId || null,
     siteId: data.siteId || null,
@@ -362,7 +364,7 @@ const createProxyLog = async (data) => {
     success: data.success ? 1 : 0,
     cost: data.cost || 0,
     errorMessage: data.errorMessage,
-    remark: data.remark,
+    remark: normalizedRemark,
     responsePreview: data.responsePreview,
   });
 
@@ -491,7 +493,7 @@ const initializeAggregatedStats = async () => {
         INSERT INTO proxy_log_remark_daily_stats (stat_date, remark, request_count, success_count, fail_count, total_cost, created_at, updated_at)
         SELECT
           DATE(created_at) AS stat_date,
-          remark,
+          TRIM(remark) AS remark,
           COUNT(*) AS request_count,
           SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -499,8 +501,8 @@ const initializeAggregatedStats = async () => {
           NOW(),
           NOW()
         FROM proxy_logs
-        WHERE created_at < :currentBucketStart AND remark IS NOT NULL AND remark <> ''
-        GROUP BY DATE(created_at), remark
+        WHERE created_at < :currentBucketStart AND remark IS NOT NULL AND TRIM(remark) <> ''
+        GROUP BY DATE(created_at), TRIM(remark)
       `,
       {
         transaction,
@@ -592,7 +594,7 @@ const flushBucketToMysql = async (bucketStart) => {
         INSERT INTO proxy_log_remark_daily_stats (stat_date, remark, request_count, success_count, fail_count, total_cost, created_at, updated_at)
         SELECT
           DATE(created_at) AS stat_date,
-          remark,
+          TRIM(remark) AS remark,
           COUNT(*) AS request_count,
           SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -600,8 +602,8 @@ const flushBucketToMysql = async (bucketStart) => {
           NOW(),
           NOW()
         FROM proxy_logs
-        WHERE created_at >= :bucketStart AND created_at < :bucketEnd AND remark IS NOT NULL AND remark <> ''
-        GROUP BY DATE(created_at), remark
+        WHERE created_at >= :bucketStart AND created_at < :bucketEnd AND remark IS NOT NULL AND TRIM(remark) <> ''
+        GROUP BY DATE(created_at), TRIM(remark)
         ON DUPLICATE KEY UPDATE
           request_count = request_count + VALUES(request_count),
           success_count = success_count + VALUES(success_count),
@@ -844,14 +846,14 @@ const getRealtimeAggregateFromRaw = async (startDate, endDate) => {
     queryAll(
       `
         SELECT
-          remark,
+          TRIM(remark) AS remark,
           COUNT(*) AS requestCount,
           SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
           SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost
         FROM proxy_logs
-        ${whereSql} ${whereSql ? 'AND' : 'WHERE'} remark IS NOT NULL AND remark <> ''
-        GROUP BY remark
+        ${whereSql} ${whereSql ? 'AND' : 'WHERE'} remark IS NOT NULL AND TRIM(remark) <> ''
+        GROUP BY TRIM(remark)
       `,
       replacements,
     ),
@@ -895,12 +897,24 @@ const getTodayRealtimeAggregate = async () => {
     };
   }
 
+  try {
+    return await getRealtimeAggregateFromRaw(pendingStart, now);
+  } catch (error) {
+    logger.warn('load realtime aggregate from raw failed:', error.message);
+  }
+
   const redisAggregate = await getRealtimeAggregateFromRedis();
   if (redisAggregate) {
     return redisAggregate;
   }
 
-  return getRealtimeAggregateFromRaw(pendingStart, now);
+  return {
+    summary: buildEmptyMetrics(),
+    hours: {},
+    accounts: {},
+    sites: {},
+    remarks: {},
+  };
 };
 
 const queryMysqlSummaryMetrics = async (startDate, endDate) => {
@@ -969,14 +983,14 @@ const queryMysqlRemarkMetrics = async (startDate, endDate) => {
   return queryAll(
     `
       SELECT
-        remark,
+        TRIM(remark) AS remark,
         COALESCE(SUM(request_count), 0) AS requestCount,
         COALESCE(SUM(success_count), 0) AS successCount,
         COALESCE(SUM(fail_count), 0) AS failCount,
         COALESCE(SUM(total_cost), 0) AS totalCost
       FROM proxy_log_remark_daily_stats
       ${whereSql}
-      GROUP BY remark
+      GROUP BY TRIM(remark)
     `,
     replacements,
   );
