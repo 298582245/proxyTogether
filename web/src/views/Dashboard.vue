@@ -471,20 +471,22 @@ onUnmounted(() => {
 
 .chart-card {
   flex-shrink: 0;
+  height: 100%;
   min-height: 300px;
   display: flex;
   flex-direction: column;
 }
 
 .chart-card :deep(.arco-card-body) {
-  flex-shrink: 0;
-  min-height: 250px;
+  flex: 1;
+  min-height: 0;
   padding: 16px;
   display: flex;
   flex-direction: column;
 }
 
 .chart-header {
+  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -506,12 +508,35 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  height: 300px;
-  min-height: 300px;
+  flex: 1;
+  min-height: 0;
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .dashboard {
+    flex: none;
+    height: auto;
+    min-height: max-content;
+  }
+
+  .chart-card {
+    flex: none;
+    height: auto;
+    min-height: auto;
+  }
+
+  .chart-card :deep(.arco-card-body) {
+    height: auto;
+    min-height: 280px;
+  }
+
+  .chart-container {
+    height: 250px;
+    min-height: 250px;
+    flex: none;
+  }
+
   /* 调整卡片头部布局，让 extra 换行显示 */
   .chart-card :deep(.arco-card-header) {
     flex-direction: column;
@@ -608,24 +633,6 @@ onUnmounted(() => {
 
   :deep(.arco-radio-button) {
     flex: 1;
-  }
-
-  /* 图表卡片移动端：固定高度，允许滚动 */
-  .chart-card {
-    flex: none;
-    min-height: auto;
-  }
-
-  .chart-card :deep(.arco-card-body) {
-    min-height: 300px;
-    height: auto;
-    overflow: visible;
-  }
-
-  .chart-container {
-    min-height: 300px;
-    height: 300px;
-    flex: none;
   }
 }
 </style>
