@@ -884,10 +884,9 @@ const getRealtimeAggregateFromRaw = async (startDate, endDate) => {
 };
 
 const getTodayRealtimeAggregate = async () => {
-  const pendingStart = await getPendingRealtimeStart();
-  const now = new Date();
+  const { now, todayStart } = getTodayDateRange();
 
-  if (pendingStart > now) {
+  if (todayStart > now) {
     return {
       summary: buildEmptyMetrics(),
       hours: {},
@@ -898,7 +897,7 @@ const getTodayRealtimeAggregate = async () => {
   }
 
   try {
-    return await getRealtimeAggregateFromRaw(pendingStart, now);
+    return await getRealtimeAggregateFromRaw(todayStart, now);
   } catch (error) {
     logger.warn('load realtime aggregate from raw failed:', error.message);
   }
@@ -1038,6 +1037,30 @@ const queryMysqlChartMetrics = async (startDate, endDate) => {
   );
 };
 
+const getTodayDateRange = (now = new Date()) => {
+  const todayStr = getChinaDateStr(now);
+  return {
+    now,
+    todayStr,
+    todayStart: getChinaDayStart(todayStr),
+    todayEnd: getChinaDayEnd(todayStr),
+  };
+};
+
+const getMysqlRangeExcludingToday = (startDate, endDate) => {
+  if (!isDateRangeIncludesToday(startDate, endDate)) {
+    return { startDate, endDate };
+  }
+
+  const { todayEnd } = getTodayDateRange();
+  const yesterdayEnd = addDays(todayEnd, -1);
+
+  return {
+    startDate,
+    endDate: yesterdayEnd,
+  };
+};
+
 const mergeMetricsMaps = (mysqlRows, realtimeRows, keyGetter) => {
   const resultMap = {};
 
@@ -1058,10 +1081,7 @@ const mergeMetricsMaps = (mysqlRows, realtimeRows, keyGetter) => {
 };
 
 const getOverviewData = async () => {
-  const now = new Date();
-  const todayStr = getChinaDateStr(now);
-  const todayStart = getChinaDayStart(todayStr);
-  const todayEnd = getChinaDayEnd(todayStr);
+  const { todayStart, todayEnd } = getTodayDateRange();
   const yesterdayStart = addDays(todayStart, -1);
   const yesterdayEnd = addDays(todayEnd, -1);
   const weekStart = addDays(todayStart, -6);
@@ -1069,11 +1089,11 @@ const getOverviewData = async () => {
   const realtimeAggregate = await getTodayRealtimeAggregate();
 
   const [todayMetrics, yesterdayMetrics, weekMetrics, monthMetrics, totalMetrics, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
-    queryMysqlSummaryMetrics(todayStart, todayEnd),
+    Promise.resolve(buildEmptyMetrics()),
     queryMysqlSummaryMetrics(yesterdayStart, yesterdayEnd),
-    queryMysqlSummaryMetrics(weekStart, todayEnd),
-    queryMysqlSummaryMetrics(monthStart, todayEnd),
-    queryMysqlSummaryMetrics(null, null),
+    queryMysqlSummaryMetrics(weekStart, yesterdayEnd),
+    queryMysqlSummaryMetrics(monthStart, yesterdayEnd),
+    queryMysqlSummaryMetrics(null, yesterdayEnd),
     Account.count(),
     Account.count({ where: { status: 1 } }),
     Account.count({ where: { failCount: { [Op.gte]: 3 }, status: 1 } }),
@@ -1124,7 +1144,8 @@ const getAccountSuccessRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlAccountMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlAccountMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.accounts : {}, (row) => String(toInteger(row.accountId)));
 
   const accountIds = Object.keys(mergedMetrics).map((key) => toInteger(key)).filter((key) => key > 0);
@@ -1182,7 +1203,8 @@ const getAccountFailRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlAccountMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlAccountMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.accounts : {}, (row) => String(toInteger(row.accountId)));
 
   const accountIds = Object.keys(mergedMetrics).map((key) => toInteger(key)).filter((key) => key > 0);
@@ -1224,7 +1246,8 @@ const getSiteDistributionData = async (type) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlSiteMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlSiteMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.sites : {}, (row) => String(toInteger(row.siteId)));
 
   const siteIds = Object.keys(mergedMetrics).map((key) => toInteger(key)).filter((key) => key > 0);
@@ -1268,7 +1291,8 @@ const getHourlyDistributionData = async (type) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlHourlyMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlHourlyMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.hours : {}, (row) => String(toInteger(row.statHour)));
 
   return Array.from({ length: 24 }, (_, hour) => {
@@ -1286,7 +1310,8 @@ const getRemarkRequestRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlRemarkMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlRemarkMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.remarks : {}, (row) => row.remark);
 
   const list = Object.entries(mergedMetrics)
@@ -1313,7 +1338,8 @@ const getRemarkCostRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const mysqlRows = await queryMysqlRemarkMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const mysqlRows = await queryMysqlRemarkMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const mergedMetrics = mergeMetricsMaps(mysqlRows, includeToday ? realtimeAggregate.remarks : {}, (row) => row.remark);
 
   const list = Object.entries(mergedMetrics)
@@ -1336,21 +1362,18 @@ const getRemarkCostRankingData = async (type, limit) => {
 };
 
 const getLogStatsData = async (startDateValue, endDateValue) => {
-  const todayStr = getChinaDateStr(new Date());
-  const todayStart = getChinaDayStart(todayStr);
-  const todayEnd = getChinaDayEnd(todayStr);
+  const { todayStart, todayEnd } = getTodayDateRange();
   const yesterdayStart = addDays(todayStart, -1);
   const yesterdayEnd = addDays(todayEnd, -1);
   const startDate = startDateValue ? getChinaDayStart(startDateValue) : null;
   const endDate = endDateValue ? getChinaDayEnd(endDateValue) : null;
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
 
   const [totalMetrics, todayMetrics, yesterdayMetrics] = await Promise.all([
-    queryMysqlSummaryMetrics(startDate, endDate),
-    (!startDate || startDate <= todayEnd) && (!endDate || endDate >= todayStart)
-      ? queryMysqlSummaryMetrics(todayStart, todayEnd)
-      : Promise.resolve(buildEmptyMetrics()),
+    queryMysqlSummaryMetrics(mysqlRange.startDate, mysqlRange.endDate),
+    Promise.resolve(buildEmptyMetrics()),
     (!startDate || startDate <= yesterdayEnd) && (!endDate || endDate >= yesterdayStart)
       ? queryMysqlSummaryMetrics(yesterdayStart, yesterdayEnd)
       : Promise.resolve(buildEmptyMetrics()),
@@ -1380,7 +1403,8 @@ const getLogChartData = async (type) => {
   const { startDate, endDate } = getTimeRange(type);
   const includeToday = isDateRangeIncludesToday(startDate, endDate);
   const realtimeAggregate = includeToday ? await getTodayRealtimeAggregate() : null;
-  const rows = await queryMysqlChartMetrics(startDate, endDate);
+  const mysqlRange = getMysqlRangeExcludingToday(startDate, endDate);
+  const rows = await queryMysqlChartMetrics(mysqlRange.startDate, mysqlRange.endDate);
   const chartMap = {};
 
   rows.forEach((row) => {
