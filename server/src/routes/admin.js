@@ -43,6 +43,8 @@ router.get('/config/:key', authMiddleware, configController.getConfigValue);
 
 // 日志管理
 router.get('/logs', authMiddleware, logController.getList);
+router.post('/logs/cleanup/preview', authMiddleware, logController.previewCleanupLogs);
+router.post('/logs/cleanup', authMiddleware, logController.cleanupLogs);
 router.get('/logs/stats', authMiddleware, logController.getStats);
 router.get('/logs/chart', authMiddleware, logController.getChartData);
 router.get('/logs/duration-config', authMiddleware, logController.getDurationConfig);

@@ -1,0 +1,1 @@
+import{r as s}from"./index-DyYA_pzu.js";const n=t=>s.get("/admin/logs",{params:t}),o=t=>s.get(`/admin/logs/${t}`),a=t=>s.get("/admin/logs/stats",{params:t}),g=t=>s.get("/admin/logs/chart",{params:t}),r=()=>s.get("/admin/logs/duration-config"),i=t=>s.post("/admin/logs/cleanup",t),u=t=>s.post("/admin/logs/cleanup/preview",t);export{g as a,r as b,n as c,o as d,i as e,a as g,u as p};

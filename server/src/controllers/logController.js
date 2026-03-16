@@ -4,6 +4,66 @@ const Account = require('../models/Account');
 const logStatsService = require('../services/logStatsService');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
+const { addDays, getChinaDateStr, getChinaDayEnd, getChinaDayStart } = require('../utils/statsTime');
+
+const parsePositiveInteger = (value) => {
+  const parsedValue = Number.parseInt(value, 10);
+  if (Number.isNaN(parsedValue) || parsedValue <= 0) {
+    return null;
+  }
+  return parsedValue;
+};
+
+const isValidDateString = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+
+const parseCleanupDateRange = (payload = {}) => {
+  const {
+    cleanupMode,
+    retainDays,
+    cleanupStartDate,
+    cleanupEndDate,
+  } = payload;
+
+  const todayStart = getChinaDayStart(getChinaDateStr(new Date()));
+  let deleteStartDate = null;
+  let deleteEndDate = null;
+
+  if (cleanupMode === 'retainDays') {
+    const retainDaysValue = parsePositiveInteger(retainDays);
+    if (!retainDaysValue || retainDaysValue > 3650) {
+      return { errorMessage: '保留天数必须是 1 到 3650 之间的整数' };
+    }
+
+    const keepStartDate = addDays(todayStart, -(retainDaysValue - 1));
+    deleteEndDate = new Date(keepStartDate.getTime() - 1);
+  } else if (cleanupMode === 'dateRange') {
+    if (!isValidDateString(cleanupStartDate) || !isValidDateString(cleanupEndDate)) {
+      return { errorMessage: '清理时间范围格式不正确' };
+    }
+
+    deleteStartDate = getChinaDayStart(cleanupStartDate);
+    deleteEndDate = getChinaDayEnd(cleanupEndDate);
+
+    if (Number.isNaN(deleteStartDate.getTime()) || Number.isNaN(deleteEndDate.getTime())) {
+      return { errorMessage: '清理时间范围无效' };
+    }
+
+    if (deleteStartDate > deleteEndDate) {
+      return { errorMessage: '开始日期不能晚于结束日期' };
+    }
+  } else {
+    return { errorMessage: '清理模式不正确' };
+  }
+
+  if (!deleteEndDate || deleteEndDate >= todayStart) {
+    return { errorMessage: '为了保证今日统计实时准确，只允许清理今天之前的日志' };
+  }
+
+  return {
+    deleteStartDate,
+    deleteEndDate,
+  };
+};
 
 const getList = async (req, res) => {
   try {
@@ -221,10 +281,57 @@ const getDurationConfig = async (req, res) => {
   }
 };
 
+const cleanupLogs = async (req, res) => {
+  try {
+    const { deleteStartDate, deleteEndDate, errorMessage } = parseCleanupDateRange(req.body);
+    if (errorMessage) {
+      return res.status(400).json({ success: false, message: errorMessage });
+    }
+
+    const deletedCount = await logStatsService.deleteLogsByDateRange(deleteStartDate, deleteEndDate);
+
+    res.json({
+      success: true,
+      message: `清理成功，共删除 ${deletedCount} 条日志`,
+      data: {
+        deletedCount,
+      },
+    });
+  } catch (error) {
+    logger.error('清理日志失败:', error);
+    res.status(500).json({ success: false, message: '清理日志失败' });
+  }
+};
+
+const previewCleanupLogs = async (req, res) => {
+  try {
+    const { deleteStartDate, deleteEndDate, errorMessage } = parseCleanupDateRange(req.body);
+    if (errorMessage) {
+      return res.status(400).json({ success: false, message: errorMessage });
+    }
+
+    const previewData = await logStatsService.previewDeleteLogsByDateRange(deleteStartDate, deleteEndDate);
+
+    res.json({
+      success: true,
+      data: {
+        deleteStartDate: deleteStartDate ? getChinaDateStr(deleteStartDate) : null,
+        deleteEndDate: getChinaDateStr(deleteEndDate),
+        ...previewData,
+      },
+    });
+  } catch (error) {
+    logger.error('预览清理日志失败:', error);
+    res.status(500).json({ success: false, message: '预览清理日志失败' });
+  }
+};
+
 module.exports = {
+  cleanupLogs,
   getChartData,
   getDetail,
   getDurationConfig,
   getList,
   getStats,
+  previewCleanupLogs,
 };

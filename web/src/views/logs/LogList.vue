@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="log-list">
     <a-card :bordered="false">
       <!-- 工具栏 -->
@@ -44,6 +44,9 @@
         <a-button type="primary" @click="loadData">
           <template #icon><icon-search /></template>
           <span class="btn-text">搜索</span>
+        </a-button>
+        <a-button status="warning" @click="handleOpenCleanupDialog">
+          清理日志
         </a-button>
       </div>
 
@@ -177,6 +180,69 @@
       </div>
     </a-card>
 
+    <a-modal
+      v-model:visible="cleanupDialog.visible"
+      title="清理历史日志"
+      :confirm-loading="cleanupDialog.loading"
+      @ok="handleCleanupLogs"
+      @cancel="handleCloseCleanupDialog"
+    >
+      <a-space direction="vertical" style="width: 100%" :size="16">
+        <a-alert type="warning">
+          仅允许清理今天之前的原始日志，已汇总的历史统计会保留，今日统计不会被清空。
+        </a-alert>
+        <a-radio-group v-model="cleanupDialog.form.cleanupMode" type="button">
+          <a-radio value="retainDays">保留近 N 天日志</a-radio>
+          <a-radio value="dateRange">按时间段清理</a-radio>
+        </a-radio-group>
+        <a-input-number
+          v-if="cleanupDialog.form.cleanupMode === 'retainDays'"
+          v-model="cleanupDialog.form.retainDays"
+          model-event="input"
+          :min="1"
+          :max="3650"
+          placeholder="请输入保留天数"
+          style="width: 100%"
+        />
+        <a-range-picker
+          v-else
+          v-model="cleanupDialog.form.dateRange"
+          value-format="YYYY-MM-DD"
+          style="width: 100%"
+          :disabled-date="disableCleanupDate"
+        />
+        <a-button type="outline" :loading="cleanupDialog.previewLoading" @click="handlePreviewCleanupLogs">
+          预览将删除的数据
+        </a-button>
+        <div v-if="cleanupDialog.previewData" class="cleanup-preview">
+          <div class="cleanup-preview-summary">
+            <div>删除范围：{{ cleanupDialog.previewData.deleteStartDate || "最早日志" }} ~ {{ cleanupDialog.previewData.deleteEndDate }}</div>
+            <div>预计删除：{{ cleanupDialog.previewData.summary.requestCount }} 条</div>
+            <div>涉及天数：{{ cleanupDialog.previewData.summary.affectedDays }} 天</div>
+            <div>成功请求：{{ cleanupDialog.previewData.summary.successCount }} 条</div>
+            <div>失败请求：{{ cleanupDialog.previewData.summary.failCount }} 条</div>
+            <div>成功消费：{{ Number(cleanupDialog.previewData.summary.totalCost || 0).toFixed(4) }}</div>
+          </div>
+          <div class="cleanup-preview-days">
+            <div class="cleanup-preview-days-title">涉及日期明细</div>
+            <div v-if="cleanupDialog.previewData.affectedDays.length" class="cleanup-preview-day-list">
+              <div v-for="item in cleanupDialog.previewData.affectedDays" :key="item.statDate" class="cleanup-preview-day-item">
+                <span>{{ item.statDate }}</span>
+                <span>{{ item.requestCount }} 条</span>
+                <span>成功 {{ item.successCount }}</span>
+                <span>失败 {{ item.failCount }}</span>
+                <span>消费 {{ Number(item.totalCost || 0).toFixed(4) }}</span>
+              </div>
+            </div>
+            <a-empty v-else description="当前范围内没有可清理日志" />
+          </div>
+        </div>
+        <a-alert v-else type="info">
+          请先点击“预览将删除的数据”，确认覆盖日期和数量后再执行清理。
+        </a-alert>
+      </a-space>
+    </a-modal>
+
     <!-- 详情对话框 -->
     <a-modal
       v-model:visible="detailDialog.visible"
@@ -231,8 +297,15 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from "vue";
-import { getLogList, getLogDetail, getDurationConfig } from "@/api/log";
+import { ref, reactive, onMounted, onUnmounted, watch, nextTick } from "vue";
+import { Message } from "@arco-design/web-vue";
+import {
+  getLogList,
+  getLogDetail,
+  getDurationConfig,
+  cleanupLogs as cleanupLogsRequest,
+  previewCleanupLogs as previewCleanupLogsRequest,
+} from "@/api/log";
 import { getAllActiveSites } from "@/api/site";
 import { IconSearch } from "@arco-design/web-vue/es/icon";
 
@@ -274,6 +347,19 @@ const pagination = reactive({
 const detailDialog = reactive({
   visible: false,
   data: {},
+});
+
+const cleanupDialog = reactive({
+  visible: false,
+  loading: false,
+  previewLoading: false,
+  previewSignature: "",
+  previewData: null,
+  form: {
+    cleanupMode: "retainDays",
+    retainDays: 7,
+    dateRange: null,
+  },
 });
 
 // 表格列配置
@@ -542,6 +628,133 @@ const loadData = async () => {
   }
 };
 
+const handleOpenCleanupDialog = () => {
+  cleanupDialog.form.cleanupMode = "retainDays";
+  cleanupDialog.form.retainDays = 7;
+  cleanupDialog.form.dateRange = null;
+  cleanupDialog.previewLoading = false;
+  cleanupDialog.previewSignature = "";
+  cleanupDialog.previewData = null;
+  cleanupDialog.visible = true;
+};
+
+const handleCloseCleanupDialog = () => {
+  cleanupDialog.previewLoading = false;
+  cleanupDialog.previewSignature = "";
+  cleanupDialog.previewData = null;
+  cleanupDialog.visible = false;
+};
+
+const disableCleanupDate = (current) => {
+  if (!current) return false;
+
+  const currentDate = new Date(current);
+  currentDate.setHours(0, 0, 0, 0);
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return currentDate >= today;
+};
+
+const resetCleanupPreview = () => {
+  cleanupDialog.previewSignature = "";
+  cleanupDialog.previewData = null;
+};
+
+const buildCleanupPayload = () => {
+  const payload = {
+    cleanupMode: cleanupDialog.form.cleanupMode,
+  };
+
+  if (cleanupDialog.form.cleanupMode === "retainDays") {
+    const retainDaysValue = Number.parseInt(cleanupDialog.form.retainDays, 10);
+    if (Number.isNaN(retainDaysValue) || retainDaysValue < 1 || retainDaysValue > 3650) {
+      Message.warning("保留天数必须是 1 到 3650 之间的整数");
+      return null;
+    }
+    payload.retainDays = retainDaysValue;
+  } else {
+    if (!cleanupDialog.form.dateRange || cleanupDialog.form.dateRange.length !== 2) {
+      Message.warning("请选择需要清理的时间范围");
+      return null;
+    }
+    payload.cleanupStartDate = cleanupDialog.form.dateRange[0];
+    payload.cleanupEndDate = cleanupDialog.form.dateRange[1];
+  }
+
+  return payload;
+};
+
+const getCleanupPreviewSignature = (payload) => JSON.stringify(payload);
+
+watch(
+  () => [
+    cleanupDialog.visible,
+    cleanupDialog.form.cleanupMode,
+    cleanupDialog.form.retainDays,
+    JSON.stringify(cleanupDialog.form.dateRange || null),
+  ],
+  (newValue, oldValue) => {
+    if (!oldValue || !cleanupDialog.visible) {
+      return;
+    }
+
+    if (JSON.stringify(newValue.slice(1)) !== JSON.stringify(oldValue.slice(1))) {
+      resetCleanupPreview();
+    }
+  },
+);
+
+const handlePreviewCleanupLogs = async () => {
+  await nextTick();
+
+  const payload = buildCleanupPayload();
+  if (!payload) {
+    return;
+  }
+
+  cleanupDialog.previewLoading = true;
+  try {
+    const res = await previewCleanupLogsRequest(payload);
+    cleanupDialog.previewData = res.data;
+    cleanupDialog.previewSignature = getCleanupPreviewSignature(payload);
+    if (res.data.summary.requestCount > 0) {
+      Message.success(`预览完成，将删除 ${res.data.summary.requestCount} 条日志`);
+    } else {
+      Message.info("当前范围内没有可清理日志");
+    }
+  } catch (error) {
+  } finally {
+    cleanupDialog.previewLoading = false;
+  }
+};
+
+const handleCleanupLogs = async () => {
+  await nextTick();
+
+  const payload = buildCleanupPayload();
+  if (!payload) {
+    return;
+  }
+
+  if (cleanupDialog.previewSignature !== getCleanupPreviewSignature(payload)) {
+    Message.warning("请先预览当前清理范围，确认无误后再执行清理");
+    return;
+  }
+
+  cleanupDialog.loading = true;
+  try {
+    const res = await cleanupLogsRequest(payload);
+    Message.success(res.message || "清理成功");
+    cleanupDialog.visible = false;
+    pagination.page = 1;
+    await loadData();
+  } catch (error) {
+  } finally {
+    cleanupDialog.loading = false;
+  }
+};
+
 const handleViewDetail = async (row) => {
   try {
     const res = await getLogDetail(row.id);
@@ -734,6 +947,53 @@ onUnmounted(() => {
   font-size: 12px;
 }
 
+.cleanup-preview {
+  border: 1px solid #e5e6eb;
+  border-radius: 8px;
+  padding: 12px;
+  background: #f7f8fa;
+}
+
+.cleanup-preview-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  color: #1d2129;
+  font-size: 13px;
+}
+
+.cleanup-preview-days {
+  border-top: 1px solid #e5e6eb;
+  padding-top: 12px;
+}
+
+.cleanup-preview-days-title {
+  margin-bottom: 8px;
+  color: #4e5969;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.cleanup-preview-day-list {
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.cleanup-preview-day-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+  color: #1d2129;
+  font-size: 13px;
+}
+
+.cleanup-preview-day-item:last-child {
+  border-bottom: none;
+}
+
 /* 移动端卡片样式 */
 .mobile-card-list {
   display: flex;
@@ -833,6 +1093,10 @@ onUnmounted(() => {
 
   .response-preview {
     max-height: 150px;
+  }
+
+  .cleanup-preview-summary {
+    grid-template-columns: 1fr;
   }
 }
 </style>

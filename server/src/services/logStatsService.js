@@ -57,6 +57,34 @@ const toInteger = (value) => Number.parseInt(value, 10) || 0;
 const toFloat = (value) => Number.parseFloat(value) || 0;
 const padNumber = (value) => String(value).padStart(2, '0');
 
+const getAffectedRows = (result) => {
+  if (typeof result === 'number') {
+    return result;
+  }
+
+  if (Array.isArray(result)) {
+    for (const item of result) {
+      const affectedRows = getAffectedRows(item);
+      if (affectedRows > 0) {
+        return affectedRows;
+      }
+    }
+    return 0;
+  }
+
+  if (result && typeof result === 'object') {
+    if (result.affectedRows !== undefined) {
+      return toInteger(result.affectedRows);
+    }
+
+    if (result.rowCount !== undefined) {
+      return toInteger(result.rowCount);
+    }
+  }
+
+  return 0;
+};
+
 const formatDateTimeForSql = (date) => {
   const chinaDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
   const year = chinaDate.getUTCFullYear();
@@ -674,29 +702,232 @@ const flushClosedBuckets = async () => {
   return flushedCount;
 };
 
+const rebuildAggregatedStatsByDateRange = async (startDate, endDate, transaction) => {
+  const statReplacements = {};
+  const statWhereSql = buildStatDateWhere(startDate, endDate, statReplacements);
+  const createdAtReplacements = {};
+  const createdAtWhereSql = buildCreatedAtWhere(startDate, endDate, createdAtReplacements);
+
+  await sequelize.query(
+    `DELETE FROM proxy_log_daily_stats ${statWhereSql}`,
+    {
+      transaction,
+      replacements: statReplacements,
+      type: QueryTypes.DELETE,
+    },
+  );
+
+  await sequelize.query(
+    `DELETE FROM proxy_log_hourly_stats ${statWhereSql}`,
+    {
+      transaction,
+      replacements: statReplacements,
+      type: QueryTypes.DELETE,
+    },
+  );
+
+  await sequelize.query(
+    `DELETE FROM proxy_log_remark_daily_stats ${statWhereSql}`,
+    {
+      transaction,
+      replacements: statReplacements,
+      type: QueryTypes.DELETE,
+    },
+  );
+
+  await sequelize.query(
+    `
+      INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        site_id,
+        account_id,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      ${createdAtWhereSql}
+      GROUP BY DATE(created_at), site_id, account_id
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+    `,
+    {
+      transaction,
+      replacements: createdAtReplacements,
+      type: QueryTypes.INSERT,
+    },
+  );
+
+  await sequelize.query(
+    `
+      INSERT INTO proxy_log_hourly_stats (stat_date, stat_hour, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        HOUR(created_at) AS stat_hour,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      ${createdAtWhereSql}
+      GROUP BY DATE(created_at), HOUR(created_at)
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+    `,
+    {
+      transaction,
+      replacements: createdAtReplacements,
+      type: QueryTypes.INSERT,
+    },
+  );
+
+  await sequelize.query(
+    `
+      INSERT INTO proxy_log_remark_daily_stats (stat_date, remark, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        TRIM(remark) AS remark,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      ${createdAtWhereSql} ${createdAtWhereSql ? 'AND' : 'WHERE'} remark IS NOT NULL AND TRIM(remark) <> ''
+      GROUP BY DATE(created_at), TRIM(remark)
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+    `,
+    {
+      transaction,
+      replacements: createdAtReplacements,
+      type: QueryTypes.INSERT,
+    },
+  );
+};
+
 const cleanupExpiredLogs = async () => {
   const retentionDays = toInteger(await SystemConfig.getValue(LOG_RETENTION_DAYS_KEY, '30')) || 30;
   const cutoffDate = getChinaDayStart(getChinaDateStr(addDays(new Date(), -retentionDays)));
+  const deleteEndDate = new Date(cutoffDate.getTime() - 1);
+  return deleteLogsByDateRange(null, deleteEndDate);
+};
+
+const deleteLogsByDateRange = async (startDate, endDate) => {
+  await flushClosedBuckets();
+
+  await sequelize.transaction(async (transaction) => {
+    await rebuildAggregatedStatsByDateRange(startDate, endDate, transaction);
+  });
+
   let totalDeleted = 0;
+  const replacements = {
+    endDate: formatDateTimeForSql(endDate),
+  };
+  const conditions = ['created_at <= :endDate'];
+
+  if (startDate) {
+    replacements.startDate = formatDateTimeForSql(startDate);
+    conditions.push('created_at >= :startDate');
+  }
+
+  const whereSql = conditions.join(' AND ');
 
   while (true) {
-    const deletedCount = await ProxyLog.destroy({
-      where: {
-        createdAt: {
-          [Op.lt]: cutoffDate,
-        },
+    const deletedCount = await sequelize.query(
+      `DELETE FROM proxy_logs WHERE ${whereSql} LIMIT 5000`,
+      {
+        replacements,
+        type: QueryTypes.DELETE,
       },
-      limit: 5000,
-    });
+    );
 
-    if (!deletedCount) {
+    const currentDeletedCount = getAffectedRows(deletedCount);
+    if (!currentDeletedCount) {
       break;
     }
 
-    totalDeleted += deletedCount;
+    totalDeleted += currentDeletedCount;
   }
 
+  await clearStatsQueryCache();
   return totalDeleted;
+};
+
+const previewDeleteLogsByDateRange = async (startDate, endDate) => {
+  const replacements = {};
+  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
+
+  const summaryRow = await queryOne(
+    `
+      SELECT
+        COUNT(*) AS requestCount,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost,
+        COUNT(DISTINCT DATE(created_at)) AS affectedDays,
+        DATE(MIN(created_at)) AS firstStatDate,
+        DATE(MAX(created_at)) AS lastStatDate
+      FROM proxy_logs
+      ${whereSql}
+    `,
+    replacements,
+  );
+
+  const summary = normalizeMetrics(summaryRow);
+
+  const affectedDays = await queryAll(
+    `
+      SELECT
+        DATE(created_at) AS statDate,
+        COUNT(*) AS requestCount,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost
+      FROM proxy_logs
+      ${whereSql}
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) DESC
+    `,
+    replacements,
+  );
+
+  return {
+    summary: {
+      requestCount: summary.requestCount,
+      successCount: summary.successCount,
+      failCount: summary.failCount,
+      totalCost: summary.totalCost,
+      affectedDays: toInteger(summaryRow.affectedDays),
+      firstStatDate: summaryRow.firstStatDate || null,
+      lastStatDate: summaryRow.lastStatDate || null,
+    },
+    affectedDays: affectedDays.map((item) => ({
+      statDate: item.statDate,
+      requestCount: toInteger(item.requestCount),
+      successCount: toInteger(item.successCount),
+      failCount: toInteger(item.failCount),
+      totalCost: toFloat(item.totalCost),
+    })),
+  };
 };
 
 const getRealtimeAggregateFromRedis = async () => {
@@ -1467,6 +1698,7 @@ module.exports = {
   cleanupExpiredLogs,
   clearStatsCache,
   createProxyLog,
+  deleteLogsByDateRange,
   ensureLogStatsConfigDefaults,
   flushClosedBuckets,
   getAccountFailRankingData,
@@ -1476,6 +1708,7 @@ module.exports = {
   getLogStatsData,
   getLogStatsSchedulerConfig,
   getOverviewData,
+  previewDeleteLogsByDateRange,
   getRemarkCostRankingData,
   getRemarkRequestRankingData,
   getSiteDistributionData,
