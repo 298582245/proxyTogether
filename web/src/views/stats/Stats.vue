@@ -5,7 +5,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.today.requests.toLocaleString()} 次`">
-            <a-statistic title="今日请求" :value="getStatValue(overview.today.requests)" :precision="2">
+            <a-statistic title="今日请求" :value="getStatValue(overview.today.requests)" :precision="getStatPrecision(overview.today.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.today.requests) }}</span>
                 <span
@@ -35,7 +35,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.today.successCount.toLocaleString()} 次`">
-            <a-statistic title="今日成功" :value="getStatValue(overview.today.successCount)" :precision="2">
+            <a-statistic title="今日成功" :value="getStatValue(overview.today.successCount)" :precision="getStatPrecision(overview.today.successCount)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.today.successCount) }}</span>
                 <span class="stat-rate-inline">
@@ -69,7 +69,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.week.requests.toLocaleString()} 次`">
-            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)" :precision="2">
+            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)" :precision="getStatPrecision(overview.week.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.week.requests) }}</span>
               </template>
@@ -82,7 +82,7 @@
           <a-tooltip
             :content="`${overview.month.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)" :precision="2">
+            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)" :precision="getStatPrecision(overview.month.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.month.requests) }}</span>
               </template>
@@ -95,7 +95,7 @@
           <a-tooltip
             :content="`${overview.total.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="累计请求" :value="getStatValue(overview.total.requests)" :precision="2">
+            <a-statistic title="累计请求" :value="getStatValue(overview.total.requests)" :precision="getStatPrecision(overview.total.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.total.requests) }}</span>
               </template>
@@ -161,9 +161,7 @@
           <template #title>
             <div class="card-header">
               <span>成功排行</span>
-              <span class="total-text"
-                >共 {{ formatCount(successTotal) }} 次</span
-              >
+              <span class="total-text">共 {{ formatCount(successTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -315,6 +313,24 @@
         </a-card>
       </a-col>
     </a-row>
+              </a-table-column>
+              <a-table-column title="连续" :width="60" align="right">
+                <template #cell="{ record }">
+                  <a-tag
+                    v-if="record.currentFailCount >= 3"
+                    color="red"
+                    size="small"
+                  >
+                    {{ record.currentFailCount }}
+                  </a-tag>
+                  <span v-else>{{ record.currentFailCount }}</span>
+                </template>
+              </a-table-column>
+            </template>
+          </a-table>
+        </a-card>
+      </a-col>
+    </a-row>
 
     <!-- 备注排行 -->
     <a-row :gutter="16" class="remark-row">
@@ -323,9 +339,7 @@
           <template #title>
             <div class="card-header">
               <span>备注请求排行</span>
-              <span class="total-text hidden-mobile"
-                >{{ formatCount(remarkRequestTotal) }} 次</span
-              >
+              <span class="total-text">{{ formatCount(remarkRequestTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -399,8 +413,9 @@
           <template #title>
             <div class="card-header">
               <span>备注消费排行</span>
-              <span class="total-text hidden-mobile"
-                >¥{{ formatCost(remarkCostTotal) }}</span
+              <span class="total-text">¥{{ formatCost(remarkCostTotal) }}</span>
+            </div>
+          </template>
               >
             </div>
           </template>
@@ -553,6 +568,13 @@ const getStatSuffix = (count) => {
   if (count < 10000) return "k次";
   if (count < 100000000) return "w次";
   return "亿次";
+};
+
+// 获取统计数字的小数位数（小于1000不显示小数）
+const getStatPrecision = (count) => {
+  if (count === 0) return 0;
+  if (count < 1000) return 0;
+  return 2;
 };
 
 // 加载概览数据
@@ -945,20 +967,43 @@ onUnmounted(() => {
 
   .chart-row :deep(.arco-col),
   .ranking-row :deep(.arco-col),
-  .monitor-row :deep(.arco-col) {
+  .monitor-row :deep(.arco-col),
+  .remark-row :deep(.arco-col) {
     margin-bottom: 16px;
   }
 
+  /* 排行榜卡片移动端：时间选择器另起一行 */
+  .ranking-card :deep(.arco-card-header) {
+    flex-wrap: wrap;
+    height: auto;
+    padding-bottom: 0;
+  }
+
+  .ranking-card :deep(.arco-card-header-title) {
+    width: 100%;
+    margin-bottom: 8px;
+  }
+
+  .ranking-card :deep(.arco-card-header-extra) {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  /* 图表卡片移动端：允许滚动 */
   .chart-card {
-    min-height: 250px;
+    min-height: auto;
+    height: auto;
+  }
+
+  .chart-card :deep(.arco-card-body) {
+    height: auto;
+    min-height: 300px;
+    overflow-x: auto;
   }
 
   .chart-container {
-    min-height: 200px;
-  }
-
-  .hidden-mobile {
-    display: none !important;
+    min-height: 300px;
+    width: 100%;
   }
 }
 </style>
