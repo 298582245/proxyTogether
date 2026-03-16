@@ -189,7 +189,7 @@
     >
       <a-space direction="vertical" style="width: 100%" :size="16">
         <a-alert type="warning">
-          仅允许清理今天之前的原始日志，已汇总的历史统计会保留，今日统计不会被清空。
+          当前统计直接来自原始日志，清理日志后历史统计会同步减少，且仅允许清理今天之前的日志。
         </a-alert>
         <a-radio-group v-model="cleanupDialog.form.cleanupMode" type="button">
           <a-radio value="retainDays">保留近 N 天日志</a-radio>
