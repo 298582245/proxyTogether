@@ -1033,7 +1033,7 @@ const getRealtimeAggregateFromRaw = async (startDate, endDate) => {
     remarks: {},
   };
 
-  if (!startDate || startDate > endDate) {
+  if (startDate && endDate && startDate > endDate) {
     return result;
   }
 
@@ -1723,6 +1723,10 @@ const getLogStatsData = async (startDateValue, endDateValue) => {
 
 const getLogChartData = async (type) => {
   const { startDate, endDate } = getTimeRange(type);
+  if (!startDate || !endDate) {
+    return [];
+  }
+
   const replacements = {};
   const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
   const rows = await queryAll(
