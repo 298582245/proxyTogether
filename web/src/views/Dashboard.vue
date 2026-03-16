@@ -367,6 +367,16 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* 移动端强制允许滚动 - 穿透到父容器 */
+@media (max-width: 768px) {
+  .dashboard {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible;
+  }
+}
+
 .stat-cards {
   flex-shrink: 0;
 }
@@ -511,11 +521,6 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .dashboard {
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
   /* 调整卡片头部布局，让 extra 换行显示 */
   .chart-card :deep(.arco-card-header) {
     flex-direction: column;
