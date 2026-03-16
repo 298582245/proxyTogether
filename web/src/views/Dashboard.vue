@@ -470,15 +470,15 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 300px;
   display: flex;
   flex-direction: column;
 }
 
 .chart-card :deep(.arco-card-body) {
-  flex: 1;
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 250px;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -506,8 +506,8 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  flex: 1;
-  min-height: 0;
+  height: 300px;
+  min-height: 300px;
 }
 
 /* 移动端适配 */
