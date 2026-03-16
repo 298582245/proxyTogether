@@ -940,6 +940,13 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .stats-page {
+    overflow: visible;
+    height: auto;
+    flex: none;
+    min-height: 0;
+  }
+
   .overview-cards :deep(.arco-col) {
     margin-bottom: 8px;
   }

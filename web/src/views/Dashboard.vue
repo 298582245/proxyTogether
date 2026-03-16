@@ -512,8 +512,9 @@ onUnmounted(() => {
 /* 移动端适配 */
 @media (max-width: 768px) {
   .dashboard {
-    overflow-x: hidden;
-    overflow-y: auto;
+    overflow: visible;
+    height: auto;
+    flex: none;
   }
 
   /* 调整卡片头部布局，让 extra 换行显示 */

@@ -34,11 +34,14 @@ html, body, #app {
 body {
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  touch-action: pan-y;
+}
+
+/* 移动端允许页面滚动 */
+@media (max-width: 768px) {
+  html, body, #app {
+    overflow: visible !important;
+    height: auto !important;
+    position: static !important;
+  }
 }
 </style>
