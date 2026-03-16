@@ -696,6 +696,16 @@ const getRealtimeAggregateFromRedis = async () => {
       redis.keys(`${REALTIME_PREFIX}:remark:${todayStr}:*`),
     ]);
 
+    if (
+      summaryKeys.length === 0
+      && hourlyKeys.length === 0
+      && accountKeys.length === 0
+      && siteKeys.length === 0
+      && remarkKeys.length === 0
+    ) {
+      return null;
+    }
+
     const readHashValues = async (keys) => {
       if (!keys.length) {
         return [];
