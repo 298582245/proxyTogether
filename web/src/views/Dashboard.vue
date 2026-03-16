@@ -1,7 +1,8 @@
 <template>
-  <div class="dashboard">
-    <!-- 统计卡片 - 第一行 -->
-    <a-row :gutter="16" class="stat-cards">
+  <div class="dashboard-wrapper">
+    <div class="dashboard">
+      <!-- 统计卡片 - 第一行 -->
+      <a-row :gutter="16" class="stat-cards">
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
@@ -129,6 +130,7 @@
       </template>
       <div ref="chartRef" class="chart-container"></div>
     </a-card>
+    </div>
   </div>
 </template>
 
@@ -371,6 +373,23 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+/* 移动端滚动容器 */
+.dashboard-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (max-width: 768px) {
+  .dashboard-wrapper {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 .dashboard {
   flex: 1;
   display: flex;
@@ -384,9 +403,10 @@ onUnmounted(() => {
 /* 移动端允许滚动 */
 @media (max-width: 768px) {
   .dashboard {
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
+    flex: none;
+    height: auto;
+    min-height: max-content;
+    overflow: visible;
   }
 }
 
