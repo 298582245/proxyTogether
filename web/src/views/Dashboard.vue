@@ -513,6 +513,7 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .dashboard {
     overflow-x: hidden;
+    overflow-y: auto;
   }
 
   /* 调整卡片头部布局，让 extra 换行显示 */
@@ -611,6 +612,24 @@ onUnmounted(() => {
 
   :deep(.arco-radio-button) {
     flex: 1;
+  }
+
+  /* 图表卡片移动端：固定高度，允许滚动 */
+  .chart-card {
+    flex: none;
+    min-height: auto;
+  }
+
+  .chart-card :deep(.arco-card-body) {
+    min-height: 300px;
+    height: auto;
+    overflow: visible;
+  }
+
+  .chart-container {
+    min-height: 300px;
+    height: 300px;
+    flex: none;
   }
 }
 </style>
