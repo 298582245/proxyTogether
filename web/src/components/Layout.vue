@@ -48,6 +48,10 @@
             <template #icon><icon-bar-chart /></template>
             统计分析
           </a-menu-item>
+          <a-menu-item key="/stats-snapshot">
+            <template #icon><icon-bar-chart /></template>
+            统计核对
+          </a-menu-item>
           <a-menu-item key="/settings">
             <template #icon><icon-settings /></template>
             系统设置
@@ -99,6 +103,10 @@
             <a-menu-item key="/stats">
               <template #icon><icon-bar-chart /></template>
               统计分析
+            </a-menu-item>
+            <a-menu-item key="/stats-snapshot">
+              <template #icon><icon-bar-chart /></template>
+              统计核对
             </a-menu-item>
             <a-menu-item key="/settings">
               <template #icon><icon-settings /></template>

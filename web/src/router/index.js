@@ -42,6 +42,11 @@ const routes = [
         path: 'stats',
         name: 'Stats',
         component: () => import('@/views/stats/Stats.vue')
+      },
+      {
+        path: 'stats-snapshot',
+        name: 'StatsSnapshot',
+        component: () => import('@/views/stats/StatsSnapshot.vue')
       }
     ]
   }

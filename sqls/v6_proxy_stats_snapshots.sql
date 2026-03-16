@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS `proxy_stats_snapshots` (
+  `id` BIGINT NOT NULL AUTO_INCREMENT,
+  `account_id` INT NOT NULL DEFAULT 0,
+  `site_id` INT NOT NULL DEFAULT 0,
+  `today_request` BIGINT NOT NULL DEFAULT 0,
+  `today_success` BIGINT NOT NULL DEFAULT 0,
+  `today_cost` DECIMAL(16, 4) NOT NULL DEFAULT 0.0000,
+  `week_request` BIGINT NOT NULL DEFAULT 0,
+  `week_success` BIGINT NOT NULL DEFAULT 0,
+  `week_cost` DECIMAL(16, 4) NOT NULL DEFAULT 0.0000,
+  `month_request` BIGINT NOT NULL DEFAULT 0,
+  `month_success` BIGINT NOT NULL DEFAULT 0,
+  `month_cost` DECIMAL(16, 4) NOT NULL DEFAULT 0.0000,
+  `months_request` LONGTEXT NULL,
+  `months_success` LONGTEXT NULL,
+  `months_cost` LONGTEXT NULL,
+  `created_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_proxy_stats_snapshots_account_site` (`account_id`, `site_id`),
+  KEY `idx_proxy_stats_snapshots_site_id` (`site_id`),
+  KEY `idx_proxy_stats_snapshots_account_id` (`account_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

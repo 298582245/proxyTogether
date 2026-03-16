@@ -6,6 +6,7 @@ const accountController = require('../controllers/accountController');
 const configController = require('../controllers/configController');
 const logController = require('../controllers/logController');
 const statsController = require('../controllers/statsController');
+const statsSnapshotController = require('../controllers/statsSnapshotController');
 const usageLimitController = require('../controllers/usageLimitController');
 
 const router = express.Router();
@@ -62,6 +63,10 @@ router.get('/stats/expiring-accounts', authMiddleware, statsController.getExpiri
 router.get('/stats/remark-request-ranking', authMiddleware, statsController.getRemarkRequestRanking);
 router.get('/stats/remark-cost-ranking', authMiddleware, statsController.getRemarkCostRanking);
 router.delete('/stats/cache', authMiddleware, statsController.clearStatsCache);
+
+router.get('/stats-snapshot/options', authMiddleware, statsSnapshotController.getOptions);
+router.get('/stats-snapshot/detail', authMiddleware, statsSnapshotController.getDetail);
+router.post('/stats-snapshot/refresh', authMiddleware, statsSnapshotController.refresh);
 
 // 使用限制管理
 router.get('/usage-limits', authMiddleware, usageLimitController.getLimitedAccounts);

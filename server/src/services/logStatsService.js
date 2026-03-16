@@ -1779,6 +1779,7 @@ module.exports = {
   deleteLogsByDateRange,
   ensureLogStatsConfigDefaults,
   flushClosedBuckets,
+  getRawAggregateByDateRange: getRealtimeAggregateFromRaw,
   getAccountFailRankingData,
   getAccountSuccessRankingData,
   getHourlyDistributionData,
