@@ -470,23 +470,20 @@ onUnmounted(() => {
 }
 
 .chart-card {
-  flex-shrink: 0;
   height: 100%;
   min-height: 300px;
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
 }
 
 .chart-card :deep(.arco-card-body) {
   flex: 1;
   min-height: 0;
   padding: 16px;
-  display: flex;
-  flex-direction: column;
 }
 
 .chart-header {
-  flex-shrink: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -508,49 +505,13 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  flex: 1;
-  min-height: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
 }
 
 /* 移动端适配 */
 @media (max-width: 768px) {
-  .dashboard {
-    flex: none;
-    height: auto;
-    min-height: max-content;
-  }
-
-  .chart-card {
-    flex: none;
-    height: auto;
-    min-height: auto;
-  }
-
-  .chart-card :deep(.arco-card-body) {
-    height: auto;
-    min-height: 280px;
-  }
-
-  .chart-container {
-    height: 250px;
-    min-height: 250px;
-    flex: none;
-  }
-
-  /* 调整卡片头部布局，让 extra 换行显示 */
-  .chart-card :deep(.arco-card-header) {
-    flex-direction: column;
-    align-items: flex-start;
-    height: auto;
-    padding: 12px 16px;
-    gap: 8px;
-  }
-
-  .chart-card :deep(.arco-card-header-extra) {
-    position: static;
-    width: 100%;
-  }
-
   .stat-cards {
     margin: 0 -4px;
   }
@@ -600,7 +561,31 @@ onUnmounted(() => {
     padding: 2px 6px;
   }
 
-  /* 图表头部：标题和汇总在同一行，日期按钮换行 */
+  /* 图表卡片移动端 */
+  .chart-card {
+    min-height: auto;
+    height: auto;
+  }
+
+  .chart-card :deep(.arco-card-header) {
+    flex-direction: column;
+    align-items: flex-start;
+    height: auto;
+    padding: 12px 16px;
+    gap: 8px;
+  }
+
+  .chart-card :deep(.arco-card-header-extra) {
+    position: static;
+    width: 100%;
+  }
+
+  .chart-card :deep(.arco-card-body) {
+    height: auto;
+    min-height: 300px;
+    overflow-x: auto;
+  }
+
   .chart-header {
     width: 100%;
   }
@@ -625,6 +610,11 @@ onUnmounted(() => {
     text-overflow: ellipsis;
     flex: 1;
     min-width: 0;
+  }
+
+  .chart-container {
+    min-height: 300px;
+    width: 100%;
   }
 
   :deep(.arco-radio-group) {
