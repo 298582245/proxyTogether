@@ -55,6 +55,18 @@ const buildEmptyMetrics = () => ({
 
 const toInteger = (value) => Number.parseInt(value, 10) || 0;
 const toFloat = (value) => Number.parseFloat(value) || 0;
+const padNumber = (value) => String(value).padStart(2, '0');
+
+const formatDateTimeForSql = (date) => {
+  const chinaDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
+  const year = chinaDate.getUTCFullYear();
+  const month = padNumber(chinaDate.getUTCMonth() + 1);
+  const day = padNumber(chinaDate.getUTCDate());
+  const hour = padNumber(chinaDate.getUTCHours());
+  const minute = padNumber(chinaDate.getUTCMinutes());
+  const second = padNumber(chinaDate.getUTCSeconds());
+  return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
+};
 
 const normalizeMetrics = (row = {}) => ({
   requestCount: toInteger(row.requestCount),
@@ -121,12 +133,12 @@ const buildCreatedAtWhere = (startDate, endDate, replacements) => {
   const conditions = [];
 
   if (startDate) {
-    replacements.createdStart = startDate;
+    replacements.createdStart = formatDateTimeForSql(startDate);
     conditions.push('created_at >= :createdStart');
   }
 
   if (endDate) {
-    replacements.createdEnd = endDate;
+    replacements.createdEnd = formatDateTimeForSql(endDate);
     conditions.push('created_at <= :createdEnd');
   }
 
@@ -460,7 +472,7 @@ const initializeAggregatedStats = async () => {
       `,
       {
         transaction,
-        replacements: { currentBucketStart },
+        replacements: { currentBucketStart: formatDateTimeForSql(currentBucketStart) },
         type: QueryTypes.INSERT,
       },
     );
@@ -483,7 +495,7 @@ const initializeAggregatedStats = async () => {
       `,
       {
         transaction,
-        replacements: { currentBucketStart },
+        replacements: { currentBucketStart: formatDateTimeForSql(currentBucketStart) },
         type: QueryTypes.INSERT,
       },
     );
@@ -506,7 +518,7 @@ const initializeAggregatedStats = async () => {
       `,
       {
         transaction,
-        replacements: { currentBucketStart },
+        replacements: { currentBucketStart: formatDateTimeForSql(currentBucketStart) },
         type: QueryTypes.INSERT,
       },
     );
@@ -555,7 +567,10 @@ const flushBucketToMysql = async (bucketStart) => {
       `,
       {
         transaction,
-        replacements: { bucketStart, bucketEnd },
+        replacements: {
+          bucketStart: formatDateTimeForSql(bucketStart),
+          bucketEnd: formatDateTimeForSql(bucketEnd),
+        },
         type: QueryTypes.INSERT,
       },
     );
@@ -584,7 +599,10 @@ const flushBucketToMysql = async (bucketStart) => {
       `,
       {
         transaction,
-        replacements: { bucketStart, bucketEnd },
+        replacements: {
+          bucketStart: formatDateTimeForSql(bucketStart),
+          bucketEnd: formatDateTimeForSql(bucketEnd),
+        },
         type: QueryTypes.INSERT,
       },
     );
@@ -613,7 +631,10 @@ const flushBucketToMysql = async (bucketStart) => {
       `,
       {
         transaction,
-        replacements: { bucketStart, bucketEnd },
+        replacements: {
+          bucketStart: formatDateTimeForSql(bucketStart),
+          bucketEnd: formatDateTimeForSql(bucketEnd),
+        },
         type: QueryTypes.INSERT,
       },
     );
