@@ -346,12 +346,26 @@ onMounted(() => {
   loadLogStats()
   loadChartData()
   window.addEventListener('resize', handleResize)
+
+  // 移动端允许父容器滚动
+  if (window.innerWidth <= 768) {
+    const mainEl = document.querySelector('.main')
+    if (mainEl) {
+      mainEl.style.overflow = 'visible'
+    }
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   if (chartInstance) {
     chartInstance.dispose()
+  }
+
+  // 恢复父容器样式
+  const mainEl = document.querySelector('.main')
+  if (mainEl) {
+    mainEl.style.overflow = ''
   }
 })
 </script>
@@ -367,13 +381,12 @@ onUnmounted(() => {
   width: 100%;
 }
 
-/* 移动端强制允许滚动 - 穿透到父容器 */
+/* 移动端允许滚动 */
 @media (max-width: 768px) {
   .dashboard {
-    flex: none;
-    height: auto;
-    min-height: 0;
-    overflow: visible;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

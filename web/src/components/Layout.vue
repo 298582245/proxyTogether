@@ -516,16 +516,6 @@ const handleChangePassword = async () => {
   .main {
     padding: 12px 16px;
     overflow-x: hidden;
-    overflow-y: auto;
-    flex: none;
-    height: auto;
-    min-height: calc(100vh - 60px);
-  }
-
-  .main :deep(> *) {
-    flex: none;
-    height: auto;
-    min-height: 0;
   }
 
   .user-dropdown {
