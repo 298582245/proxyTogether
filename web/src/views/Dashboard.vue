@@ -1,8 +1,7 @@
 <template>
-  <div class="dashboard-wrapper">
-    <div class="dashboard">
-      <!-- 统计卡片 - 第一行 -->
-      <a-row :gutter="16" class="stat-cards">
+  <div class="dashboard">
+    <!-- 统计卡片 - 第一行 -->
+    <a-row :gutter="16" class="stat-cards">
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card-wrap">
           <div class="stat-card">
@@ -130,7 +129,6 @@
       </template>
       <div ref="chartRef" class="chart-container"></div>
     </a-card>
-    </div>
   </div>
 </template>
 
@@ -348,14 +346,6 @@ onMounted(() => {
   loadLogStats()
   loadChartData()
   window.addEventListener('resize', handleResize)
-
-  // 移动端允许父容器滚动
-  if (window.innerWidth <= 768) {
-    const mainEl = document.querySelector('.main')
-    if (mainEl) {
-      mainEl.style.overflow = 'visible'
-    }
-  }
 })
 
 onUnmounted(() => {
@@ -363,51 +353,19 @@ onUnmounted(() => {
   if (chartInstance) {
     chartInstance.dispose()
   }
-
-  // 恢复父容器样式
-  const mainEl = document.querySelector('.main')
-  if (mainEl) {
-    mainEl.style.overflow = ''
-  }
 })
 </script>
 
 <style scoped>
-/* 移动端滚动容器 */
-.dashboard-wrapper {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
-
-@media (max-width: 768px) {
-  .dashboard-wrapper {
-    overflow-y: auto;
-    overflow-x: hidden;
-    -webkit-overflow-scrolling: touch;
-  }
-}
-
 .dashboard {
   flex: 1;
   display: flex;
   flex-direction: column;
   gap: 16px;
   min-height: 0;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   width: 100%;
-}
-
-/* 移动端允许滚动 */
-@media (max-width: 768px) {
-  .dashboard {
-    flex: none;
-    height: auto;
-    min-height: max-content;
-    overflow: visible;
-  }
 }
 
 .stat-cards {
