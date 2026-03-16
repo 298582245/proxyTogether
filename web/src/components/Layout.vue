@@ -133,7 +133,7 @@
         </a-layout-header>
 
         <!-- 内容 -->
-        <a-layout-content class="main">
+        <a-layout-content :class="['main', { 'main-mobile-scroll': isMobile && activeMenu === '/' }]">
           <router-view />
         </a-layout-content>
       </a-layout>
@@ -514,6 +514,17 @@ const handleChangePassword = async () => {
   .main {
     padding: 12px 16px;
     overflow-x: hidden;
+  }
+
+  .main.main-mobile-scroll {
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .main.main-mobile-scroll :deep(> *) {
+    flex: none;
+    min-height: auto;
+    overflow: visible;
   }
 
   .user-dropdown {

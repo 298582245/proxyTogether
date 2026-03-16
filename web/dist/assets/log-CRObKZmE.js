@@ -1,0 +1,1 @@
+import{r as g}from"./index-Cv6pl3Wm.js";const s=t=>g.get("/admin/logs",{params:t}),a=t=>g.get(`/admin/logs/${t}`),e=t=>g.get("/admin/logs/stats",{params:t}),n=t=>g.get("/admin/logs/chart",{params:t}),r=()=>g.get("/admin/logs/duration-config");export{n as a,r as b,s as c,a as d,e as g};

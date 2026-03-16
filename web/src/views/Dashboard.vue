@@ -479,6 +479,8 @@ onUnmounted(() => {
 
 .chart-card :deep(.arco-card-body) {
   flex: 1;
+  display: flex;
+  flex-direction: column;
   min-height: 0;
   padding: 16px;
 }
@@ -512,6 +514,11 @@ onUnmounted(() => {
 
 /* 移动端适配 */
 @media (max-width: 768px) {
+  .dashboard {
+    min-height: auto;
+    overflow: visible;
+  }
+
   .stat-cards {
     margin: 0 -4px;
   }
@@ -583,6 +590,7 @@ onUnmounted(() => {
     height: auto;
     min-height: 0;
     padding: 16px;
+    overflow: visible;
   }
 
   .chart-header {
