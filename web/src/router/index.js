@@ -55,6 +55,11 @@ const router = createRouter({
 // 路由守卫
 router.beforeEach(async (to, from, next) => {
   const authStore = useAuthStore()
+  const storageToken = localStorage.getItem('token')
+
+  if (!storageToken && authStore.token) {
+    authStore.logout()
+  }
 
   // 等待初始化完成
   if (!authStore.isInitialized && authStore.token) {

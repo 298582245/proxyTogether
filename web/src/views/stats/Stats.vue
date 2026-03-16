@@ -134,6 +134,7 @@
           <template #title>
             <div class="card-header">
               <span>网站请求分布</span>
+              <span class="total-text">共 {{ formatCount(siteTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
@@ -166,10 +167,10 @@
           </template>
           <template #extra>
             <a-radio-group
-              v-model="successType"
+              v-model="rankingType"
               size="small"
               type="button"
-              @change="loadSuccessRanking"
+              @change="handleRankingTypeChange"
             >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
@@ -250,10 +251,10 @@
           </template>
           <template #extra>
             <a-radio-group
-              v-model="failType"
+              v-model="rankingType"
               size="small"
               type="button"
-              @change="loadFailRanking"
+              @change="handleRankingTypeChange"
             >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
@@ -321,15 +322,15 @@
           <template #title>
             <div class="card-header">
               <span>备注请求排行</span>
-              <span class="total-text">{{ formatCount(remarkRequestTotal) }} 次</span>
+              <span class="total-text">共 {{ formatCount(remarkRequestTotal) }} 次</span>
             </div>
           </template>
           <template #extra>
             <a-radio-group
-              v-model="remarkRequestType"
+              v-model="remarkType"
               size="small"
               type="button"
-              @change="loadRemarkRequestRanking"
+              @change="handleRemarkTypeChange"
             >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
@@ -400,10 +401,10 @@
           </template>
           <template #extra>
             <a-radio-group
-              v-model="remarkCostType"
+              v-model="remarkType"
               size="small"
               type="button"
-              @change="loadRemarkCostRanking"
+              @change="handleRemarkTypeChange"
             >
               <a-radio value="today">今日</a-radio>
               <a-radio value="week">本周</a-radio>
@@ -488,8 +489,7 @@ const overview = reactive({
 // 图表类型
 const chartType = ref("today");
 const siteType = ref("today");
-const successType = ref("today");
-const failType = ref("today");
+const rankingType = ref("today");
 
 // 排行数据
 const successRanking = ref([]);
@@ -507,8 +507,7 @@ const failTotal = computed(() => failTotalData.value.failCount);
 const siteTotal = computed(() => siteTotalData.value.totalRequests);
 
 // 备注排行数据
-const remarkRequestType = ref("today");
-const remarkCostType = ref("today");
+const remarkType = ref("today");
 const remarkRequestRanking = ref([]);
 const remarkCostRanking = ref([]);
 const remarkRequestTotal = ref(0);
@@ -570,7 +569,7 @@ const loadOverview = async () => {
 const loadSuccessRanking = async () => {
   try {
     const res = await getAccountSuccessRanking({
-      type: successType.value,
+      type: rankingType.value,
       limit: 10,
     });
     console.log("success ranking res:", res);
@@ -589,7 +588,7 @@ const loadSuccessRanking = async () => {
 const loadFailRanking = async () => {
   try {
     const res = await getAccountFailRanking({
-      type: failType.value,
+      type: rankingType.value,
       limit: 10,
     });
     console.log("fail ranking res:", res);
@@ -635,7 +634,7 @@ const loadHourlyData = async () => {
 const loadRemarkRequestRanking = async () => {
   try {
     const res = await getRemarkRequestRanking({
-      type: remarkRequestType.value,
+      type: remarkType.value,
       limit: 10,
     });
     if (res.data) {
@@ -651,7 +650,7 @@ const loadRemarkRequestRanking = async () => {
 const loadRemarkCostRanking = async () => {
   try {
     const res = await getRemarkCostRanking({
-      type: remarkCostType.value,
+      type: remarkType.value,
       limit: 10,
     });
     if (res.data) {
@@ -661,6 +660,14 @@ const loadRemarkCostRanking = async () => {
   } catch (error) {
     console.error("加载备注消费排行失败:", error);
   }
+};
+
+const handleRankingTypeChange = async () => {
+  await Promise.all([loadSuccessRanking(), loadFailRanking()]);
+};
+
+const handleRemarkTypeChange = async () => {
+  await Promise.all([loadRemarkRequestRanking(), loadRemarkCostRanking()]);
 };
 
 // 金额格式化函数
@@ -888,12 +895,15 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
 }
 
 .total-text {
   font-size: 12px;
   color: var(--color-text-3);
   font-weight: normal;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .ranking-card :deep(.arco-card-body) {
@@ -953,19 +963,69 @@ onUnmounted(() => {
 
   /* 排行榜卡片移动端：时间选择器另起一行 */
   .ranking-card :deep(.arco-card-header) {
-    flex-wrap: wrap;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
     height: auto;
     padding-bottom: 0;
   }
 
   .ranking-card :deep(.arco-card-header-title) {
     width: 100%;
-    margin-bottom: 8px;
+    min-width: 0;
+    margin-bottom: 0;
   }
 
   .ranking-card :deep(.arco-card-header-extra) {
     width: 100%;
     margin-left: 0 !important;
+  }
+
+  .ranking-card .card-header {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .ranking-card :deep(.arco-card-header-extra .arco-radio-group) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .site-chart-card :deep(.arco-card-header) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    height: auto;
+    padding-bottom: 0;
+  }
+
+  .site-chart-card :deep(.arco-card-header-title) {
+    width: 100%;
+    min-width: 0;
+    margin-bottom: 0;
+  }
+
+  .site-chart-card :deep(.arco-card-header-extra) {
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  .site-chart-card .card-header {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
+
+  .site-chart-card :deep(.arco-card-header-extra .arco-radio-group) {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
   }
 
   /* 图表卡片移动端：允许滚动 */
