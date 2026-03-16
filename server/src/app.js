@@ -12,6 +12,8 @@ const logger = require('./utils/logger');
 
 const app = express();
 
+app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
+
 // 中间件
 app.use(cors());
 app.use(express.json());

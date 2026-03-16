@@ -1,33 +1,120 @@
-const SystemConfig = require('../models/SystemConfig');
+﻿const SystemConfig = require('../models/SystemConfig');
 const cacheService = require('../services/cacheService');
 const scheduler = require('../schedulers/balanceScheduler');
 const logger = require('../utils/logger');
 
-/**
- * 获取系统配置
- */
+const MASKED_KEYS = ['jwt_private_key', 'jwt_public_key', 'admin_password'];
+const READ_ONLY_KEYS = ['jwt_private_key', 'jwt_public_key'];
+const JSON_ARRAY_KEYS = ['ip_whitelist', 'proxy_failure_keywords'];
+const LOG_SCHEDULER_KEYS = [
+  'log_stats_flush_interval_minutes',
+  'log_cleanup_hour',
+  'log_cleanup_minute',
+];
+
+const normalizeInteger = (value) => {
+  const parsedValue = Number.parseInt(value, 10);
+  return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
+const assertIntegerRange = (value, minValue, maxValue, message) => {
+  const parsedValue = normalizeInteger(value);
+  if (parsedValue === null || parsedValue < minValue || parsedValue > maxValue) {
+    throw createValidationError(message);
+  }
+};
+
+const normalizeJsonArrayValue = (value, message) => {
+  if (Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+
+  if (typeof value !== 'string') {
+    throw createValidationError(message);
+  }
+
+  let parsedValue;
+  try {
+    parsedValue = JSON.parse(value);
+  } catch (error) {
+    throw createValidationError(message);
+  }
+
+  if (!Array.isArray(parsedValue)) {
+    throw createValidationError(message);
+  }
+
+  return JSON.stringify(parsedValue);
+};
+
+const validateAndNormalizeConfigValue = (key, value) => {
+  if (key === 'admin_password') {
+    if (!value || value === '******') {
+      return null;
+    }
+
+    if (String(value).length < 6) {
+      throw createValidationError('密码长度不能少于6位');
+    }
+
+    return String(value);
+  }
+
+  if (JSON_ARRAY_KEYS.includes(key)) {
+    const message = key === 'ip_whitelist'
+      ? 'IP白名单格式错误，应为JSON数组'
+      : '失败关键词格式错误，应为JSON数组';
+    return normalizeJsonArrayValue(value, message);
+  }
+
+  if (key === 'balance_check_interval') {
+    assertIntegerRange(value, 1, 59, '余额检查间隔必须是1到59之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'log_stats_flush_interval_minutes') {
+    assertIntegerRange(value, 1, 59, '日志统计刷盘间隔必须是1到59之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'log_stats_realtime_ttl_seconds') {
+    assertIntegerRange(value, 600, 604800, '实时统计缓存TTL必须是600到604800之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'log_retention_days') {
+    assertIntegerRange(value, 1, 3650, '日志保留天数必须是1到3650之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'log_cleanup_hour') {
+    assertIntegerRange(value, 0, 23, '日志清理小时必须是0到23之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'log_cleanup_minute') {
+    assertIntegerRange(value, 0, 59, '日志清理分钟必须是0到59之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (value === undefined || value === null) {
+    return '';
+  }
+
+  return value;
+};
+
 const getConfig = async (req, res) => {
   try {
     const configs = await SystemConfig.findAll({
       order: [['id', 'ASC']],
     });
 
-    // 过滤敏感信息
-    const result = configs.map((config) => {
-      const data = {
-        key: config.configKey,
-        description: config.description,
-      };
-
-      // 不返回JWT私钥和密码明文
-      if (['jwt_private_key', 'admin_password'].includes(config.configKey)) {
-        data.value = '******';
-      } else {
-        data.value = config.configValue;
-      }
-
-      return data;
-    });
+    const result = configs.map((config) => ({
+      key: config.configKey,
+      description: config.description,
+      value: MASKED_KEYS.includes(config.configKey) ? '******' : config.configValue,
+    }));
 
     res.json({
       success: true,
@@ -42,9 +129,6 @@ const getConfig = async (req, res) => {
   }
 };
 
-/**
- * 更新系统配置
- */
 const updateConfig = async (req, res) => {
   try {
     const { configs } = req.body;
@@ -56,68 +140,30 @@ const updateConfig = async (req, res) => {
       });
     }
 
-    // 不允许直接修改的配置项
-    const readOnlyKeys = ['jwt_private_key', 'jwt_public_key'];
+    const updatedKeys = [];
 
     for (const item of configs) {
-      const { key, value } = item;
-
-      if (!key) continue;
-
-      // 跳过只读配置
-      if (readOnlyKeys.includes(key)) {
+      const { key, value } = item || {};
+      if (!key || READ_ONLY_KEYS.includes(key)) {
         continue;
       }
 
-      // 特殊处理密码
-      if (key === 'admin_password') {
-        if (!value || value === '******') continue;
-        if (value.length < 6) {
-          return res.status(400).json({
-            success: false,
-            message: '密码长度不能少于6位',
-          });
-        }
+      const normalizedValue = validateAndNormalizeConfigValue(key, value);
+      if (normalizedValue === null) {
+        continue;
       }
 
-      // 特殊处理IP白名单
-      if (key === 'ip_whitelist') {
-        try {
-          const ipList = JSON.parse(value);
-          if (!Array.isArray(ipList)) {
-            throw new Error();
-          }
-        } catch {
-          return res.status(400).json({
-            success: false,
-            message: 'IP白名单格式错误，应为JSON数组',
-          });
-        }
-      }
-
-      // 特殊处理失败关键词
-      if (key === 'proxy_failure_keywords') {
-        try {
-          JSON.parse(value);
-        } catch {
-          return res.status(400).json({
-            success: false,
-            message: '失败关键词格式错误，应为JSON数组',
-          });
-        }
-      }
-
-      // 更新配置
-      await SystemConfig.setValue(key, value);
-
-      // 清除缓存
+      await SystemConfig.setValue(key, normalizedValue);
       await cacheService.deleteConfigCache(key);
+      updatedKeys.push(key);
     }
 
-    // 如果修改了余额查询间隔，重启定时任务
-    const intervalConfig = configs.find((c) => c.key === 'balance_check_interval');
-    if (intervalConfig) {
+    if (updatedKeys.includes('balance_check_interval')) {
       await scheduler.restartBalanceCheckJob();
+    }
+
+    if (updatedKeys.some((key) => LOG_SCHEDULER_KEYS.includes(key))) {
+      await scheduler.restartLogStatsJobs();
     }
 
     res.json({
@@ -126,33 +172,25 @@ const updateConfig = async (req, res) => {
     });
   } catch (error) {
     logger.error('更新系统配置失败:', error);
-    res.status(500).json({
+    const isValidationError = error instanceof Error;
+    res.status(isValidationError ? 400 : 500).json({
       success: false,
-      message: '更新系统配置失败',
+      message: isValidationError ? error.message : '更新系统配置失败',
     });
   }
 };
 
-/**
- * 获取单个配置值
- */
 const getConfigValue = async (req, res) => {
   try {
     const { key } = req.params;
-
     const value = await SystemConfig.getValue(key);
-
-    // 敏感信息不返回
-    if (['jwt_private_key', 'jwt_public_key', 'admin_password'].includes(key)) {
-      return res.json({
-        success: true,
-        data: { key, value: '******' },
-      });
-    }
 
     res.json({
       success: true,
-      data: { key, value },
+      data: {
+        key,
+        value: MASKED_KEYS.includes(key) ? '******' : value,
+      },
     });
   } catch (error) {
     logger.error('获取配置失败:', error);
@@ -168,3 +206,4 @@ module.exports = {
   updateConfig,
   getConfigValue,
 };
+

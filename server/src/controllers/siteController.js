@@ -21,7 +21,7 @@ const getList = async (req, res) => {
       where: whereClause,
       offset,
       limit,
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
       include: [
         {
           model: Account,

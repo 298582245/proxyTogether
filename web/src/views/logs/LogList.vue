@@ -67,6 +67,9 @@
             </a-tooltip>
             <span v-else>-</span>
           </template>
+          <template #clientIp="{ record }">
+            {{ record.clientIp }}
+          </template>
           <template #duration="{ record }">
             {{ getDurationLabel(record.duration, record.siteId, record.accountId) }}
           </template>
@@ -310,6 +313,145 @@ const formatAccountName = (name) => {
   return name.slice(0, 3) + "..." + name.slice(-2);
 };
 
+const maskIpSegment = (segment, { isFirst = false, isLast = false } = {}) => {
+  if (!segment) return segment;
+
+  if (isFirst) {
+    if (segment.length <= 1) return "*";
+    if (segment.length === 2) return `${segment.charAt(0)}*`;
+    return `${segment.slice(0, 2)}*`;
+  }
+
+  if (isLast) {
+    if (segment.length <= 1) return "*";
+    return `${"*".repeat(segment.length - 1)}${segment.slice(-1)}`;
+  }
+
+  return "*";
+};
+
+const maskIpv4 = (ip) => {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return ip;
+
+  return parts
+    .map((part, index) =>
+      maskIpSegment(part, {
+        isFirst: index === 0,
+        isLast: index === parts.length - 1,
+      })
+    )
+    .join(".");
+};
+
+const maskIpv6 = (ip) => {
+  const parts = ip.split(":");
+  const visibleIndexes = parts
+    .map((part, index) => (part ? index : -1))
+    .filter((index) => index !== -1);
+
+  if (visibleIndexes.length === 0) return ip;
+
+  const firstVisibleIndex = visibleIndexes[0];
+  const lastVisibleIndex = visibleIndexes[visibleIndexes.length - 1];
+
+  return parts
+    .map((part, index) => {
+      if (!part) return "";
+
+      return maskIpSegment(part, {
+        isFirst: index === firstVisibleIndex,
+        isLast: index === lastVisibleIndex,
+      });
+    })
+    .join(":");
+};
+
+const isLocalOrLanIpv4 = (ip) => {
+  const parts = ip.split(".");
+  if (parts.length !== 4) return false;
+
+  const numbers = parts.map((part) => Number(part));
+  if (numbers.some((part) => Number.isNaN(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  const [first, second] = numbers;
+
+  if (first === 0 || first === 10 || first === 127) return true;
+  if (first === 169 && second === 254) return true;
+  if (first === 172 && second >= 16 && second <= 31) return true;
+  if (first === 192 && second === 168) return true;
+
+  return false;
+};
+
+const isLocalOrLanIpv6 = (ip) => {
+  if (!ip || ip === "::" || ip === "::1") return true;
+
+  const normalizedIp = ip.toLowerCase();
+  const firstPart = normalizedIp.split(":").find((part) => part);
+  if (!firstPart) return true;
+
+  const firstValue = Number.parseInt(firstPart, 16);
+  if (Number.isNaN(firstValue)) return false;
+
+  if ((firstValue & 0xfe00) === 0xfc00) return true;
+  if ((firstValue & 0xffc0) === 0xfe80) return true;
+
+  return false;
+};
+
+const isLocalOrLanIp = (ip) => {
+  if (!ip) return false;
+
+  if (ip.includes(":") && ip.includes(".")) {
+    const lastColonIndex = ip.lastIndexOf(":");
+    if (lastColonIndex !== -1) {
+      const ipv6Part = ip.slice(0, lastColonIndex);
+      const ipv4Part = ip.slice(lastColonIndex + 1);
+      return isLocalOrLanIpv6(ipv6Part) || isLocalOrLanIpv4(ipv4Part);
+    }
+  }
+
+  if (ip.includes(":")) {
+    return isLocalOrLanIpv6(ip);
+  }
+
+  if (ip.includes(".")) {
+    return isLocalOrLanIpv4(ip);
+  }
+
+  return false;
+};
+
+const formatMaskedIp = (ip) => {
+  if (!ip) return "-";
+
+  if (isLocalOrLanIp(ip)) {
+    return ip;
+  }
+
+  if (ip.includes(":") && ip.includes(".")) {
+    const lastColonIndex = ip.lastIndexOf(":");
+    if (lastColonIndex !== -1) {
+      const ipv6Part = ip.slice(0, lastColonIndex);
+      const ipv4Part = ip.slice(lastColonIndex + 1);
+      return `${maskIpv6(ipv6Part)}:${maskIpv4(ipv4Part)}`;
+    }
+  }
+
+  if (ip.includes(":")) {
+    return maskIpv6(ip);
+  }
+
+  if (ip.includes(".")) {
+    return maskIpv4(ip);
+  }
+
+  return ip;
+};
+
 const loadSites = async () => {
   try {
     const res = await getAllActiveSites();
@@ -388,7 +530,10 @@ const loadData = async () => {
     }
 
     const res = await getLogList(params);
-    tableData.value = res.data.list;
+    tableData.value = (res.data.list || []).map((item) => ({
+      ...item,
+      clientIp: formatMaskedIp(item.clientIp),
+    }));
     pagination.total = res.data.total;
   } catch (error) {
     // 错误已处理

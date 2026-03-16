@@ -57,7 +57,6 @@ const ProxyLog = sequelize.define('ProxyLog', {
 }, {
   tableName: 'proxy_logs',
   timestamps: true,
-  createdAt: 'created_at',
   updatedAt: false,
 });
 

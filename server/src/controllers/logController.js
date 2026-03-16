@@ -1,12 +1,10 @@
-const ProxyLog = require('../models/ProxyLog');
+﻿const ProxyLog = require('../models/ProxyLog');
 const Site = require('../models/Site');
 const Account = require('../models/Account');
+const logStatsService = require('../services/logStatsService');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 
-/**
- * 获取代理日志列表
- */
 const getList = async (req, res) => {
   try {
     const {
@@ -22,7 +20,6 @@ const getList = async (req, res) => {
 
     const offset = (parseInt(page, 10) - 1) * parseInt(pageSize, 10);
     const limit = parseInt(pageSize, 10);
-
     const whereClause = {};
 
     if (accountId) {
@@ -38,16 +35,16 @@ const getList = async (req, res) => {
       whereClause.remark = { [Op.like]: `%${remark}%` };
     }
     if (startDate) {
-      whereClause.created_at = {
-        ...whereClause.created_at,
+      whereClause.createdAt = {
+        ...whereClause.createdAt,
         [Op.gte]: new Date(startDate),
       };
     }
     if (endDate) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      whereClause.created_at = {
-        ...whereClause.created_at,
+      whereClause.createdAt = {
+        ...whereClause.createdAt,
         [Op.lte]: end,
       };
     }
@@ -56,7 +53,7 @@ const getList = async (req, res) => {
       where: whereClause,
       offset,
       limit,
-      order: [['created_at', 'DESC']],
+      order: [['createdAt', 'DESC']],
       include: [
         {
           model: Account,
@@ -73,7 +70,6 @@ const getList = async (req, res) => {
       ],
     });
 
-    // 转换字段名确保前端能正确显示
     const list = rows.map((log) => {
       const logJson = log.toJSON();
       return {
@@ -92,17 +88,11 @@ const getList = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('获取日志列表失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取日志列表失败',
-    });
+    logger.error('鑾峰彇鏃ュ織鍒楄〃澶辫触:', error);
+    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織鍒楄〃澶辫触' });
   }
 };
 
-/**
- * 获取日志详情
- */
 const getDetail = async (req, res) => {
   try {
     const { id } = req.params;
@@ -125,10 +115,7 @@ const getDetail = async (req, res) => {
     });
 
     if (!log) {
-      return res.status(404).json({
-        success: false,
-        message: '日志不存在',
-      });
+      return res.status(404).json({ success: false, message: '鏃ュ織涓嶅瓨鍦?' });
     }
 
     const logJson = log.toJSON();
@@ -140,277 +127,41 @@ const getDetail = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('获取日志详情失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取日志详情失败',
-    });
+    logger.error('鑾峰彇鏃ュ織璇︽儏澶辫触:', error);
+    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織璇︽儏澶辫触' });
   }
 };
 
-/**
- * 获取日志统计
- */
 const getStats = async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
-
-    const whereClause = {};
-    if (startDate || endDate) {
-      whereClause.created_at = {};
-      if (startDate) {
-        whereClause.created_at[Op.gte] = new Date(startDate);
-      }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        whereClause.created_at[Op.lte] = end;
-      }
-    }
-
-    // 总请求数
-    const totalRequests = await ProxyLog.count({ where: whereClause });
-
-    // 成功请求数
-    const successRequests = await ProxyLog.count({
-      where: { ...whereClause, success: 1 },
-    });
-
-    // 失败请求数
-    const failRequests = totalRequests - successRequests;
-
-    // 总消费金额（只计算成功的）
-    const totalCostResult = await ProxyLog.findOne({
-      attributes: [
-        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'totalCost'],
-      ],
-      where: { ...whereClause, success: 1 },
-      raw: true,
-    });
-
-    // 今日统计
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayRequests = await ProxyLog.count({
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: today },
-      },
-    });
-
-    const todaySuccess = await ProxyLog.count({
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: today },
-        success: 1,
-      },
-    });
-
-    // 今日消费
-    const todayCostResult = await ProxyLog.findOne({
-      attributes: [
-        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'todayCost'],
-      ],
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: today },
-        success: 1,
-      },
-      raw: true,
-    });
-
-    // 昨日统计
-    const yesterday = new Date(today);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const yesterdayRequests = await ProxyLog.count({
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
-      },
-    });
-
-    const yesterdaySuccess = await ProxyLog.count({
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
-        success: 1,
-      },
-    });
-
-    const yesterdayCostResult = await ProxyLog.findOne({
-      attributes: [
-        [require('sequelize').fn('SUM', require('sequelize').col('cost')), 'yesterdayCost'],
-      ],
-      where: {
-        ...whereClause,
-        created_at: { [Op.gte]: yesterday, [Op.lt]: today },
-        success: 1,
-      },
-      raw: true,
-    });
-
-    res.json({
-      success: true,
-      data: {
-        totalRequests,
-        successRequests,
-        failRequests,
-        totalCost: parseFloat(totalCostResult.totalCost) || 0,
-        todayRequests,
-        todaySuccess,
-        todayCost: parseFloat(todayCostResult.todayCost) || 0,
-        yesterdayRequests,
-        yesterdaySuccess,
-        yesterdayCost: parseFloat(yesterdayCostResult.yesterdayCost) || 0,
-        successRate: totalRequests > 0 ? ((successRequests / totalRequests) * 100).toFixed(2) : 0,
-      },
-    });
+    const data = await logStatsService.getLogStatsData(startDate, endDate);
+    res.json({ success: true, data });
   } catch (error) {
-    logger.error('获取日志统计失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取日志统计失败',
-    });
+    logger.error('鑾峰彇鏃ュ織缁熻澶辫触:', error);
+    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織缁熻澶辫触' });
   }
 };
 
-/**
- * 获取图表数据（按日期分组）
- */
 const getChartData = async (req, res) => {
   try {
-    const { type = 'week' } = req.query; // today, yesterday, week, month
-    const sequelize = require('sequelize');
-    const { fn, col, literal } = sequelize;
-
-    // 强制使用中国时区 (UTC+8)
-    const TIMEZONE_OFFSET = 8 * 60 * 60 * 1000; // 8小时的毫秒数
-    const now = new Date();
-    const chinaTime = new Date(now.getTime() + TIMEZONE_OFFSET);
-
-    // 获取中国时区的日期字符串 YYYY-MM-DD
-    const getChinaDateStr = (date) => {
-      const d = new Date(date.getTime() + TIMEZONE_OFFSET);
-      return d.toISOString().split('T')[0];
-    };
-
-    // 获取中国时区某天的开始时间（UTC时间）
-    const getChinaDayStart = (dateStr) => {
-      // dateStr 是 "2026-03-11" 格式，这是中国时区的日期
-      // 中国时区 00:00:00 = UTC 16:00:00（前一天）
-      return new Date(dateStr + 'T00:00:00.000+08:00');
-    };
-
-    // 获取中国时区某天的结束时间（UTC时间）
-    const getChinaDayEnd = (dateStr) => {
-      return new Date(dateStr + 'T23:59:59.999+08:00');
-    };
-
-    const todayStr = getChinaDateStr(now);
-    let startDate, endDate;
-
-    switch (type) {
-      case 'today':
-        // 今天
-        startDate = getChinaDayStart(todayStr);
-        endDate = getChinaDayEnd(todayStr);
-        break;
-      case 'yesterday': {
-        // 昨天
-        const yesterday = new Date(chinaTime);
-        yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-        const yesterdayStr = yesterday.toISOString().split('T')[0];
-        startDate = getChinaDayStart(yesterdayStr);
-        endDate = getChinaDayEnd(yesterdayStr);
-        break;
-      }
-      case 'week': {
-        // 最近7天
-        const weekStart = new Date(chinaTime);
-        weekStart.setUTCDate(weekStart.getUTCDate() - 6);
-        const weekStartStr = weekStart.toISOString().split('T')[0];
-        startDate = getChinaDayStart(weekStartStr);
-        endDate = getChinaDayEnd(todayStr);
-        break;
-      }
-      case 'month': {
-        // 最近30天
-        const monthStart = new Date(chinaTime);
-        monthStart.setUTCDate(monthStart.getUTCDate() - 29);
-        const monthStartStr = monthStart.toISOString().split('T')[0];
-        startDate = getChinaDayStart(monthStartStr);
-        endDate = getChinaDayEnd(todayStr);
-        break;
-      }
-      default: {
-        const defaultStart = new Date(chinaTime);
-        defaultStart.setUTCDate(defaultStart.getUTCDate() - 6);
-        const defaultStartStr = defaultStart.toISOString().split('T')[0];
-        startDate = getChinaDayStart(defaultStartStr);
-        endDate = getChinaDayEnd(todayStr);
-      }
-    }
-
-    // 使用 DATE_FORMAT 函数按日期分组（数据库存储的是本地时间）
-    const results = await ProxyLog.findAll({
-      attributes: [
-        [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'date'],
-        [fn('COUNT', col('id')), 'requests'],
-        [fn('SUM', literal('CASE WHEN success = 1 THEN 1 ELSE 0 END')), 'successCount'],
-        [fn('SUM', literal('CASE WHEN success = 1 THEN cost ELSE 0 END')), 'cost'],
-      ],
-      where: {
-        created_at: {
-          [Op.gte]: startDate,
-          [Op.lte]: endDate,
-        },
-      },
-      group: [fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d')],
-      order: [[fn('DATE_FORMAT', col('created_at'), '%Y-%m-%d'), 'ASC']],
-      raw: true,
-    });
-
-    // 生成完整的日期范围
-    const chartData = [];
-    const currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dateStr = getChinaDateStr(currentDate);
-      const found = results.find((r) => r.date === dateStr);
-      chartData.push({
-        date: dateStr,
-        requests: found ? parseInt(found.requests) : 0,
-        successCount: found ? parseInt(found.successCount) : 0,
-        cost: found ? parseFloat(found.cost) || 0 : 0,
-      });
-      currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-    }
-
-    res.json({
-      success: true,
-      data: chartData,
-    });
+    const { type = 'week' } = req.query;
+    const data = await logStatsService.getLogChartData(type);
+    res.json({ success: true, data });
   } catch (error) {
-    logger.error('获取图表数据失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取图表数据失败',
-    });
+    logger.error('鑾峰彇鍥捐〃鏁版嵁澶辫触:', error);
+    res.status(500).json({ success: false, message: '鑾峰彇鍥捐〃鏁版嵁澶辫触' });
   }
 };
 
-/**
- * 获取时长参数配置（用于日志列表显示）
- */
 const getDurationConfig = async (req, res) => {
   try {
-    // 获取所有网站的时长参数
     const sites = await Site.findAll({
       where: { status: 1 },
       attributes: ['id', 'name', 'durationParams'],
       raw: true,
     });
 
-    // 获取所有独立包月账号的时长参数
     const accounts = await Account.findAll({
       where: {
         status: 1,
@@ -421,7 +172,6 @@ const getDurationConfig = async (req, res) => {
       raw: true,
     });
 
-    // 构建配置映射
     const siteDurationMap = {};
     sites.forEach((site) => {
       if (site.durationParams) {
@@ -431,9 +181,9 @@ const getDurationConfig = async (req, res) => {
         if (Array.isArray(params)) {
           siteDurationMap[`site_${site.id}`] = {
             name: site.name,
-            params: params.map((p) => ({
-              times: p.times,
-              label: p.label || `${p.times}分钟`,
+            params: params.map((item) => ({
+              times: item.times,
+              label: item.label || `${item.times}分钟`,
             })),
           };
         }
@@ -449,9 +199,9 @@ const getDurationConfig = async (req, res) => {
         if (Array.isArray(params)) {
           accountDurationMap[`account_${account.id}`] = {
             name: account.name,
-            params: params.map((p) => ({
-              times: p.times,
-              label: p.label || `${p.times}分钟`,
+            params: params.map((item) => ({
+              times: item.times,
+              label: item.label || `${item.times}分钟`,
             })),
           };
         }
@@ -466,18 +216,15 @@ const getDurationConfig = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('获取时长参数配置失败:', error);
-    res.status(500).json({
-      success: false,
-      message: '获取时长参数配置失败',
-    });
+    logger.error('鑾峰彇鏃堕暱鍙傛暟閰嶇疆澶辫触:', error);
+    res.status(500).json({ success: false, message: '鑾峰彇鏃堕暱鍙傛暟閰嶇疆澶辫触' });
   }
 };
 
 module.exports = {
-  getList,
-  getDetail,
-  getStats,
   getChartData,
+  getDetail,
   getDurationConfig,
+  getList,
+  getStats,
 };

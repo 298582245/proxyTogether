@@ -4,16 +4,25 @@ const cacheService = require('../services/cacheService');
 const logger = require('../utils/logger');
 
 // 获取客户端IP
-const getClientIp = (req) => {
-  return (
-    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
-    req.headers['x-real-ip'] ||
-    req.connection?.remoteAddress ||
-    req.socket?.remoteAddress ||
-    req.ip ||
-    'unknown'
-  );
+const normalizeClientIp = (ip) => {
+  if (!ip) {
+    return 'unknown';
+  }
+
+  if (ip === '::1') {
+    return '127.0.0.1';
+  }
+
+  if (ip.startsWith('::ffff:')) {
+    return ip.substring(7);
+  }
+
+  return ip;
 };
+
+const getClientIp = (req) => normalizeClientIp(
+  req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress
+);
 
 // 记录验证失败的日志
 const logAuthFailure = async (clientIp, errorMessage) => {

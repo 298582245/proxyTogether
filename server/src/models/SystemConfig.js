@@ -26,8 +26,6 @@ const SystemConfig = sequelize.define('SystemConfig', {
 }, {
   tableName: 'system_configs',
   timestamps: true,
-  createdAt: 'created_at',
-  updatedAt: 'updated_at',
 });
 
 // 获取配置值

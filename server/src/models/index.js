@@ -4,6 +4,9 @@ const Account = require('./Account');
 const SystemConfig = require('./SystemConfig');
 const ProxyLog = require('./ProxyLog');
 const AccountUsageLimit = require('./AccountUsageLimit');
+const ProxyLogDailyStat = require('./ProxyLogDailyStat');
+const ProxyLogHourlyStat = require('./ProxyLogHourlyStat');
+const ProxyLogRemarkDailyStat = require('./ProxyLogRemarkDailyStat');
 
 // 定义关联关系
 Site.hasMany(Account, { foreignKey: 'siteId', as: 'accounts', allowNull: true });
@@ -38,5 +41,8 @@ module.exports = {
   Account,
   SystemConfig,
   ProxyLog,
+  ProxyLogDailyStat,
+  ProxyLogHourlyStat,
+  ProxyLogRemarkDailyStat,
   AccountUsageLimit,
 };

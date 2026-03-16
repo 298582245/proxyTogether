@@ -1,83 +1,95 @@
 const { Account, AccountUsageLimit } = require('../models');
+const { sequelize } = require('../config/database');
 const logger = require('../utils/logger');
 
-/**
- * 账号使用次数限制服务
- */
-
-/**
- * 获取中国时区的当前时间
- */
-const getChinaNow = () => {
-  const TIMEZONE_OFFSET = 8 * 60 * 60 * 1000;
-  return new Date(Date.now() + TIMEZONE_OFFSET);
-};
-
-/**
- * 计算下一个重置时间
- * @param {string} limitType - 限制类型
- * @param {number} limitDays - 自定义天数
- * @param {string} resetTime - 重置时间点 HH:mm:ss
- * @param {Date} fromDate - 计算起点时间
- * @returns {Date} 下一个重置时间
- */
 const calculateNextResetTime = (limitType, limitDays, resetTime, fromDate = new Date()) => {
-  const TIMEZONE_OFFSET = 8 * 60 * 60 * 1000;
-  const chinaTime = new Date(fromDate.getTime() + TIMEZONE_OFFSET);
-
-  // 解析重置时间
-  const [hours, minutes, seconds] = resetTime.split(':').map(Number);
-
-  // 创建今天的重置时间点（中国时区）
+  const timezoneOffset = 8 * 60 * 60 * 1000;
+  const chinaTime = new Date(fromDate.getTime() + timezoneOffset);
+  const [hours, minutes, seconds] = String(resetTime || '00:00:00').split(':').map(Number);
   const todayReset = new Date(chinaTime);
-  todayReset.setUTCHours(hours - 8, minutes, seconds, 0); // 转换为UTC
 
-  let nextReset;
+  todayReset.setUTCHours((hours || 0) - 8, minutes || 0, seconds || 0, 0);
 
   switch (limitType) {
-    case 'daily':
-      // 每天：今天重置时间已过则用明天
+    case 'daily': {
       if (fromDate >= todayReset) {
-        nextReset = new Date(todayReset);
+        const nextReset = new Date(todayReset);
         nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-      } else {
-        nextReset = todayReset;
+        return nextReset;
       }
-      break;
-
-    case 'weekly':
-      // 每周：计算到下一个周一的重置时间
+      return todayReset;
+    }
+    case 'weekly': {
       const dayOfWeek = chinaTime.getUTCDay();
       const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
-      nextReset = new Date(todayReset);
+      const nextReset = new Date(todayReset);
       nextReset.setUTCDate(nextReset.getUTCDate() + daysUntilMonday);
-      break;
-
-    case 'monthly':
-      // 每月：计算到下个月1号的重置时间
-      nextReset = new Date(todayReset);
+      return nextReset;
+    }
+    case 'monthly': {
+      const nextReset = new Date(todayReset);
       nextReset.setUTCMonth(nextReset.getUTCMonth() + 1, 1);
-      break;
-
-    case 'custom':
-      // 自定义天数
+      return nextReset;
+    }
+    case 'custom': {
       const days = limitDays || 1;
-      nextReset = new Date(todayReset);
+      const nextReset = new Date(todayReset);
       nextReset.setUTCDate(nextReset.getUTCDate() + days);
-      break;
-
+      return nextReset;
+    }
     default:
-      nextReset = todayReset;
+      return todayReset;
   }
-
-  return nextReset;
 };
 
-/**
- * 检查账号是否达到使用限制
- * @param {number} accountId - 账号ID
- * @returns {Promise<{limited: boolean, reason: string}>}
- */
+const normalizeUsageLimitState = (usageLimit, now) => {
+  if (!usageLimit.periodStart) {
+    return {
+      currentCount: 0,
+      periodStart: now,
+      isLimited: false,
+    };
+  }
+
+  const periodEnd = calculateNextResetTime(
+    usageLimit.limitType,
+    usageLimit.limitDays,
+    usageLimit.resetTime,
+    usageLimit.periodStart
+  );
+
+  if (now >= periodEnd) {
+    return {
+      currentCount: 0,
+      periodStart: now,
+      isLimited: false,
+    };
+  }
+
+  return {
+    currentCount: usageLimit.currentCount,
+    periodStart: usageLimit.periodStart,
+    isLimited: usageLimit.isLimited,
+  };
+};
+
+const syncUsageLimitState = async (usageLimit, normalizedState, transaction) => {
+  if (
+    usageLimit.currentCount !== normalizedState.currentCount ||
+    Number(new Date(usageLimit.periodStart || 0)) !== Number(new Date(normalizedState.periodStart || 0)) ||
+    usageLimit.isLimited !== normalizedState.isLimited
+  ) {
+    await usageLimit.update(normalizedState, { transaction });
+  }
+};
+
+const disableAccountByUsageLimit = async (accountId, transaction) => {
+  await Account.update(
+    { status: 0 },
+    { where: { id: accountId }, transaction }
+  );
+};
+
 const checkUsageLimit = async (accountId) => {
   try {
     const usageLimit = await AccountUsageLimit.findOne({
@@ -88,122 +100,155 @@ const checkUsageLimit = async (accountId) => {
       return { limited: false, reason: null };
     }
 
-    // 检查是否需要重置周期
     const now = new Date();
-    const periodEnd = calculateNextResetTime(
-      usageLimit.limitType,
-      usageLimit.limitDays,
-      usageLimit.resetTime,
-      usageLimit.periodStart || now
-    );
+    const normalizedState = normalizeUsageLimitState(usageLimit, now);
+    await syncUsageLimitState(usageLimit, normalizedState);
 
-    // 如果当前时间超过了周期结束时间，重置计数
-    if (now >= periodEnd) {
-      await usageLimit.update({
-        currentCount: 0,
-        periodStart: now,
-        isLimited: false,
-      });
-      return { limited: false, reason: null };
-    }
-
-    // 检查是否达到限制
-    if (usageLimit.currentCount >= usageLimit.limitCount) {
+    if (normalizedState.currentCount >= usageLimit.limitCount) {
       return {
         limited: true,
-        reason: `已达到周期使用上限 (${usageLimit.currentCount}/${usageLimit.limitCount})`,
+        reason: `已达到周期使用上限(${normalizedState.currentCount}/${usageLimit.limitCount})`,
       };
     }
 
     return { limited: false, reason: null };
   } catch (error) {
     logger.error('检查使用限制失败:', error);
-    // 出错时不限制，避免影响正常使用
     return { limited: false, reason: null };
   }
 };
 
-/**
- * 增加使用次数
- * @param {number} accountId - 账号ID
- * @returns {Promise<boolean>} 是否成功
- */
-const incrementUsageCount = async (accountId) => {
+const reserveUsageCount = async (accountId) => {
   try {
-    const usageLimit = await AccountUsageLimit.findOne({
-      where: { accountId },
-    });
-
-    if (!usageLimit) {
-      return true; // 没有限制配置，直接返回成功
-    }
-
-    const now = new Date();
-
-    // 如果没有周期开始时间，初始化
-    if (!usageLimit.periodStart) {
-      await usageLimit.update({
-        currentCount: 1,
-        periodStart: now,
+    return await sequelize.transaction(async (transaction) => {
+      const usageLimit = await AccountUsageLimit.findOne({
+        where: { accountId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
       });
-      return true;
-    }
 
-    // 检查是否需要重置周期
-    const periodEnd = calculateNextResetTime(
-      usageLimit.limitType,
-      usageLimit.limitDays,
-      usageLimit.resetTime,
-      usageLimit.periodStart
-    );
-
-    if (now >= periodEnd) {
-      // 重置周期
-      await usageLimit.update({
-        currentCount: 1,
-        periodStart: now,
-        isLimited: false,
-      });
-    } else {
-      // 增加计数
-      const newCount = usageLimit.currentCount + 1;
-
-      // 检查是否达到限制
-      if (newCount >= usageLimit.limitCount) {
-        await usageLimit.update({
-          currentCount: newCount,
-          isLimited: true,
-        });
-
-        // 禁用账号
-        await Account.update(
-          { status: 0 },
-          { where: { id: accountId } }
-        );
-
-        logger.info(`账号 ${accountId} 已达到使用限制 ${newCount}/${usageLimit.limitCount}，已自动禁用`);
-      } else {
-        await usageLimit.update({
-          currentCount: newCount,
-        });
+      if (!usageLimit) {
+        return {
+          reserved: true,
+          hasUsageLimit: false,
+          reachedLimit: false,
+          reason: null,
+        };
       }
-    }
+
+      const now = new Date();
+      const normalizedState = normalizeUsageLimitState(usageLimit, now);
+      await syncUsageLimitState(usageLimit, normalizedState, transaction);
+
+      if (normalizedState.currentCount >= usageLimit.limitCount) {
+        await usageLimit.update({ isLimited: true }, { transaction });
+        await disableAccountByUsageLimit(accountId, transaction);
+
+        return {
+          reserved: false,
+          hasUsageLimit: true,
+          reachedLimit: true,
+          reason: `已达到周期使用上限(${normalizedState.currentCount}/${usageLimit.limitCount})`,
+        };
+      }
+
+      const nextCount = normalizedState.currentCount + 1;
+      await usageLimit.update({
+        currentCount: nextCount,
+        periodStart: normalizedState.periodStart,
+        isLimited: false,
+      }, { transaction });
+
+      return {
+        reserved: true,
+        hasUsageLimit: true,
+        reachedLimit: nextCount >= usageLimit.limitCount,
+        reason: null,
+      };
+    });
+  } catch (error) {
+    logger.error('预占使用次数失败:', error);
+    return {
+      reserved: false,
+      hasUsageLimit: true,
+      reachedLimit: false,
+      reason: '使用次数检查异常',
+    };
+  }
+};
+
+const confirmUsageCount = async (accountId, reservationResult = null) => {
+  if (!reservationResult?.hasUsageLimit || !reservationResult.reachedLimit) {
+    return true;
+  }
+
+  try {
+    await sequelize.transaction(async (transaction) => {
+      const usageLimit = await AccountUsageLimit.findOne({
+        where: { accountId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!usageLimit) {
+        return;
+      }
+
+      if (usageLimit.currentCount >= usageLimit.limitCount) {
+        await usageLimit.update({ isLimited: true }, { transaction });
+        await disableAccountByUsageLimit(accountId, transaction);
+      }
+    });
 
     return true;
   } catch (error) {
-    logger.error('增加使用次数失败:', error);
+    logger.error('确认使用次数失败:', error);
     return false;
   }
 };
 
-/**
- * 重置达到限制的账号
- * 在定时任务中调用，检查是否满足解禁条件
- * @returns {Promise<{resetCount: number, details: Array}>}
- */
+const rollbackUsageCount = async (accountId, reservationResult = null) => {
+  if (!reservationResult?.hasUsageLimit) {
+    return true;
+  }
+
+  try {
+    await sequelize.transaction(async (transaction) => {
+      const usageLimit = await AccountUsageLimit.findOne({
+        where: { accountId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
+      });
+
+      if (!usageLimit) {
+        return;
+      }
+
+      const nextCount = Math.max((usageLimit.currentCount || 0) - 1, 0);
+      await usageLimit.update({
+        currentCount: nextCount,
+        isLimited: false,
+      }, { transaction });
+    });
+
+    return true;
+  } catch (error) {
+    logger.error('回滚使用次数失败:', error);
+    return false;
+  }
+};
+
+const incrementUsageCount = async (accountId) => {
+  const reservationResult = await reserveUsageCount(accountId);
+  if (!reservationResult.reserved) {
+    return false;
+  }
+
+  return confirmUsageCount(accountId, reservationResult);
+};
+
 const resetLimitedAccounts = async () => {
   try {
-    // 查找所有因使用限制被禁用的账号
     const limitedAccounts = await AccountUsageLimit.findAll({
       where: { isLimited: true },
       include: [{
@@ -217,7 +262,6 @@ const resetLimitedAccounts = async () => {
     const now = new Date();
 
     for (const usageLimit of limitedAccounts) {
-      // 计算周期结束时间
       const periodEnd = calculateNextResetTime(
         usageLimit.limitType,
         usageLimit.limitDays,
@@ -225,16 +269,13 @@ const resetLimitedAccounts = async () => {
         usageLimit.periodStart
       );
 
-      // 如果当前时间已超过周期结束时间，重置
       if (now >= periodEnd) {
-        // 重置使用限制
         await usageLimit.update({
           currentCount: 0,
           periodStart: now,
           isLimited: false,
         });
 
-        // 启用账号
         await Account.update(
           { status: 1, failCount: 0 },
           { where: { id: usageLimit.accountId } }
@@ -261,10 +302,6 @@ const resetLimitedAccounts = async () => {
   }
 };
 
-/**
- * 获取账号的使用限制信息
- * @param {number} accountId - 账号ID
- */
 const getUsageLimitInfo = async (accountId) => {
   try {
     const usageLimit = await AccountUsageLimit.findOne({
@@ -300,15 +337,9 @@ const getUsageLimitInfo = async (accountId) => {
   }
 };
 
-/**
- * 设置账号的使用限制
- * @param {number} accountId - 账号ID
- * @param {object} config - 限制配置
- */
 const setUsageLimit = async (accountId, config) => {
   const { limitType, limitCount, limitDays, resetTime } = config;
 
-  // 验证参数
   if (!['daily', 'weekly', 'monthly', 'custom'].includes(limitType)) {
     throw new Error('无效的限制类型');
   }
@@ -344,10 +375,6 @@ const setUsageLimit = async (accountId, config) => {
   return usageLimit;
 };
 
-/**
- * 删除账号的使用限制
- * @param {number} accountId - 账号ID
- */
 const removeUsageLimit = async (accountId) => {
   const result = await AccountUsageLimit.destroy({
     where: { accountId },
@@ -357,6 +384,9 @@ const removeUsageLimit = async (accountId) => {
 
 module.exports = {
   checkUsageLimit,
+  reserveUsageCount,
+  confirmUsageCount,
+  rollbackUsageCount,
   incrementUsageCount,
   resetLimitedAccounts,
   getUsageLimitInfo,
