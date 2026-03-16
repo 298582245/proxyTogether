@@ -424,10 +424,11 @@ const disableStatDate = (current) => {
   if (!current) {
     return false
   }
-  // current 是 Date 对象
-  const year = current.getFullYear()
-  const month = String(current.getMonth() + 1).padStart(2, '0')
-  const day = String(current.getDate()).padStart(2, '0')
+  // current 是 Date 对象，需要转换为中国时区的日期字符串
+  const chinaTime = new Date(current.getTime() + 8 * 60 * 60 * 1000)
+  const year = chinaTime.getUTCFullYear()
+  const month = String(chinaTime.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(chinaTime.getUTCDate()).padStart(2, '0')
   const dateValue = `${year}-${month}-${day}`
   return !availableDateSet.value.has(dateValue)
 }

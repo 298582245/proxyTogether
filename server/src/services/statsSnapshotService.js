@@ -213,9 +213,9 @@ const buildMetricsFromMonthsMap = (row, requestField, successField, costField, k
 
 const getAvailableStatDates = async () => sequelize.query(
   `
-    SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS statDate
+    SELECT DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m-%d') AS statDate
     FROM proxy_logs
-    GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+    GROUP BY DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m-%d')
     ORDER BY statDate DESC
   `,
   { type: QueryTypes.SELECT },
@@ -223,9 +223,9 @@ const getAvailableStatDates = async () => sequelize.query(
 
 const getAvailableMonths = async () => sequelize.query(
   `
-    SELECT DATE_FORMAT(created_at, '%Y-%m') AS monthKey
+    SELECT DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m') AS monthKey
     FROM proxy_logs
-    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+    GROUP BY DATE_FORMAT(CONVERT_TZ(created_at, '+00:00', '+08:00'), '%Y-%m')
     ORDER BY monthKey DESC
   `,
   { type: QueryTypes.SELECT },
