@@ -14,6 +14,27 @@ const parsePositiveInteger = (value) => {
   return parsedValue;
 };
 
+const parseJsonArray = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsedValue = JSON.parse(value);
+      return Array.isArray(parsedValue) ? parsedValue : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
 const isValidDateString = (value) => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const parseCleanupDateRange = (payload = {}) => {
@@ -281,6 +302,90 @@ const getDurationConfig = async (req, res) => {
   }
 };
 
+const getFormatConfig = async (req, res) => {
+  try {
+    const sites = await Site.findAll({
+      where: { status: 1 },
+      attributes: ['id', 'name', 'formatParams'],
+      raw: true,
+    });
+
+    const accounts = await Account.findAll({
+      where: {
+        status: 1,
+        siteId: null,
+        extractUrlTemplate: { [Op.ne]: null },
+      },
+      attributes: ['id', 'name', 'formatParams'],
+      raw: true,
+    });
+
+    const normalizeFormatParams = (params = []) => params
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+
+        const value = item.value !== undefined && item.value !== null
+          ? String(item.value).trim()
+          : '';
+        if (!value) {
+          return null;
+        }
+
+        const label = item.label !== undefined && item.label !== null
+          ? String(item.label).trim()
+          : value;
+        const originalForwardValue = item.oValue !== undefined
+          ? item.oValue
+          : item.o_value;
+        const forwardValue = originalForwardValue !== undefined && originalForwardValue !== null
+          ? String(originalForwardValue).trim()
+          : '';
+
+        return {
+          value,
+          label: label || value,
+          forwardValue: forwardValue || value,
+        };
+      })
+      .filter(Boolean);
+
+    const siteFormatMap = {};
+    sites.forEach((site) => {
+      const params = normalizeFormatParams(parseJsonArray(site.formatParams));
+      if (params.length > 0) {
+        siteFormatMap[`site_${site.id}`] = {
+          name: site.name,
+          params,
+        };
+      }
+    });
+
+    const accountFormatMap = {};
+    accounts.forEach((account) => {
+      const params = normalizeFormatParams(parseJsonArray(account.formatParams));
+      if (params.length > 0) {
+        accountFormatMap[`account_${account.id}`] = {
+          name: account.name,
+          params,
+        };
+      }
+    });
+
+    res.json({
+      success: true,
+      data: {
+        sites: siteFormatMap,
+        accounts: accountFormatMap,
+      },
+    });
+  } catch (error) {
+    logger.error('获取格式参数配置失败:', error);
+    res.status(500).json({ success: false, message: '获取格式参数配置失败' });
+  }
+};
+
 const cleanupLogs = async (req, res) => {
   try {
     const { deleteStartDate, deleteEndDate, errorMessage } = parseCleanupDateRange(req.body);
@@ -331,6 +436,7 @@ module.exports = {
   getChartData,
   getDetail,
   getDurationConfig,
+  getFormatConfig,
   getList,
   getStats,
   previewCleanupLogs,

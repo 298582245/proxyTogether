@@ -76,6 +76,9 @@
           <template #duration="{ record }">
             {{ getDurationLabel(record.duration, record.siteId, record.accountId) }}
           </template>
+          <template #format="{ record }">
+            {{ getFormatLabel(record.format, record.siteId, record.accountId) }}
+          </template>
           <template #success="{ record }">
             <a-tag :color="record.success === 1 ? 'green' : 'red'" size="small">
               {{ record.success === 1 ? "成功" : "失败" }}
@@ -127,7 +130,7 @@
               <div class="card-row">
                 <span class="card-label">时长/格式:</span>
                 <span class="card-value"
-                  >{{ getDurationLabel(item.duration, item.siteId, item.accountId) }} / {{ item.format || "-" }}</span
+                  >{{ getDurationLabel(item.duration, item.siteId, item.accountId) }} / {{ getFormatLabel(item.format, item.siteId, item.accountId) }}</span
                 >
               </div>
               <div class="card-row">
@@ -275,7 +278,7 @@
           getDurationDetailLabel(detailDialog.data.duration, detailDialog.data.siteId, detailDialog.data.accountId)
         }}</a-descriptions-item>
         <a-descriptions-item label="格式参数">{{
-          detailDialog.data.format
+          getFormatDetailLabel(detailDialog.data.format, detailDialog.data.siteId, detailDialog.data.accountId)
         }}</a-descriptions-item>
         <a-descriptions-item label="备注">{{
           detailDialog.data.remark || "-"
@@ -303,6 +306,7 @@ import {
   getLogList,
   getLogDetail,
   getDurationConfig,
+  getFormatConfig,
   cleanupLogs as cleanupLogsRequest,
   previewCleanupLogs as previewCleanupLogsRequest,
 } from "@/api/log";
@@ -315,6 +319,7 @@ const siteOptions = ref([]);
 const tableWrapperRef = ref(null);
 const tableScrollY = ref(300);
 const durationConfig = ref({ sites: {}, accounts: {} });
+const formatConfig = ref({ sites: {}, accounts: {} });
 
 // 响应式检测
 const isMobile = ref(false);
@@ -369,7 +374,7 @@ const columns = [
   { title: "账号", dataIndex: "account", width: 120, slotName: "account" },
   { title: "客户端IP", dataIndex: "clientIp", width: 140 },
   { title: "时长参数", dataIndex: "duration", width: 100, align: "center", slotName: "duration" },
-  { title: "格式参数", dataIndex: "format", width: 100, align: "center" },
+  { title: "格式参数", dataIndex: "format", width: 100, align: "center", slotName: "format" },
   {
     title: "状态",
     dataIndex: "success",
@@ -555,6 +560,72 @@ const loadDurationConfig = async () => {
   } catch (error) {
     // 错误已处理
   }
+};
+
+const loadFormatConfig = async () => {
+  try {
+    const res = await getFormatConfig();
+    formatConfig.value = res.data;
+  } catch (error) {
+    // 错误已处理
+  }
+};
+
+const findFormatParam = (format, siteId, accountId) => {
+  if (!format) return null;
+
+  const formatValue = String(format).trim().toLowerCase();
+
+  if (accountId) {
+    const accountConfig = formatConfig.value.accounts[`account_${accountId}`];
+    if (accountConfig && Array.isArray(accountConfig.params)) {
+      const accountParam = accountConfig.params.find(
+        (item) => String(item.value || "").trim().toLowerCase() === formatValue,
+      );
+      if (accountParam) {
+        return accountParam;
+      }
+    }
+  }
+
+  if (siteId) {
+    const siteConfig = formatConfig.value.sites[`site_${siteId}`];
+    if (siteConfig && Array.isArray(siteConfig.params)) {
+      const siteParam = siteConfig.params.find(
+        (item) => String(item.value || "").trim().toLowerCase() === formatValue,
+      );
+      if (siteParam) {
+        return siteParam;
+      }
+    }
+  }
+
+  return null;
+};
+
+const getFormatLabel = (format, siteId, accountId) => {
+  if (!format) return "-";
+
+  const formatParam = findFormatParam(format, siteId, accountId);
+  if (!formatParam) {
+    return format;
+  }
+
+  return formatParam.label || format;
+};
+
+const getFormatDetailLabel = (format, siteId, accountId) => {
+  if (!format) return "-";
+
+  const formatParam = findFormatParam(format, siteId, accountId);
+  if (!formatParam) {
+    return format;
+  }
+
+  const label = formatParam.label || format;
+  const value = formatParam.value || format;
+  const forwardValue = formatParam.forwardValue || value;
+  return `${label}(${value}->${forwardValue})`;
 };
 
 // 根据网站ID或账号ID获取时长标签
@@ -770,6 +841,7 @@ onMounted(() => {
   window.addEventListener("resize", checkMobile);
   loadSites();
   loadDurationConfig();
+  loadFormatConfig();
   loadData();
   // 计算表格高度
   setTimeout(() => {

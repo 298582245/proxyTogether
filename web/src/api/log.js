@@ -25,6 +25,11 @@ export const getDurationConfig = () => {
   return request.get('/admin/logs/duration-config')
 }
 
+// 获取格式参数配置
+export const getFormatConfig = () => {
+  return request.get('/admin/logs/format-config')
+}
+
 // 清理日志
 export const cleanupLogs = (data) => {
   return request.post('/admin/logs/cleanup', data)

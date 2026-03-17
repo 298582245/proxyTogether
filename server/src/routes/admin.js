@@ -49,6 +49,7 @@ router.post('/logs/cleanup', authMiddleware, logController.cleanupLogs);
 router.get('/logs/stats', authMiddleware, logController.getStats);
 router.get('/logs/chart', authMiddleware, logController.getChartData);
 router.get('/logs/duration-config', authMiddleware, logController.getDurationConfig);
+router.get('/logs/format-config', authMiddleware, logController.getFormatConfig);
 router.get('/logs/:id', authMiddleware, logController.getDetail);
 
 // 统计分析
