@@ -577,6 +577,11 @@ onMounted(async () => {
   border-radius: 8px;
 }
 
+.toolbar-card {
+  position: relative;
+  z-index: 100;
+}
+
 .toolbar-card,
 .section-card,
 .overview-row,
@@ -589,6 +594,8 @@ onMounted(async () => {
 .filters-grid,
 .filter-item {
   overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 .toolbar-header {
