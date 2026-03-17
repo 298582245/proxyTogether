@@ -36,6 +36,21 @@
         </div>
 
         <div class="filter-item">
+          <div class="filter-label">统计时间点</div>
+          <a-time-picker
+            v-model="filters.statTime"
+            class="filter-control"
+            format="HH:mm:ss"
+            value-format="HH:mm:ss"
+            placeholder="请选择时间点"
+            popup-container="body"
+            :popup-style="popupStyle"
+            :trigger-props="popupTriggerProps"
+            @change="handleStatTimeChange"
+          />
+        </div>
+
+        <div class="filter-item">
           <div class="filter-label">对比月份</div>
           <a-select
             v-model="filters.compareMonth"
@@ -64,7 +79,7 @@
       </div>
 
       <div class="toolbar-tip-row">
-        <span class="toolbar-tip">当前选择日期：{{ filters.statDate || '-' }}</span>
+        <span class="toolbar-tip">当前选择：{{ selectedStatDateTime || '-' }}</span>
         <span v-if="detail.compare.updatedAt" class="toolbar-tip">
           快照更新时间：{{ formatDateTime(detail.compare.updatedAt) }}
         </span>
@@ -77,21 +92,7 @@
           <a-card :bordered="false" class="overview-card">
             <template #title>当天概览</template>
             <template #extra>
-              <div class="overview-card-toolbar">
-                <span class="overview-toolbar-label">统计时间点</span>
-                <a-time-picker
-                  v-model="filters.statTime"
-                  class="overview-time-picker"
-                  format="HH:mm:ss"
-                  value-format="HH:mm:ss"
-                  placeholder="请选择时间点"
-                  popup-container="body"
-                  :popup-style="popupStyle"
-                  :trigger-props="popupTriggerProps"
-                  @change="handleStatTimeChange"
-                />
-                <span class="overview-toolbar-tip">当前选择：{{ selectedStatDateTime }}</span>
-              </div>
+              <span class="overview-toolbar-tip">统计时间点：{{ selectedStatDateTime }}</span>
             </template>
             <div class="overview-item">请求数：{{ formatCount(detail.overview.day.requestCount) }}</div>
             <div class="overview-item">成功数：{{ formatCount(detail.overview.day.successCount) }}</div>
@@ -662,24 +663,6 @@ onMounted(async () => {
   font-size: 13px;
 }
 
-.overview-card-toolbar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.overview-toolbar-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #1d2129;
-}
-
-.overview-time-picker {
-  width: 180px;
-}
-
 .overview-toolbar-tip {
   font-size: 13px;
   color: #86909c;
@@ -711,15 +694,6 @@ onMounted(async () => {
   .filter-actions {
     flex-direction: column;
     align-items: stretch;
-  }
-
-  .overview-card-toolbar {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .overview-time-picker {
-    width: 100%;
   }
 }
 </style>
