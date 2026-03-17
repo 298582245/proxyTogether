@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="stats-snapshot-page">
     <a-card :bordered="false" class="toolbar-card">
       <template #title>统计快照校验</template>
@@ -29,9 +29,6 @@
             placeholder="请选择统计日期"
             :disabled-date="disableStatDate"
             popup-container="body"
-            :popup-style="popupStyle"
-            :trigger-props="popupTriggerProps"
-            @change="handleStatDateChange"
           />
         </div>
 
@@ -44,9 +41,6 @@
             value-format="HH:mm:ss"
             placeholder="请选择时间点"
             popup-container="body"
-            :popup-style="popupStyle"
-            :trigger-props="popupTriggerProps"
-            @change="handleStatTimeChange"
           />
         </div>
 
@@ -57,8 +51,6 @@
             class="filter-control"
             placeholder="请选择对比月份"
             popup-container="body"
-            :popup-style="popupStyle"
-            :trigger-props="popupTriggerProps"
             @change="handleCompareMonthChange"
           >
             <a-option v-for="item in options.availableMonths" :key="item" :value="item">
@@ -92,7 +84,7 @@
           <a-card :bordered="false" class="overview-card">
             <template #title>当天概览</template>
             <template #extra>
-              <span class="overview-toolbar-tip">统计时间点：{{ selectedStatDateTime }}</span>
+              <span class="overview-tip">统计时间点：{{ selectedStatDateTime }}</span>
             </template>
             <div class="overview-item">请求数：{{ formatCount(detail.overview.day.requestCount) }}</div>
             <div class="overview-item">成功数：{{ formatCount(detail.overview.day.successCount) }}</div>
@@ -299,6 +291,7 @@
     </a-spin>
   </div>
 </template>
+
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
@@ -309,11 +302,6 @@ import {
 } from '@/api/statsSnapshot'
 
 const loading = ref(false)
-const popupStyle = { zIndex: 5000 }
-const popupTriggerProps = {
-  contentClass: 'stats-snapshot-popup',
-  popupStyle,
-}
 
 const options = reactive({
   availableDates: [],
@@ -571,31 +559,24 @@ onMounted(async () => {
   width: 100%;
 }
 
-.toolbar-card,
+.toolbar-card {
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-card :deep(.arco-card-body) {
+  overflow: visible;
+}
+
 .section-card,
 .overview-card {
   border-radius: 8px;
 }
 
-.toolbar-card {
-  position: relative;
-  z-index: 100;
-}
-
-.toolbar-card,
-.section-card,
 .overview-row,
 .section-row {
   flex-shrink: 0;
-}
-
-.toolbar-card,
-.toolbar-card :deep(.arco-card-body),
-.filters-grid,
-.filter-item {
-  overflow: visible;
-  position: relative;
-  z-index: 10;
+  margin-top: 0;
 }
 
 .toolbar-header {
@@ -627,7 +608,7 @@ onMounted(async () => {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -665,19 +646,10 @@ onMounted(async () => {
   margin-top: 14px;
 }
 
-.toolbar-tip {
+.toolbar-tip,
+.overview-tip {
   color: #86909c;
   font-size: 13px;
-}
-
-.overview-toolbar-tip {
-  font-size: 13px;
-  color: #86909c;
-}
-
-.overview-row,
-.section-row {
-  margin-top: 0;
 }
 
 .overview-item {
@@ -685,15 +657,23 @@ onMounted(async () => {
   color: #1d2129;
 }
 
-@media (max-width: 992px) {
-  .toolbar-header,
+@media (max-width: 1200px) {
   .filters-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
+@media (max-width: 992px) {
+  .toolbar-header {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 768px) {
-  .toolbar-header,
+  .toolbar-header {
+    grid-template-columns: 1fr;
+  }
+
   .filters-grid {
     grid-template-columns: 1fr;
   }
@@ -704,24 +684,3 @@ onMounted(async () => {
   }
 }
 </style>
-
-<style>
-.stats-snapshot-popup {
-  z-index: 5000 !important;
-}
-
-.stats-snapshot-popup.arco-trigger-popup,
-.stats-snapshot-popup .arco-picker-dropdown,
-.stats-snapshot-popup .arco-select-dropdown,
-.stats-snapshot-popup .arco-time-picker-dropdown {
-  z-index: 5000 !important;
-}
-
-/* 确保 Arco 弹出面板不被父容器裁剪 */
-.arco-picker-container,
-.arco-trigger-popup {
-  z-index: 5000 !important;
-}
-</style>
-
-
