@@ -28,7 +28,7 @@
             format="YYYY-MM-DD"
             placeholder="请选择统计日期"
             :disabled-date="disableStatDate"
-            :popup-container="getPopupContainer"
+            popup-container="body"
             :popup-style="popupStyle"
             :trigger-props="popupTriggerProps"
             @change="handleStatDateChange"
@@ -41,7 +41,7 @@
             v-model="filters.compareMonth"
             class="filter-control"
             placeholder="请选择对比月份"
-            :popup-container="getPopupContainer"
+            popup-container="body"
             :popup-style="popupStyle"
             :trigger-props="popupTriggerProps"
             @change="handleCompareMonthChange"
@@ -85,7 +85,7 @@
                   format="HH:mm:ss"
                   value-format="HH:mm:ss"
                   placeholder="请选择时间点"
-                  :popup-container="getPopupContainer"
+                  popup-container="body"
                   :popup-style="popupStyle"
                   :trigger-props="popupTriggerProps"
                   @change="handleStatTimeChange"
@@ -309,7 +309,6 @@ import {
 
 const loading = ref(false)
 const popupStyle = { zIndex: 5000 }
-const getPopupContainer = () => document.body
 const popupTriggerProps = {
   contentClass: 'stats-snapshot-popup',
   popupStyle,
