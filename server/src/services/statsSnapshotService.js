@@ -112,6 +112,35 @@ const normalizeMetrics = (metrics = {}) => ({
   totalCost: toFloat(metrics.totalCost),
 });
 
+const addMetrics = (target, source = {}) => ({
+  requestCount: toInteger(target.requestCount) + toInteger(source.requestCount),
+  successCount: toInteger(target.successCount) + toInteger(source.successCount),
+  failCount: toInteger(target.failCount) + toInteger(source.failCount),
+  totalCost: Number((toFloat(target.totalCost) + toFloat(source.totalCost)).toFixed(4)),
+});
+
+const subtractMetrics = (target, source = {}) => {
+  const requestCount = Math.max(toInteger(target.requestCount) - toInteger(source.requestCount), 0);
+  const successCount = Math.max(toInteger(target.successCount) - toInteger(source.successCount), 0);
+  const totalCost = Math.max(Number((toFloat(target.totalCost) - toFloat(source.totalCost)).toFixed(4)), 0);
+  return {
+    requestCount,
+    successCount,
+    failCount: Math.max(requestCount - successCount, 0),
+    totalCost,
+  };
+};
+
+const sumMetricsFromMap = (metricMap = {}) => Object.values(metricMap).reduce(
+  (result, item) => addMetrics(result, item),
+  buildEmptyMetrics(),
+);
+
+const sumPositiveAccountMetrics = (metricMap = {}) => Object.entries(metricMap).reduce(
+  (result, [accountId, item]) => (toInteger(accountId) > 0 ? addMetrics(result, item) : result),
+  buildEmptyMetrics(),
+);
+
 const getJsonMap = (value) => {
   if (!value) {
     return {};
@@ -182,19 +211,6 @@ const buildCompareItem = (label, storedMetrics, rawMetrics, key) => {
   };
 };
 
-const buildMetricsFromNumericFields = (row, requestField, successField, costField) => {
-  const requestCount = toInteger(row?.[requestField]);
-  const successCount = toInteger(row?.[successField]);
-  const totalCost = toFloat(row?.[costField]);
-
-  return {
-    requestCount,
-    successCount,
-    failCount: Math.max(requestCount - successCount, 0),
-    totalCost,
-  };
-};
-
 const buildMetricsFromMonthsMap = (row, requestField, successField, costField, key) => {
   const requestMap = getJsonMap(row?.[requestField]);
   const successMap = getJsonMap(row?.[successField]);
@@ -247,30 +263,44 @@ const getAvailableOptions = async () => {
     getLatestLogDateTime(),
   ]);
 
+  const currentDate = getChinaDateStr(new Date());
+  const currentMonth = currentDate.slice(0, 7);
+
   return {
-    availableDates: dateRows.map((item) => item.statDate).filter(Boolean),
-    availableMonths: monthRows.map((item) => item.monthKey).filter(Boolean),
+    availableDates: [...new Set([currentDate, ...dateRows.map((item) => item.statDate).filter(Boolean)])]
+      .sort((left, right) => right.localeCompare(left)),
+    availableMonths: [...new Set([currentMonth, ...monthRows.map((item) => item.monthKey).filter(Boolean)])]
+      .sort((left, right) => right.localeCompare(left)),
     currentDateTime: formatChinaDateTime(new Date()),
     latestDateTime: formatChinaDateTime(latestDateTime),
   };
 };
 
 const resolveSnapshotTarget = (statDate, statDateTime, compareMonth) => {
-  const targetDateTime = parseSnapshotDateTime(statDateTime)
-    || (isValidDateString(statDate) ? getChinaDayStart(statDate) : null);
+  const parsedStatDateTime = parseSnapshotDateTime(statDateTime);
+  const resolvedStatDate = isValidDateString(statDate)
+    ? statDate
+    : (parsedStatDateTime ? getChinaDateStr(parsedStatDateTime) : null);
 
-  if (!targetDateTime) {
+  if (!resolvedStatDate) {
     throw new Error('统计日期或时间点格式不正确');
   }
 
-  const resolvedStatDate = getChinaDateStr(targetDateTime);
-  const resolvedCompareMonth = isValidMonthString(compareMonth) ? compareMonth : getMonthKey(targetDateTime);
+  const resolvedCompareMonth = isValidMonthString(compareMonth)
+    ? compareMonth
+    : resolvedStatDate.slice(0, 7);
 
   return {
-    targetDateTime,
     resolvedStatDate,
     resolvedCompareMonth,
   };
+};
+
+const snapshotCompareWhere = {
+  [Op.or]: [
+    { accountId: { [Op.gt]: 0 } },
+    { accountId: 0, siteId: 0 },
+  ],
 };
 
 const getAggregateMetrics = (aggregateMap, key) => normalizeMetrics(aggregateMap[String(key)] || aggregateMap[key] || buildEmptyMetrics());
@@ -295,34 +325,20 @@ const getAccountSiteMap = async (accountIds) => {
 };
 
 const buildSnapshotRowEntries = async (dayAggregate, weekAggregate, monthAggregate) => {
+  const failedDayMetrics = subtractMetrics(dayAggregate.summary, sumPositiveAccountMetrics(dayAggregate.accounts));
+  const failedWeekMetrics = subtractMetrics(weekAggregate.summary, sumPositiveAccountMetrics(weekAggregate.accounts));
+  const failedMonthMetrics = subtractMetrics(monthAggregate.summary, sumPositiveAccountMetrics(monthAggregate.accounts));
+
   const rowMap = {
     [buildRowKey(0, 0)]: {
       accountId: 0,
       siteId: 0,
-      today: normalizeMetrics(dayAggregate.summary),
-      week: normalizeMetrics(weekAggregate.summary),
-      month: normalizeMetrics(monthAggregate.summary),
-      months: normalizeMetrics(monthAggregate.summary),
+      today: normalizeMetrics(failedDayMetrics),
+      week: normalizeMetrics(failedWeekMetrics),
+      month: normalizeMetrics(failedMonthMetrics),
+      months: normalizeMetrics(failedMonthMetrics),
     },
   };
-
-  const siteIds = new Set([
-    ...Object.keys(dayAggregate.sites || {}),
-    ...Object.keys(weekAggregate.sites || {}),
-    ...Object.keys(monthAggregate.sites || {}),
-  ]);
-
-  siteIds.forEach((siteIdKey) => {
-    const siteId = toInteger(siteIdKey);
-    rowMap[buildRowKey(0, siteId)] = {
-      accountId: 0,
-      siteId,
-      today: getAggregateMetrics(dayAggregate.sites, siteId),
-      week: getAggregateMetrics(weekAggregate.sites, siteId),
-      month: getAggregateMetrics(monthAggregate.sites, siteId),
-      months: getAggregateMetrics(monthAggregate.sites, siteId),
-    };
-  });
 
   const accountIds = [...new Set([
     ...Object.keys(dayAggregate.accounts || {}),
@@ -354,6 +370,13 @@ const refreshSnapshotByDate = async (statDate) => {
     throw new Error('统计日期格式不正确');
   }
 
+  await ProxyStatsSnapshot.destroy({
+    where: {
+      accountId: 0,
+      siteId: { [Op.ne]: 0 },
+    },
+  });
+
   const dayStart = getChinaDayStart(statDate);
   const dayEnd = getChinaDayEnd(statDate);
   const weekRange = getWeekRangeByDate(statDate);
@@ -366,35 +389,58 @@ const refreshSnapshotByDate = async (statDate) => {
   ]);
 
   const rowEntries = await buildSnapshotRowEntries(dayAggregate, weekAggregate, monthAggregate);
-  const rowConditions = rowEntries.map((item) => ({ accountId: item.accountId, siteId: item.siteId }));
-  const existingRows = rowConditions.length
-    ? await ProxyStatsSnapshot.findAll({ where: { [Op.or]: rowConditions } })
-    : [];
+  const rowEntryMap = rowEntries.reduce((result, item) => ({
+    ...result,
+    [buildRowKey(item.accountId, item.siteId)]: item,
+  }), {});
+  const existingRows = await ProxyStatsSnapshot.findAll({ where: snapshotCompareWhere });
   const existingRowMap = {};
 
   existingRows.forEach((item) => {
     existingRowMap[buildRowKey(item.accountId, item.siteId)] = item;
   });
 
-  await Promise.all(rowEntries.map(async (item) => {
-    const rowKey = buildRowKey(item.accountId, item.siteId);
+  const allRowKeys = [...new Set([
+    ...Object.keys(existingRowMap),
+    ...Object.keys(rowEntryMap),
+  ])];
+
+  await Promise.all(allRowKeys.map(async (rowKey) => {
     const existingRow = existingRowMap[rowKey];
-    const payload = {
-      accountId: item.accountId,
-      siteId: item.siteId,
-      todayRequest: item.today.requestCount,
-      todaySuccess: item.today.successCount,
-      todayCost: Number(item.today.totalCost.toFixed(4)),
-      weekRequest: item.week.requestCount,
-      weekSuccess: item.week.successCount,
-      weekCost: Number(item.week.totalCost.toFixed(4)),
-      monthRequest: item.month.requestCount,
-      monthSuccess: item.month.successCount,
-      monthCost: Number(item.month.totalCost.toFixed(4)),
-      monthsRequest: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsRequest, monthRange.monthKey, item.months.requestCount)),
-      monthsSuccess: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsSuccess, monthRange.monthKey, item.months.successCount)),
-      monthsCost: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsCost, monthRange.monthKey, Number(item.months.totalCost.toFixed(4)))),
-    };
+    const item = rowEntryMap[rowKey];
+    const payload = item
+      ? {
+        accountId: item.accountId,
+        siteId: item.siteId,
+        todayRequest: item.today.requestCount,
+        todaySuccess: item.today.successCount,
+        todayCost: Number(item.today.totalCost.toFixed(4)),
+        weekRequest: item.week.requestCount,
+        weekSuccess: item.week.successCount,
+        weekCost: Number(item.week.totalCost.toFixed(4)),
+        monthRequest: item.month.requestCount,
+        monthSuccess: item.month.successCount,
+        monthCost: Number(item.month.totalCost.toFixed(4)),
+        monthsRequest: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsRequest, monthRange.monthKey, item.months.requestCount)),
+        monthsSuccess: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsSuccess, monthRange.monthKey, item.months.successCount)),
+        monthsCost: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsCost, monthRange.monthKey, Number(item.months.totalCost.toFixed(4)))),
+      }
+      : {
+        accountId: existingRow.accountId,
+        siteId: existingRow.siteId,
+        todayRequest: 0,
+        todaySuccess: 0,
+        todayCost: 0,
+        weekRequest: 0,
+        weekSuccess: 0,
+        weekCost: 0,
+        monthRequest: 0,
+        monthSuccess: 0,
+        monthCost: 0,
+        monthsRequest: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsRequest, monthRange.monthKey, 0)),
+        monthsSuccess: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsSuccess, monthRange.monthKey, 0)),
+        monthsCost: stringifyMetricMap(setMetricValueToMap(existingRow?.monthsCost, monthRange.monthKey, 0)),
+      };
 
     if (existingRow) {
       await existingRow.update(payload);
@@ -541,6 +587,28 @@ const buildRemarkCostRanking = (aggregate, limit = 10) => Object.entries(aggrega
   .sort((left, right) => right.totalCost - left.totalCost)
   .slice(0, limit);
 
+const buildSnapshotTotalsFromRows = (rows, requestField, successField, costField) => {
+  const totals = rows.reduce(
+    (result, row) => addMetrics(result, {
+      requestCount: row?.[requestField],
+      successCount: row?.[successField],
+      totalCost: row?.[costField],
+    }),
+    buildEmptyMetrics(),
+  );
+  totals.failCount = Math.max(totals.requestCount - totals.successCount, 0);
+  return totals;
+};
+
+const buildSnapshotMonthTotalsFromRows = (rows, monthKey) => {
+  const totals = rows.reduce(
+    (result, row) => addMetrics(result, buildMetricsFromMonthsMap(row, 'monthsRequest', 'monthsSuccess', 'monthsCost', monthKey)),
+    buildEmptyMetrics(),
+  );
+  totals.failCount = Math.max(totals.requestCount - totals.successCount, 0);
+  return totals;
+};
+
 const getSnapshotCompareData = async (statDate, compareMonth) => {
   const dayStart = getChinaDayStart(statDate);
   const dayEnd = getChinaDayEnd(statDate);
@@ -549,38 +617,54 @@ const getSnapshotCompareData = async (statDate, compareMonth) => {
   const selectedMonthKey = isValidMonthString(compareMonth) ? compareMonth : monthRange.monthKey;
   const selectedMonthRange = getMonthRangeByMonthKey(selectedMonthKey);
 
-  const [snapshotRow, dayAggregate, weekAggregate, monthAggregate, selectedMonthAggregate] = await Promise.all([
-    ProxyStatsSnapshot.findOne({ where: { accountId: 0, siteId: 0 }, raw: true }),
+  const [snapshotRows, dayAggregate, weekAggregate, monthAggregate, selectedMonthAggregate] = await Promise.all([
+    ProxyStatsSnapshot.findAll({
+      where: snapshotCompareWhere,
+      raw: true,
+    }),
     logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
     logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
     logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
     logStatsService.getRawAggregateByDateRange(selectedMonthRange.startDate, selectedMonthRange.endDate),
   ]);
 
+  const latestUpdatedAt = snapshotRows.reduce((latest, row) => {
+    const current = row?.updatedAt || row?.updated_at;
+    if (!current) {
+      return latest;
+    }
+
+    if (!latest) {
+      return current;
+    }
+
+    return new Date(current) > new Date(latest) ? current : latest;
+  }, null);
+
   return {
-    updatedAt: formatChinaDateTime(snapshotRow?.updatedAt || snapshotRow?.updated_at || null),
+    updatedAt: formatChinaDateTime(latestUpdatedAt),
     items: [
       buildCompareItem(
         '当天',
-        buildMetricsFromNumericFields(snapshotRow, 'todayRequest', 'todaySuccess', 'todayCost'),
+        buildSnapshotTotalsFromRows(snapshotRows, 'todayRequest', 'todaySuccess', 'todayCost'),
         dayAggregate.summary,
         'today',
       ),
       buildCompareItem(
         '本周',
-        buildMetricsFromNumericFields(snapshotRow, 'weekRequest', 'weekSuccess', 'weekCost'),
+        buildSnapshotTotalsFromRows(snapshotRows, 'weekRequest', 'weekSuccess', 'weekCost'),
         weekAggregate.summary,
         'week',
       ),
       buildCompareItem(
         '本月',
-        buildMetricsFromNumericFields(snapshotRow, 'monthRequest', 'monthSuccess', 'monthCost'),
+        buildSnapshotTotalsFromRows(snapshotRows, 'monthRequest', 'monthSuccess', 'monthCost'),
         monthAggregate.summary,
         'month',
       ),
       buildCompareItem(
         `月份 ${selectedMonthKey}`,
-        buildMetricsFromMonthsMap(snapshotRow, 'monthsRequest', 'monthsSuccess', 'monthsCost', selectedMonthKey),
+        buildSnapshotMonthTotalsFromRows(snapshotRows, selectedMonthKey),
         selectedMonthAggregate.summary,
         'months',
       ),
@@ -590,7 +674,6 @@ const getSnapshotCompareData = async (statDate, compareMonth) => {
 
 const getSnapshotDetail = async (statDate, compareMonth, statDateTime) => {
   const {
-    targetDateTime,
     resolvedStatDate,
     resolvedCompareMonth,
   } = resolveSnapshotTarget(statDate, statDateTime, compareMonth);
@@ -599,13 +682,12 @@ const getSnapshotDetail = async (statDate, compareMonth, statDateTime) => {
   const dayEnd = getChinaDayEnd(resolvedStatDate);
   const weekRange = getWeekRangeByDate(resolvedStatDate);
   const monthRange = getMonthRangeByDate(resolvedStatDate);
-  const selectedMonthKey = resolvedCompareMonth;
 
   const [dayAggregate, weekAggregate, monthAggregate, compareData] = await Promise.all([
     logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
     logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
     logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
-    getSnapshotCompareData(resolvedStatDate, selectedMonthKey),
+    getSnapshotCompareData(resolvedStatDate, resolvedCompareMonth),
   ]);
 
   const [successRanking, failRanking, siteDistribution] = await Promise.all([
@@ -616,8 +698,7 @@ const getSnapshotDetail = async (statDate, compareMonth, statDateTime) => {
 
   return {
     statDate: resolvedStatDate,
-    statDateTime: formatChinaDateTime(targetDateTime),
-    compareMonth: selectedMonthKey,
+    compareMonth: resolvedCompareMonth,
     ranges: {
       weekStartDate: getChinaDateStr(weekRange.startDate),
       weekEndDate: getChinaDateStr(weekRange.endDate),

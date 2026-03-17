@@ -1,7 +1,8 @@
-<template>
+﻿<template>
   <div class="stats-snapshot-page">
     <a-card :bordered="false" class="toolbar-card">
       <template #title>统计快照校验</template>
+
       <div class="toolbar-header">
         <div class="toolbar-summary-item">
           <span class="toolbar-summary-label">当前服务器时间</span>
@@ -12,7 +13,7 @@
           <span class="toolbar-summary-value">{{ formatDateTime(options.latestDateTime) }}</span>
         </div>
         <div class="toolbar-summary-item">
-          <span class="toolbar-summary-label">已记录日期数</span>
+          <span class="toolbar-summary-label">可选日期数量</span>
           <span class="toolbar-summary-value">{{ options.availableDates.length }}</span>
         </div>
       </div>
@@ -25,21 +26,12 @@
             class="filter-control"
             value-format="YYYY-MM-DD"
             format="YYYY-MM-DD"
-            placeholder="请选择有日志的日期"
+            placeholder="请选择统计日期"
             :disabled-date="disableStatDate"
+            :popup-container="getPopupContainer"
+            :popup-style="popupStyle"
+            :trigger-props="popupTriggerProps"
             @change="handleStatDateChange"
-          />
-        </div>
-
-        <div class="filter-item">
-          <div class="filter-label">统计时间点</div>
-          <a-time-picker
-            v-model="filters.statTime"
-            class="filter-control"
-            format="HH:mm:ss"
-            value-format="HH:mm:ss"
-            placeholder="请选择时间点"
-            @change="handleStatTimeChange"
           />
         </div>
 
@@ -49,9 +41,14 @@
             v-model="filters.compareMonth"
             class="filter-control"
             placeholder="请选择对比月份"
+            :popup-container="getPopupContainer"
+            :popup-style="popupStyle"
+            :trigger-props="popupTriggerProps"
             @change="handleCompareMonthChange"
           >
-            <a-option v-for="item in options.availableMonths" :key="item" :value="item">{{ item }}</a-option>
+            <a-option v-for="item in options.availableMonths" :key="item" :value="item">
+              {{ item }}
+            </a-option>
           </a-select>
         </div>
 
@@ -59,7 +56,7 @@
           <div class="filter-label">操作</div>
           <div class="filter-actions">
             <a-button type="primary" :loading="refreshing.all" @click="handleRefreshSnapshot('all')">
-              刷新当前时间点统计
+              刷新当前统计
             </a-button>
             <a-button @click="loadDetail">重新查询</a-button>
           </div>
@@ -67,39 +64,60 @@
       </div>
 
       <div class="toolbar-tip-row">
-        <span class="toolbar-tip">当前选择时间点：{{ filters.statDateTime || '-' }}</span>
-        <span v-if="detail.compare.updatedAt" class="toolbar-tip">快照更新时间：{{ formatDateTime(detail.compare.updatedAt) }}</span>
+        <span class="toolbar-tip">当前选择日期：{{ filters.statDate || '-' }}</span>
+        <span v-if="detail.compare.updatedAt" class="toolbar-tip">
+          快照更新时间：{{ formatDateTime(detail.compare.updatedAt) }}
+        </span>
       </div>
     </a-card>
 
-    <a-empty v-if="!options.availableDates.length && !loading" description="暂无日志，暂时没有可选日期" />
-
-    <a-spin v-else :loading="loading" style="width: 100%">
+    <a-spin :loading="loading" style="width: 100%">
       <a-row :gutter="16" class="overview-row">
         <a-col :xs="24" :md="8">
           <a-card :bordered="false" class="overview-card">
             <template #title>当天概览</template>
+            <template #extra>
+              <div class="overview-card-toolbar">
+                <span class="overview-toolbar-label">统计时间点</span>
+                <a-time-picker
+                  v-model="filters.statTime"
+                  class="overview-time-picker"
+                  format="HH:mm:ss"
+                  value-format="HH:mm:ss"
+                  placeholder="请选择时间点"
+                  :popup-container="getPopupContainer"
+                  :popup-style="popupStyle"
+                  :trigger-props="popupTriggerProps"
+                  @change="handleStatTimeChange"
+                />
+                <span class="overview-toolbar-tip">当前选择：{{ selectedStatDateTime }}</span>
+              </div>
+            </template>
             <div class="overview-item">请求数：{{ formatCount(detail.overview.day.requestCount) }}</div>
             <div class="overview-item">成功数：{{ formatCount(detail.overview.day.successCount) }}</div>
             <div class="overview-item">失败数：{{ formatCount(detail.overview.day.failCount) }}</div>
             <div class="overview-item">消费：¥{{ formatCost(detail.overview.day.totalCost) }}</div>
           </a-card>
         </a-col>
+
         <a-col :xs="24" :md="8">
           <a-card :bordered="false" class="overview-card">
             <template #title>本周概览</template>
             <div class="overview-item">范围：{{ detail.ranges.weekStartDate || '-' }} ~ {{ detail.ranges.weekEndDate || '-' }}</div>
             <div class="overview-item">请求数：{{ formatCount(detail.overview.week.requestCount) }}</div>
             <div class="overview-item">成功数：{{ formatCount(detail.overview.week.successCount) }}</div>
+            <div class="overview-item">失败数：{{ formatCount(detail.overview.week.failCount) }}</div>
             <div class="overview-item">消费：¥{{ formatCost(detail.overview.week.totalCost) }}</div>
           </a-card>
         </a-col>
+
         <a-col :xs="24" :md="8">
           <a-card :bordered="false" class="overview-card">
             <template #title>本月概览</template>
             <div class="overview-item">月份：{{ detail.ranges.monthKey || '-' }}</div>
             <div class="overview-item">请求数：{{ formatCount(detail.overview.month.requestCount) }}</div>
             <div class="overview-item">成功数：{{ formatCount(detail.overview.month.successCount) }}</div>
+            <div class="overview-item">失败数：{{ formatCount(detail.overview.month.failCount) }}</div>
             <div class="overview-item">消费：¥{{ formatCost(detail.overview.month.totalCost) }}</div>
           </a-card>
         </a-col>
@@ -133,6 +151,15 @@
             <a-table-column title="成功差值" :width="100" align="right">
               <template #cell="{ record }">{{ formatCount(record.diff.successCountDiff) }}</template>
             </a-table-column>
+            <a-table-column title="快照失败" :width="100" align="right">
+              <template #cell="{ record }">{{ formatCount(record.stored.failCount) }}</template>
+            </a-table-column>
+            <a-table-column title="原始失败" :width="100" align="right">
+              <template #cell="{ record }">{{ formatCount(record.raw.failCount) }}</template>
+            </a-table-column>
+            <a-table-column title="失败差值" :width="100" align="right">
+              <template #cell="{ record }">{{ formatCount(record.diff.failCountDiff) }}</template>
+            </a-table-column>
             <a-table-column title="快照消费" :width="120" align="right">
               <template #cell="{ record }">¥{{ formatCost(record.stored.totalCost) }}</template>
             </a-table-column>
@@ -159,7 +186,7 @@
                 <a-table-column title="站点" data-index="siteName" />
                 <a-table-column title="请求" data-index="totalRequests" align="right" />
                 <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="成功率" data-index="successRate" align="right">
+                <a-table-column title="成功率" align="right">
                   <template #cell="{ record }">{{ record.successRate }}%</template>
                 </a-table-column>
                 <a-table-column title="消费" align="right">
@@ -180,8 +207,8 @@
               <template #columns>
                 <a-table-column title="账号" data-index="accountName" />
                 <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="当天失败" data-index="failCount" align="right" />
-                <a-table-column title="当前失败计数" data-index="currentFailCount" align="right" />
+                <a-table-column title="失败" data-index="failCount" align="right" />
+                <a-table-column title="当前连续失败" data-index="currentFailCount" align="right" />
               </template>
             </a-table>
           </a-card>
@@ -200,7 +227,7 @@
                 <a-table-column title="站点" data-index="siteName" />
                 <a-table-column title="请求" data-index="totalRequests" align="right" />
                 <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="成功率" data-index="successRate" align="right">
+                <a-table-column title="成功率" align="right">
                   <template #cell="{ record }">{{ record.successRate }}%</template>
                 </a-table-column>
                 <a-table-column title="消费" align="right">
@@ -271,7 +298,6 @@
     </a-spin>
   </div>
 </template>
-
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
@@ -282,18 +308,26 @@ import {
 } from '@/api/statsSnapshot'
 
 const loading = ref(false)
+const popupStyle = { zIndex: 5000 }
+const getPopupContainer = () => document.body
+const popupTriggerProps = {
+  contentClass: 'stats-snapshot-popup',
+  popupStyle,
+}
+
 const options = reactive({
   availableDates: [],
   availableMonths: [],
   currentDateTime: '',
   latestDateTime: '',
 })
+
 const filters = reactive({
   statDate: '',
   statTime: '23:59:59',
-  statDateTime: '',
   compareMonth: '',
 })
+
 const refreshing = reactive({
   all: false,
   success: false,
@@ -303,6 +337,7 @@ const refreshing = reactive({
   remarkRequest: false,
   remarkCost: false,
 })
+
 const detail = reactive({
   ranges: {
     weekStartDate: '',
@@ -327,6 +362,7 @@ const detail = reactive({
 })
 
 const availableDateSet = computed(() => new Set(options.availableDates))
+const selectedStatDateTime = computed(() => `${filters.statDate || '-'} ${filters.statTime || '23:59:59'}`)
 
 const formatCount = (value) => Number(value || 0).toLocaleString('zh-CN')
 const formatCost = (value) => Number(value || 0).toFixed(4)
@@ -340,6 +376,27 @@ const formatDateOnly = (date) => {
   const month = String(date.getMonth() + 1).padStart(2, '0')
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
+}
+
+const getDatePart = (value) => (typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : '')
+const getTimePart = (value) => (typeof value === 'string' && value.length >= 19 ? value.slice(11, 19) : '')
+
+const getCurrentStatDate = () => getDatePart(options.currentDateTime) || formatDateOnly(new Date())
+
+const getDefaultTimeByDate = (statDate) => {
+  if (!statDate) {
+    return '23:59:59'
+  }
+
+  if (getDatePart(options.latestDateTime) === statDate) {
+    return getTimePart(options.latestDateTime) || '23:59:59'
+  }
+
+  if (getCurrentStatDate() === statDate) {
+    return getTimePart(options.currentDateTime) || '23:59:59'
+  }
+
+  return '23:59:59'
 }
 
 const normalizePickerDate = (value) => {
@@ -370,9 +427,6 @@ const normalizePickerDate = (value) => {
   return ''
 }
 
-const getDatePart = (value) => (typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : '')
-const getTimePart = (value) => (typeof value === 'string' && value.length >= 19 ? value.slice(11, 19) : '')
-
 const formatDateTime = (value) => {
   if (!value) {
     return '-'
@@ -388,48 +442,14 @@ const formatDateTime = (value) => {
   })
 }
 
-const getDefaultTimeByDate = (statDate) => {
-  if (!statDate) {
-    return '23:59:59'
-  }
-
-  if (getDatePart(options.latestDateTime) === statDate) {
-    return getTimePart(options.latestDateTime) || '23:59:59'
-  }
-
-  if (getDatePart(options.currentDateTime) === statDate) {
-    return getTimePart(options.currentDateTime) || '23:59:59'
-  }
-
-  return '23:59:59'
-}
-
-const syncStatDateTime = () => {
-  filters.statDateTime = filters.statDate
-    ? `${filters.statDate} ${filters.statTime || '00:00:00'}`
-    : ''
-}
-
-const applyStatDateTime = (statDateTime) => {
-  if (!statDateTime) {
-    return
-  }
-
-  filters.statDate = getDatePart(statDateTime)
-  filters.statTime = getTimePart(statDateTime) || '00:00:00'
-  filters.statDateTime = statDateTime
-}
-
 const disableStatDate = (current) => {
-  if (!current) {
+  const dateValue = normalizePickerDate(current)
+  if (!dateValue) {
     return false
   }
-  // current 是 Date 对象，需要转换为中国时区的日期字符串
-  const chinaTime = new Date(current.getTime() + 8 * 60 * 60 * 1000)
-  const year = chinaTime.getUTCFullYear()
-  const month = String(chinaTime.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(chinaTime.getUTCDate()).padStart(2, '0')
-  const dateValue = `${year}-${month}-${day}`
+  if (dateValue === getCurrentStatDate()) {
+    return false
+  }
   return !availableDateSet.value.has(dateValue)
 }
 
@@ -444,12 +464,8 @@ const applyDetailData = (data) => {
   detail.remarkCostRanking = data.remarkCostRanking || []
   detail.compare = data.compare || detail.compare
 
-  if (data.statDateTime) {
-    applyStatDateTime(data.statDateTime)
-  } else if (data.statDate) {
+  if (data.statDate) {
     filters.statDate = data.statDate
-    filters.statTime = filters.statTime || getDefaultTimeByDate(data.statDate)
-    syncStatDateTime()
   }
 
   if (data.compareMonth) {
@@ -464,17 +480,15 @@ const loadOptions = async () => {
   options.currentDateTime = res.data.currentDateTime || ''
   options.latestDateTime = res.data.latestDateTime || ''
 
+  const currentStatDate = getCurrentStatDate()
+
   if (options.availableDates.length) {
-    if (!availableDateSet.value.has(filters.statDate)) {
-      filters.statDate = options.availableDates[0]
+    if (!filters.statDate || (!availableDateSet.value.has(filters.statDate) && filters.statDate !== currentStatDate)) {
+      filters.statDate = currentStatDate
     }
-
-    if (!filters.statTime) {
-      filters.statTime = getDefaultTimeByDate(filters.statDate)
-    }
-
-    syncStatDateTime()
   }
+
+  filters.statTime = getDefaultTimeByDate(filters.statDate)
 
   if (!filters.compareMonth || !options.availableMonths.includes(filters.compareMonth)) {
     filters.compareMonth = filters.statDate ? filters.statDate.slice(0, 7) : (options.availableMonths[0] || '')
@@ -486,12 +500,10 @@ const loadDetail = async () => {
     return
   }
 
-  syncStatDateTime()
   loading.value = true
   try {
     const res = await getStatsSnapshotDetail({
       statDate: filters.statDate,
-      statDateTime: filters.statDateTime,
       compareMonth: filters.compareMonth,
     })
     applyDetailData(res.data)
@@ -507,12 +519,10 @@ const handleStatDateChange = async () => {
 
   filters.statTime = getDefaultTimeByDate(filters.statDate)
   filters.compareMonth = filters.statDate.slice(0, 7)
-  syncStatDateTime()
   await loadDetail()
 }
 
 const handleStatTimeChange = async () => {
-  syncStatDateTime()
   await loadDetail()
 }
 
@@ -526,7 +536,6 @@ const handleRefreshSnapshot = async (refreshKey) => {
     return
   }
 
-  syncStatDateTime()
   refreshing[refreshKey] = true
   if (refreshKey !== 'all') {
     refreshing.all = true
@@ -535,7 +544,6 @@ const handleRefreshSnapshot = async (refreshKey) => {
   try {
     const res = await refreshStatsSnapshot({
       statDate: filters.statDate,
-      statDateTime: filters.statDateTime,
     })
     Message.success(res.message || '刷新统计成功')
     await loadDetail()
@@ -553,15 +561,34 @@ onMounted(async () => {
 
 <style scoped>
 .stats-snapshot-page {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .toolbar-card,
 .section-card,
 .overview-card {
   border-radius: 8px;
+}
+
+.toolbar-card,
+.section-card,
+.overview-row,
+.section-row {
+  flex-shrink: 0;
+}
+
+.toolbar-card,
+.toolbar-card :deep(.arco-card-body),
+.filters-grid,
+.filter-item {
+  overflow: visible;
 }
 
 .toolbar-header {
@@ -593,7 +620,7 @@ onMounted(async () => {
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -636,6 +663,29 @@ onMounted(async () => {
   font-size: 13px;
 }
 
+.overview-card-toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.overview-toolbar-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+.overview-time-picker {
+  width: 180px;
+}
+
+.overview-toolbar-tip {
+  font-size: 13px;
+  color: #86909c;
+}
+
 .overview-row,
 .section-row {
   margin-top: 0;
@@ -663,5 +713,35 @@ onMounted(async () => {
     flex-direction: column;
     align-items: stretch;
   }
+
+  .overview-card-toolbar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .overview-time-picker {
+    width: 100%;
+  }
 }
 </style>
+
+<style>
+.stats-snapshot-popup {
+  z-index: 5000 !important;
+}
+
+.stats-snapshot-popup.arco-trigger-popup,
+.stats-snapshot-popup .arco-picker-dropdown,
+.stats-snapshot-popup .arco-select-dropdown,
+.stats-snapshot-popup .arco-time-picker-dropdown {
+  z-index: 5000 !important;
+}
+
+/* 确保 Arco 弹出面板不被父容器裁剪 */
+.arco-picker-container,
+.arco-trigger-popup {
+  z-index: 5000 !important;
+}
+</style>
+
+

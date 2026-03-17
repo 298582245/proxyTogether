@@ -18,7 +18,8 @@ const getDetail = async (req, res) => {
       return res.status(400).json({ success: false, message: '统计日期或时间点不能为空' });
     }
 
-    const data = await statsSnapshotService.getSnapshotDetail(statDate, compareMonth, statDateTime);
+    const resolvedStatDate = statDate || statDateTime?.slice(0, 10);
+    const data = await statsSnapshotService.getSnapshotDetail(resolvedStatDate, compareMonth, statDateTime);
     res.json({ success: true, data });
   } catch (error) {
     logger.error('获取统计快照详情失败:', error);
@@ -33,7 +34,7 @@ const refresh = async (req, res) => {
       return res.status(400).json({ success: false, message: '统计日期或时间点不能为空' });
     }
 
-    const refreshStatDate = statDateTime ? statDateTime.slice(0, 10) : statDate;
+    const refreshStatDate = statDate || statDateTime?.slice(0, 10);
     const data = await statsSnapshotService.refreshSnapshotByDate(refreshStatDate);
 
     res.json({
