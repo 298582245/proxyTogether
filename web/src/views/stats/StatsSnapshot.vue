@@ -1,294 +1,299 @@
 <template>
   <div class="stats-snapshot-page">
-    <a-card :bordered="false" class="toolbar-card">
-      <template #title>统计快照校验</template>
+    <!-- 筛选器区域 - 独立容器 -->
+    <div class="filter-section">
+      <a-card :bordered="false">
+        <template #title>统计快照校验</template>
 
-      <div class="toolbar-header">
-        <div class="toolbar-summary-item">
-          <span class="toolbar-summary-label">当前服务器时间</span>
-          <span class="toolbar-summary-value">{{ formatDateTime(options.currentDateTime) }}</span>
-        </div>
-        <div class="toolbar-summary-item">
-          <span class="toolbar-summary-label">最新日志时间</span>
-          <span class="toolbar-summary-value">{{ formatDateTime(options.latestDateTime) }}</span>
-        </div>
-        <div class="toolbar-summary-item">
-          <span class="toolbar-summary-label">可选日期数量</span>
-          <span class="toolbar-summary-value">{{ options.availableDates.length }}</span>
-        </div>
-      </div>
-
-      <div class="filters-grid">
-        <div class="filter-item">
-          <div class="filter-label">统计日期</div>
-          <a-date-picker
-            v-model="filters.statDate"
-            class="filter-control"
-            value-format="YYYY-MM-DD"
-            format="YYYY-MM-DD"
-            placeholder="请选择统计日期"
-            :disabled-date="disableStatDate"
-            popup-container="body"
-          />
-        </div>
-
-        <div class="filter-item">
-          <div class="filter-label">统计时间点</div>
-          <a-time-picker
-            v-model="filters.statTime"
-            class="filter-control"
-            format="HH:mm:ss"
-            value-format="HH:mm:ss"
-            placeholder="请选择时间点"
-            popup-container="body"
-          />
-        </div>
-
-        <div class="filter-item">
-          <div class="filter-label">对比月份</div>
-          <a-select
-            v-model="filters.compareMonth"
-            class="filter-control"
-            placeholder="请选择对比月份"
-            popup-container="body"
-            @change="handleCompareMonthChange"
-          >
-            <a-option v-for="item in options.availableMonths" :key="item" :value="item">
-              {{ item }}
-            </a-option>
-          </a-select>
-        </div>
-
-        <div class="filter-item filter-item-action">
-          <div class="filter-label">操作</div>
-          <div class="filter-actions">
-            <a-button type="primary" :loading="refreshing.all" @click="handleRefreshSnapshot('all')">
-              刷新当前统计
-            </a-button>
-            <a-button @click="loadDetail">重新查询</a-button>
+        <div class="toolbar-header">
+          <div class="toolbar-summary-item">
+            <span class="toolbar-summary-label">当前服务器时间</span>
+            <span class="toolbar-summary-value">{{ formatDateTime(options.currentDateTime) }}</span>
+          </div>
+          <div class="toolbar-summary-item">
+            <span class="toolbar-summary-label">最新日志时间</span>
+            <span class="toolbar-summary-value">{{ formatDateTime(options.latestDateTime) }}</span>
+          </div>
+          <div class="toolbar-summary-item">
+            <span class="toolbar-summary-label">可选日期数量</span>
+            <span class="toolbar-summary-value">{{ options.availableDates.length }}</span>
           </div>
         </div>
-      </div>
 
-      <div class="toolbar-tip-row">
-        <span class="toolbar-tip">当前选择：{{ selectedStatDateTime || '-' }}</span>
-        <span v-if="detail.compare.updatedAt" class="toolbar-tip">
-          快照更新时间：{{ formatDateTime(detail.compare.updatedAt) }}
-        </span>
-      </div>
-    </a-card>
+        <div class="filters-grid">
+          <div class="filter-item">
+            <div class="filter-label">统计日期</div>
+            <a-date-picker
+              v-model="filters.statDate"
+              class="filter-control"
+              value-format="YYYY-MM-DD"
+              format="YYYY-MM-DD"
+              placeholder="请选择统计日期"
+              :disabled-date="disableStatDate"
+              @change="handleStatDateChange"
+            />
+          </div>
 
-    <a-spin :loading="loading" style="width: 100%">
-      <a-row :gutter="16" class="overview-row">
-        <a-col :xs="24" :md="8">
-          <a-card :bordered="false" class="overview-card">
-            <template #title>当天概览</template>
-            <template #extra>
-              <span class="overview-tip">统计时间点：{{ selectedStatDateTime }}</span>
-            </template>
-            <div class="overview-item">请求数：{{ formatCount(detail.overview.day.requestCount) }}</div>
-            <div class="overview-item">成功数：{{ formatCount(detail.overview.day.successCount) }}</div>
-            <div class="overview-item">失败数：{{ formatCount(detail.overview.day.failCount) }}</div>
-            <div class="overview-item">消费：¥{{ formatCost(detail.overview.day.totalCost) }}</div>
-          </a-card>
-        </a-col>
+          <div class="filter-item">
+            <div class="filter-label">统计时间点</div>
+            <a-time-picker
+              v-model="filters.statTime"
+              class="filter-control"
+              format="HH:mm:ss"
+              value-format="HH:mm:ss"
+              placeholder="请选择时间点"
+              @change="handleStatTimeChange"
+            />
+          </div>
 
-        <a-col :xs="24" :md="8">
-          <a-card :bordered="false" class="overview-card">
-            <template #title>本周概览</template>
-            <div class="overview-item">范围：{{ detail.ranges.weekStartDate || '-' }} ~ {{ detail.ranges.weekEndDate || '-' }}</div>
-            <div class="overview-item">请求数：{{ formatCount(detail.overview.week.requestCount) }}</div>
-            <div class="overview-item">成功数：{{ formatCount(detail.overview.week.successCount) }}</div>
-            <div class="overview-item">失败数：{{ formatCount(detail.overview.week.failCount) }}</div>
-            <div class="overview-item">消费：¥{{ formatCost(detail.overview.week.totalCost) }}</div>
-          </a-card>
-        </a-col>
+          <div class="filter-item">
+            <div class="filter-label">对比月份</div>
+            <a-select
+              v-model="filters.compareMonth"
+              class="filter-control"
+              placeholder="请选择对比月份"
+              @change="handleCompareMonthChange"
+            >
+              <a-option v-for="item in options.availableMonths" :key="item" :value="item">
+                {{ item }}
+              </a-option>
+            </a-select>
+          </div>
 
-        <a-col :xs="24" :md="8">
-          <a-card :bordered="false" class="overview-card">
-            <template #title>本月概览</template>
-            <div class="overview-item">月份：{{ detail.ranges.monthKey || '-' }}</div>
-            <div class="overview-item">请求数：{{ formatCount(detail.overview.month.requestCount) }}</div>
-            <div class="overview-item">成功数：{{ formatCount(detail.overview.month.successCount) }}</div>
-            <div class="overview-item">失败数：{{ formatCount(detail.overview.month.failCount) }}</div>
-            <div class="overview-item">消费：¥{{ formatCost(detail.overview.month.totalCost) }}</div>
-          </a-card>
-        </a-col>
-      </a-row>
+          <div class="filter-item filter-item-action">
+            <div class="filter-label">操作</div>
+            <div class="filter-actions">
+              <a-button type="primary" :loading="refreshing.all" @click="handleRefreshSnapshot('all')">
+                刷新当前统计
+              </a-button>
+              <a-button @click="loadDetail">重新查询</a-button>
+            </div>
+          </div>
+        </div>
 
-      <a-card :bordered="false" class="section-card">
-        <template #title>快照与原始日志对比</template>
-        <a-table :data="detail.compare.items" :pagination="false" size="small">
-          <template #columns>
-            <a-table-column title="周期" data-index="label" />
-            <a-table-column title="是否一致" align="center" :width="100">
-              <template #cell="{ record }">
-                <a-tag :color="record.matched ? 'green' : 'red'">{{ record.matched ? '一致' : '不一致' }}</a-tag>
-              </template>
-            </a-table-column>
-            <a-table-column title="快照请求" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.stored.requestCount) }}</template>
-            </a-table-column>
-            <a-table-column title="原始请求" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.raw.requestCount) }}</template>
-            </a-table-column>
-            <a-table-column title="请求差值" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.diff.requestCountDiff) }}</template>
-            </a-table-column>
-            <a-table-column title="快照成功" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.stored.successCount) }}</template>
-            </a-table-column>
-            <a-table-column title="原始成功" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.raw.successCount) }}</template>
-            </a-table-column>
-            <a-table-column title="成功差值" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.diff.successCountDiff) }}</template>
-            </a-table-column>
-            <a-table-column title="快照失败" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.stored.failCount) }}</template>
-            </a-table-column>
-            <a-table-column title="原始失败" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.raw.failCount) }}</template>
-            </a-table-column>
-            <a-table-column title="失败差值" :width="100" align="right">
-              <template #cell="{ record }">{{ formatCount(record.diff.failCountDiff) }}</template>
-            </a-table-column>
-            <a-table-column title="快照消费" :width="120" align="right">
-              <template #cell="{ record }">¥{{ formatCost(record.stored.totalCost) }}</template>
-            </a-table-column>
-            <a-table-column title="原始消费" :width="120" align="right">
-              <template #cell="{ record }">¥{{ formatCost(record.raw.totalCost) }}</template>
-            </a-table-column>
-            <a-table-column title="消费差值" :width="120" align="right">
-              <template #cell="{ record }">¥{{ formatCost(record.diff.totalCostDiff) }}</template>
-            </a-table-column>
-          </template>
-        </a-table>
+        <div class="toolbar-tip-row">
+          <span class="toolbar-tip">当前选择：{{ selectedStatDateTime || '-' }}</span>
+          <span v-if="detail.compare.updatedAt" class="toolbar-tip">
+            快照更新时间：{{ formatDateTime(detail.compare.updatedAt) }}
+          </span>
+        </div>
       </a-card>
+    </div>
 
-      <a-row :gutter="16" class="section-row">
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>成功排行</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.success" @click="handleRefreshSnapshot('success')">刷新统计</a-button>
-            </template>
-            <a-table :data="detail.successRanking" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="账号" data-index="accountName" />
-                <a-table-column title="站点" data-index="siteName" />
-                <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="成功率" align="right">
-                  <template #cell="{ record }">{{ record.successRate }}%</template>
-                </a-table-column>
-                <a-table-column title="消费" align="right">
-                  <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
-                </a-table-column>
+    <!-- 数据内容区域 - 独立容器 -->
+    <div class="content-section">
+      <a-spin :loading="loading" style="width: 100%">
+        <a-row :gutter="16" class="overview-row">
+          <a-col :xs="24" :md="8">
+            <a-card :bordered="false" class="overview-card">
+              <template #title>当天概览</template>
+              <template #extra>
+                <span class="overview-tip">统计时间点：{{ selectedStatDateTime }}</span>
               </template>
-            </a-table>
-          </a-card>
-        </a-col>
+              <div class="overview-item">请求数：{{ formatCount(detail.overview.day.requestCount) }}</div>
+              <div class="overview-item">成功数：{{ formatCount(detail.overview.day.successCount) }}</div>
+              <div class="overview-item">失败数：{{ formatCount(detail.overview.day.failCount) }}</div>
+              <div class="overview-item">消费：¥{{ formatCost(detail.overview.day.totalCost) }}</div>
+            </a-card>
+          </a-col>
 
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>失败排行</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.fail" @click="handleRefreshSnapshot('fail')">刷新统计</a-button>
-            </template>
-            <a-table :data="detail.failRanking" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="账号" data-index="accountName" />
-                <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="失败" data-index="failCount" align="right" />
-                <a-table-column title="当前连续失败" data-index="currentFailCount" align="right" />
-              </template>
-            </a-table>
-          </a-card>
-        </a-col>
-      </a-row>
+          <a-col :xs="24" :md="8">
+            <a-card :bordered="false" class="overview-card">
+              <template #title>本周概览</template>
+              <div class="overview-item">范围：{{ detail.ranges.weekStartDate || '-' }} ~ {{ detail.ranges.weekEndDate || '-' }}</div>
+              <div class="overview-item">请求数：{{ formatCount(detail.overview.week.requestCount) }}</div>
+              <div class="overview-item">成功数：{{ formatCount(detail.overview.week.successCount) }}</div>
+              <div class="overview-item">失败数：{{ formatCount(detail.overview.week.failCount) }}</div>
+              <div class="overview-item">消费：¥{{ formatCost(detail.overview.week.totalCost) }}</div>
+            </a-card>
+          </a-col>
 
-      <a-row :gutter="16" class="section-row">
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>站点分布</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.site" @click="handleRefreshSnapshot('site')">刷新统计</a-button>
-            </template>
-            <a-table :data="detail.siteDistribution" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="站点" data-index="siteName" />
-                <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="成功率" align="right">
-                  <template #cell="{ record }">{{ record.successRate }}%</template>
-                </a-table-column>
-                <a-table-column title="消费" align="right">
-                  <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
-                </a-table-column>
-              </template>
-            </a-table>
-          </a-card>
-        </a-col>
+          <a-col :xs="24" :md="8">
+            <a-card :bordered="false" class="overview-card">
+              <template #title>本月概览</template>
+              <div class="overview-item">月份：{{ detail.ranges.monthKey || '-' }}</div>
+              <div class="overview-item">请求数：{{ formatCount(detail.overview.month.requestCount) }}</div>
+              <div class="overview-item">成功数：{{ formatCount(detail.overview.month.successCount) }}</div>
+              <div class="overview-item">失败数：{{ formatCount(detail.overview.month.failCount) }}</div>
+              <div class="overview-item">消费：¥{{ formatCost(detail.overview.month.totalCost) }}</div>
+            </a-card>
+          </a-col>
+        </a-row>
 
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>小时分布</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.hourly" @click="handleRefreshSnapshot('hourly')">刷新统计</a-button>
+        <a-card :bordered="false" class="section-card">
+          <template #title>快照与原始日志对比</template>
+          <a-table :data="detail.compare.items" :pagination="false" size="small">
+            <template #columns>
+              <a-table-column title="周期" data-index="label" />
+              <a-table-column title="是否一致" align="center" :width="100">
+                <template #cell="{ record }">
+                  <a-tag :color="record.matched ? 'green' : 'red'">{{ record.matched ? '一致' : '不一致' }}</a-tag>
+                </template>
+              </a-table-column>
+              <a-table-column title="快照请求" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.stored.requestCount) }}</template>
+              </a-table-column>
+              <a-table-column title="原始请求" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.raw.requestCount) }}</template>
+              </a-table-column>
+              <a-table-column title="请求差值" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.diff.requestCountDiff) }}</template>
+              </a-table-column>
+              <a-table-column title="快照成功" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.stored.successCount) }}</template>
+              </a-table-column>
+              <a-table-column title="原始成功" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.raw.successCount) }}</template>
+              </a-table-column>
+              <a-table-column title="成功差值" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.diff.successCountDiff) }}</template>
+              </a-table-column>
+              <a-table-column title="快照失败" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.stored.failCount) }}</template>
+              </a-table-column>
+              <a-table-column title="原始失败" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.raw.failCount) }}</template>
+              </a-table-column>
+              <a-table-column title="失败差值" :width="100" align="right">
+                <template #cell="{ record }">{{ formatCount(record.diff.failCountDiff) }}</template>
+              </a-table-column>
+              <a-table-column title="快照消费" :width="120" align="right">
+                <template #cell="{ record }">¥{{ formatCost(record.stored.totalCost) }}</template>
+              </a-table-column>
+              <a-table-column title="原始消费" :width="120" align="right">
+                <template #cell="{ record }">¥{{ formatCost(record.raw.totalCost) }}</template>
+              </a-table-column>
+              <a-table-column title="消费差值" :width="120" align="right">
+                <template #cell="{ record }">¥{{ formatCost(record.diff.totalCostDiff) }}</template>
+              </a-table-column>
             </template>
-            <a-table :data="detail.hourlyDistribution" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="小时" data-index="label" />
-                <a-table-column title="请求" data-index="requests" align="right" />
-                <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="失败" data-index="failCount" align="right" />
-                <a-table-column title="消费" align="right">
-                  <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
-                </a-table-column>
-              </template>
-            </a-table>
-          </a-card>
-        </a-col>
-      </a-row>
+          </a-table>
+        </a-card>
 
-      <a-row :gutter="16" class="section-row">
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>备注请求排行</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.remarkRequest" @click="handleRefreshSnapshot('remarkRequest')">刷新统计</a-button>
-            </template>
-            <a-table :data="detail.remarkRequestRanking" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="备注" data-index="remark" />
-                <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="成功" data-index="successCount" align="right" />
-                <a-table-column title="失败" data-index="failCount" align="right" />
+        <a-row :gutter="16" class="section-row">
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>成功排行</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.success" @click="handleRefreshSnapshot('success')">刷新统计</a-button>
               </template>
-            </a-table>
-          </a-card>
-        </a-col>
+              <a-table :data="detail.successRanking" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="账号" data-index="accountName" />
+                  <a-table-column title="站点" data-index="siteName" />
+                  <a-table-column title="请求" data-index="totalRequests" align="right" />
+                  <a-table-column title="成功" data-index="successCount" align="right" />
+                  <a-table-column title="成功率" align="right">
+                    <template #cell="{ record }">{{ record.successRate }}%</template>
+                  </a-table-column>
+                  <a-table-column title="消费" align="right">
+                    <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
+                  </a-table-column>
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
 
-        <a-col :xs="24" :lg="12">
-          <a-card :bordered="false" class="section-card">
-            <template #title>备注消费排行</template>
-            <template #extra>
-              <a-button size="mini" :loading="refreshing.remarkCost" @click="handleRefreshSnapshot('remarkCost')">刷新统计</a-button>
-            </template>
-            <a-table :data="detail.remarkCostRanking" :pagination="false" size="small">
-              <template #columns>
-                <a-table-column title="备注" data-index="remark" />
-                <a-table-column title="请求" data-index="totalRequests" align="right" />
-                <a-table-column title="消费" align="right">
-                  <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
-                </a-table-column>
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>失败排行</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.fail" @click="handleRefreshSnapshot('fail')">刷新统计</a-button>
               </template>
-            </a-table>
-          </a-card>
-        </a-col>
-      </a-row>
-    </a-spin>
+              <a-table :data="detail.failRanking" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="账号" data-index="accountName" />
+                  <a-table-column title="请求" data-index="totalRequests" align="right" />
+                  <a-table-column title="失败" data-index="failCount" align="right" />
+                  <a-table-column title="当前连续失败" data-index="currentFailCount" align="right" />
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16" class="section-row">
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>站点分布</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.site" @click="handleRefreshSnapshot('site')">刷新统计</a-button>
+              </template>
+              <a-table :data="detail.siteDistribution" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="站点" data-index="siteName" />
+                  <a-table-column title="请求" data-index="totalRequests" align="right" />
+                  <a-table-column title="成功" data-index="successCount" align="right" />
+                  <a-table-column title="成功率" align="right">
+                    <template #cell="{ record }">{{ record.successRate }}%</template>
+                  </a-table-column>
+                  <a-table-column title="消费" align="right">
+                    <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
+                  </a-table-column>
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
+
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>小时分布</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.hourly" @click="handleRefreshSnapshot('hourly')">刷新统计</a-button>
+              </template>
+              <a-table :data="detail.hourlyDistribution" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="小时" data-index="label" />
+                  <a-table-column title="请求" data-index="requests" align="right" />
+                  <a-table-column title="成功" data-index="successCount" align="right" />
+                  <a-table-column title="失败" data-index="failCount" align="right" />
+                  <a-table-column title="消费" align="right">
+                    <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
+                  </a-table-column>
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
+        </a-row>
+
+        <a-row :gutter="16" class="section-row">
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>备注请求排行</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.remarkRequest" @click="handleRefreshSnapshot('remarkRequest')">刷新统计</a-button>
+              </template>
+              <a-table :data="detail.remarkRequestRanking" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="备注" data-index="remark" />
+                  <a-table-column title="请求" data-index="totalRequests" align="right" />
+                  <a-table-column title="成功" data-index="successCount" align="right" />
+                  <a-table-column title="失败" data-index="failCount" align="right" />
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
+
+          <a-col :xs="24" :lg="12">
+            <a-card :bordered="false" class="section-card">
+              <template #title>备注消费排行</template>
+              <template #extra>
+                <a-button size="mini" :loading="refreshing.remarkCost" @click="handleRefreshSnapshot('remarkCost')">刷新统计</a-button>
+              </template>
+              <a-table :data="detail.remarkCostRanking" :pagination="false" size="small">
+                <template #columns>
+                  <a-table-column title="备注" data-index="remark" />
+                  <a-table-column title="请求" data-index="totalRequests" align="right" />
+                  <a-table-column title="消费" align="right">
+                    <template #cell="{ record }">¥{{ formatCost(record.totalCost) }}</template>
+                  </a-table-column>
+                </template>
+              </a-table>
+            </a-card>
+          </a-col>
+        </a-row>
+      </a-spin>
+    </div>
   </div>
 </template>
 
@@ -559,13 +564,19 @@ onMounted(async () => {
   width: 100%;
 }
 
-.toolbar-card {
-  border-radius: 8px;
+/* 筛选器区域 - 独立容器，不被内容区域遮挡 */
+.filter-section {
   flex-shrink: 0;
 }
 
-.toolbar-card :deep(.arco-card-body) {
-  overflow: visible;
+.filter-section :deep(.arco-card) {
+  border-radius: 8px;
+}
+
+/* 数据内容区域 - 独立容器 */
+.content-section {
+  flex: 1;
+  min-height: 0;
 }
 
 .section-card,
@@ -575,7 +586,6 @@ onMounted(async () => {
 
 .overview-row,
 .section-row {
-  flex-shrink: 0;
   margin-top: 0;
 }
 
