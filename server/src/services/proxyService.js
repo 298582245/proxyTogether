@@ -129,13 +129,14 @@ const resolveFormatParam = (account, site, requestedFormat) => {
 
       return {
         value,
+        matchValue: value.toLowerCase(),
         forwardValue: forwardValue || value,
       };
     })
     .filter(Boolean);
 
-  const formatValue = typeof requestedFormat === 'string' ? requestedFormat.trim() : '';
-  const matchedFormat = formatParams.find((item) => item.value === formatValue);
+  const formatValue = typeof requestedFormat === 'string' ? requestedFormat.trim().toLowerCase() : '';
+  const matchedFormat = formatParams.find((item) => item.matchValue === formatValue);
   if (matchedFormat) {
     return {
       requestFormat: matchedFormat.value,
@@ -143,7 +144,7 @@ const resolveFormatParam = (account, site, requestedFormat) => {
     };
   }
 
-  const defaultFormat = formatParams.find((item) => item.value === 'txt');
+  const defaultFormat = formatParams.find((item) => item.matchValue === 'txt');
   if (defaultFormat) {
     return {
       requestFormat: 'txt',

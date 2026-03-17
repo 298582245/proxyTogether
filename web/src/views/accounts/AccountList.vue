@@ -445,7 +445,7 @@
                 />
                 <a-input
                   v-model="item.oValue"
-                  placeholder="瀹為檯杞彂鍊?(o_value)"
+                  placeholder="实际转发值(o_value)"
                   class="param-input"
                 />
                 <a-button

@@ -196,7 +196,7 @@
             <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-row">
               <a-input v-model="item.label" placeholder="显示名称" class="param-input" />
               <a-input v-model="item.value" placeholder="参数值" class="param-input" />
-              <a-input v-model="item.oValue" placeholder="瀹為檯杞彂鍊?(o_value)" class="param-input" />
+              <a-input v-model="item.oValue" placeholder="实际转发值(o_value)" class="param-input" />
               <a-button type="text" status="danger" size="small" @click="dialog.form.formatParams.splice(index, 1)">
                 <template #icon><icon-delete /></template>
               </a-button>
