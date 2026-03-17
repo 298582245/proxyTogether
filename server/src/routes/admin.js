@@ -12,6 +12,8 @@ const usageLimitController = require('../controllers/usageLimitController');
 const router = express.Router();
 
 // 认证相关
+router.get('/auth/init', authController.checkPasswordInit);
+router.post('/auth/init', authController.initPassword);
 router.post('/auth/login', authController.login);
 router.get('/auth/verify', authMiddleware, authController.verify);
 router.put('/auth/password', authMiddleware, authController.changePassword);

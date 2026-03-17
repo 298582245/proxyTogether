@@ -2,6 +2,32 @@ const SystemConfig = require('../models/SystemConfig');
 const jwtUtil = require('../utils/jwt');
 const cacheService = require('../services/cacheService');
 const crypto = require('crypto');
+const bcrypt = require('bcryptjs');
+const logger = require('../utils/logger');
+
+const BCRYPT_ROUNDS = 10;
+
+/**
+ * 检查密码是否为bcrypt哈希格式
+ * 支持 $2a$ (bcryptjs) 和 $2b$ (原生bcrypt) 两种前缀
+ */
+const isHashedPassword = (password) => {
+  return password && (password.startsWith('$2a$') || password.startsWith('$2b$'));
+};
+
+/**
+ * 哈希密码
+ */
+const hashPassword = async (password) => {
+  return bcrypt.hash(password, BCRYPT_ROUNDS);
+};
+
+/**
+ * 验证密码
+ */
+const verifyPassword = async (password, hashedPassword) => {
+  return bcrypt.compare(password, hashedPassword);
+};
 
 /**
  * 生成RSA密钥对
@@ -38,7 +64,7 @@ const initJwtKeys = async () => {
     // 同时保存到文件系统
     jwtUtil.saveKeys(keys.privateKey, keys.publicKey);
 
-    console.log('JWT密钥已初始化');
+    logger.info('JWT密钥已初始化');
     return keys;
   }
 
@@ -46,6 +72,99 @@ const initJwtKeys = async () => {
   jwtUtil.saveKeys(privateKey, publicKey);
 
   return { privateKey, publicKey };
+};
+
+/**
+ * 检查是否需要初始化密码
+ */
+const checkPasswordInit = async (req, res) => {
+  try {
+    const storedPassword = await SystemConfig.getValue('admin_password');
+
+    // 如果没有密码记录，需要初始化
+    if (!storedPassword) {
+      return res.json({
+        success: true,
+        data: {
+          needInit: true,
+          message: '请设置初始密码',
+        },
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: {
+        needInit: false,
+      },
+    });
+  } catch (error) {
+    logger.error('检查密码初始化状态失败:', error);
+    return res.status(500).json({
+      success: false,
+      message: '检查失败',
+    });
+  }
+};
+
+/**
+ * 初始化密码（首次设置）
+ */
+const initPassword = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: '请输入密码',
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: '密码长度不能少于6位',
+      });
+    }
+
+    // 检查是否已经设置过密码
+    const existingPassword = await SystemConfig.getValue('admin_password');
+    if (existingPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '密码已设置，请使用修改密码功能',
+      });
+    }
+
+    // 哈希密码并存储
+    const hashedPassword = await hashPassword(password);
+    await SystemConfig.setValue('admin_password', hashedPassword, '后台管理密码(哈希)');
+
+    // 检查JWT密钥
+    if (!jwtUtil.keysExist()) {
+      await initJwtKeys();
+    }
+
+    // 生成Token
+    const token = jwtUtil.generateToken({
+      loginTime: Date.now(),
+    });
+
+    logger.info('初始密码设置成功');
+
+    res.json({
+      success: true,
+      message: '密码设置成功',
+      data: { token },
+    });
+  } catch (error) {
+    logger.error('初始化密码失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '密码设置失败',
+    });
+  }
 };
 
 /**
@@ -63,9 +182,36 @@ const login = async (req, res) => {
     }
 
     // 获取存储的密码
-    const storedPassword = await SystemConfig.getValue('admin_password', 'admin123');
+    const storedPassword = await SystemConfig.getValue('admin_password');
 
-    if (password !== storedPassword) {
+    // 如果没有密码，提示需要初始化
+    if (!storedPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '请先设置初始密码',
+        needInit: true,
+      });
+    }
+
+    // 验证密码（支持bcrypt哈希和旧版明文密码的平滑迁移）
+    let isValid = false;
+
+    if (isHashedPassword(storedPassword)) {
+      // 新版bcrypt哈希验证
+      isValid = await verifyPassword(password, storedPassword);
+    } else {
+      // 旧版明文密码验证（用于平滑迁移）
+      isValid = password === storedPassword;
+
+      // 如果验证通过，自动升级为bcrypt哈希
+      if (isValid) {
+        const hashedPassword = await hashPassword(password);
+        await SystemConfig.setValue('admin_password', hashedPassword, '后台管理密码(哈希)');
+        logger.info('密码已自动升级为bcrypt哈希格式');
+      }
+    }
+
+    if (!isValid) {
       return res.status(401).json({
         success: false,
         message: '密码错误',
@@ -82,13 +228,15 @@ const login = async (req, res) => {
       loginTime: Date.now(),
     });
 
+    logger.info('用户登录成功');
+
     res.json({
       success: true,
       message: '登录成功',
       data: { token },
     });
   } catch (error) {
-    console.error('登录失败:', error);
+    logger.error('登录失败:', error);
     res.status(500).json({
       success: false,
       message: '登录失败',
@@ -107,6 +255,7 @@ const verify = async (req, res) => {
       message: 'Token有效',
     });
   } catch (error) {
+    logger.error('验证失败:', error);
     res.status(500).json({
       success: false,
       message: '验证失败',
@@ -135,25 +284,46 @@ const changePassword = async (req, res) => {
       });
     }
 
-    // 验证旧密码
-    const storedPassword = await SystemConfig.getValue('admin_password', 'admin123');
+    // 获取存储的密码
+    const storedPassword = await SystemConfig.getValue('admin_password');
 
-    if (oldPassword !== storedPassword) {
+    if (!storedPassword) {
+      return res.status(400).json({
+        success: false,
+        message: '请先设置初始密码',
+        needInit: true,
+      });
+    }
+
+    // 验证旧密码
+    let isValid = false;
+
+    if (isHashedPassword(storedPassword)) {
+      isValid = await verifyPassword(oldPassword, storedPassword);
+    } else {
+      // 旧版明文密码验证
+      isValid = oldPassword === storedPassword;
+    }
+
+    if (!isValid) {
       return res.status(400).json({
         success: false,
         message: '旧密码错误',
       });
     }
 
-    // 更新密码
-    await SystemConfig.setValue('admin_password', newPassword, '后台管理密码');
+    // 哈希新密码并更新
+    const hashedPassword = await hashPassword(newPassword);
+    await SystemConfig.setValue('admin_password', hashedPassword, '后台管理密码(哈希)');
+
+    logger.info('密码修改成功');
 
     res.json({
       success: true,
       message: '密码修改成功',
     });
   } catch (error) {
-    console.error('修改密码失败:', error);
+    logger.error('修改密码失败:', error);
     res.status(500).json({
       success: false,
       message: '修改密码失败',
@@ -166,4 +336,6 @@ module.exports = {
   login,
   verify,
   changePassword,
+  checkPasswordInit,
+  initPassword,
 };

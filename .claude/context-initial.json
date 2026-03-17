@@ -1,0 +1,176 @@
+{
+  "meta": {
+    "project_name": "proxyTogether",
+    "project_type": "全栈Web应用",
+    "tech_stack": {
+      "backend": ["Express.js", "Sequelize ORM", "MySQL", "Redis(ioredis)", "JWT", "node-cron"],
+      "frontend": ["Vue 3", "Arco Design", "Axios"],
+      "architecture": "MVC, 前后端分离"
+    },
+    "review_date": "2026-03-17T16:10:00+08:00",
+    "reviewer": "Claude Code + Codex",
+    "files_analyzed": 25,
+    "lines_analyzed": 1500
+  },
+  "structure": {
+    "backend": {
+      "entry": "server/src/app.js",
+      "config": "server/src/config/",
+      "controllers": "server/src/controllers/",
+      "middlewares": "server/src/middlewares/",
+      "models": "server/src/models/",
+      "routes": "server/src/routes/",
+      "services": "server/src/services/",
+      "utils": "server/src/utils/",
+      "schedulers": "server/src/schedulers/"
+    },
+    "frontend": {
+      "entry": "web/src/main.js",
+      "api": "web/src/api/",
+      "views": "web/src/views/",
+      "components": "web/src/components/",
+      "stores": "web/src/stores/",
+      "router": "web/src/router/"
+    }
+  },
+  "key_findings": {
+    "security_issues": [
+      {
+        "severity": "严重",
+        "file": "server/src/controllers/authController.js:68",
+        "issue": "密码明文存储和比较",
+        "description": "登录验证直接比较明文密码，未使用bcrypt等安全哈希算法",
+        "risk": "数据库泄露将直接暴露所有用户密码"
+      },
+      {
+        "severity": "严重",
+        "file": "server/src/controllers/authController.js:66",
+        "issue": "默认密码硬编码",
+        "description": "默认密码 'admin123' 硬编码在代码中",
+        "risk": "攻击者可使用默认凭据登录系统"
+      },
+      {
+        "severity": "重要",
+        "file": "server/src/middlewares/proxyAuth.js:79-89",
+        "issue": "Token比较使用 !== 而非时序安全比较",
+        "description": "Token比较使用简单字符串比较，可能存在时序攻击风险",
+        "risk": "攻击者可能通过时序分析推断Token"
+      },
+      {
+        "severity": "重要",
+        "file": "server/src/controllers/authController.js:41,91",
+        "issue": "敏感操作使用console.log",
+        "description": "JWT初始化和登录失败使用console.log/console.error，可能泄露敏感信息",
+        "risk": "生产环境可能泄露敏感调试信息"
+      }
+    ],
+    "code_quality_issues": [
+      {
+        "severity": "重要",
+        "file": "server/src/services/proxyService.js",
+        "issue": "文件编码问题导致中文乱码",
+        "description": "注释出现大量乱码字符，文件编码不正确",
+        "risk": "影响代码可读性和维护性"
+      },
+      {
+        "severity": "建议",
+        "file": "server/src/middlewares/auth.js:17",
+        "issue": "Token可从query参数获取",
+        "description": "JWT Token可以从URL query参数获取，存在泄露风险",
+        "risk": "URL中的Token可能被日志记录或浏览器历史保存"
+      },
+      {
+        "severity": "建议",
+        "file": "server/src/config/index.js:13",
+        "issue": "数据库密码默认为空字符串",
+        "description": "DB_PASSWORD 默认值为空字符串",
+        "risk": "配置不当可能导致生产环境数据库无密码"
+      }
+    ],
+    "performance_considerations": [
+      {
+        "severity": "建议",
+        "file": "server/src/services/proxyService.js:369-382",
+        "issue": "N+1查询潜在风险",
+        "description": "getProxy函数中查询所有账号后再过滤，大数据量时可能影响性能",
+        "suggestion": "考虑使用Sequelize的where条件直接过滤"
+      },
+      {
+        "severity": "建议",
+        "file": "server/src/services/cacheService.js:120-124",
+        "issue": "Redis KEYS命令在生产环境可能阻塞",
+        "description": "clearAllConfigCache使用KEYS命令，大数据集会阻塞Redis",
+        "suggestion": "使用SCAN命令替代KEYS"
+      }
+    ],
+    "best_practices": [
+      {
+        "severity": "建议",
+        "issue": "缺少请求参数验证",
+        "description": "多处Controller缺少输入参数验证，依赖前端验证",
+        "files": ["server/src/controllers/*.js"]
+      },
+      {
+        "severity": "建议",
+        "issue": "缺少API请求速率限制",
+        "description": "未发现rate limiting中间件，可能遭受DoS攻击",
+        "suggestion": "建议添加express-rate-limit"
+      },
+      {
+        "severity": "建议",
+        "issue": "缺少Helmet安全中间件",
+        "description": "Express应用未使用Helmet设置安全HTTP头",
+        "suggestion": "建议添加helmet中间件"
+      }
+    ]
+  },
+  "positive_findings": [
+    {
+      "area": "架构设计",
+      "finding": "良好的MVC分层结构，代码组织清晰"
+    },
+    {
+      "area": "认证机制",
+      "finding": "JWT使用RS256非对称加密，安全性较高"
+    },
+    {
+      "area": "缓存策略",
+      "finding": "正确使用Redis缓存系统配置和账号余额"
+    },
+    {
+      "area": "优雅关闭",
+      "finding": "正确处理SIGINT/SIGTERM信号，优雅关闭服务和连接"
+    },
+    {
+      "area": "错误处理",
+      "finding": "统一的错误处理中间件，处理了Sequelize验证错误"
+    },
+    {
+      "area": "日志记录",
+      "finding": "使用winston进行日志记录，支持不同日志级别"
+    },
+    {
+      "area": "IP白名单",
+      "finding": "代理接口支持IP白名单和Token双重认证"
+    },
+    {
+      "area": "账号管理",
+      "finding": "实现账号失败计数和自动禁用机制"
+    }
+  ],
+  "architecture_assessment": {
+    "overall": "良好",
+    "strengths": [
+      "前后端分离架构清晰",
+      "Sequelize ORM使用规范",
+      "Redis缓存策略合理",
+      "定时任务独立模块"
+    ],
+    "weaknesses": [
+      "缺少参数验证层",
+      "缺少API文档",
+      "缺少单元测试",
+      "缺少环境配置验证"
+    ]
+  }
+}

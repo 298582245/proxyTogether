@@ -1,4 +1,4 @@
-﻿const Site = require('../models/Site');
+const Site = require('../models/Site');
 const Account = require('../models/Account');
 const SystemConfig = require('../models/SystemConfig');
 const cacheService = require('../services/cacheService');
@@ -8,8 +8,9 @@ const { get, buildUrl } = require('../utils/http');
 const logger = require('../utils/logger');
 
 /**
- * 鏇挎崲URL涓殑鍙傛暟鍗犱綅绗? * @param {string} url - URL妯℃澘
- * @param {object} params - 鍙傛暟瀵硅薄
+ * 替换URL中的参数占位符
+ * @param {string} url - URL模板
+ * @param {object} params - 参数对象
  */
 const replaceUrlParams = (url, params) => {
   if (!url || !params) return url;
@@ -26,13 +27,14 @@ const replaceUrlParams = (url, params) => {
 };
 
 /**
- * 浠嶶RL妯℃澘涓彁鍙栧弬鏁板悕
- * @param {string} url - URL妯℃澘
- * @returns {array} 鍙傛暟鍚嶅垪琛? */
+ * 从URL模板中提取参数名
+ * @param {string} url - URL模板
+ * @returns {array} 参数名列表
+ */
 const extractParamNames = (url) => {
   if (!url) return [];
   const params = [];
-  // 鍖归厤 {params.xxx} 鏍煎紡
+  // 匹配 {params.xxx} 格式
   const paramsRegex = /\{params\.(\w+)\}/g;
   let match;
   while ((match = paramsRegex.exec(url)) !== null) {
@@ -50,9 +52,10 @@ const extractParamNames = (url) => {
 };
 
 /**
- * 妫€鏌ュ搷搴旀槸鍚﹀寘鍚け璐ュ叧閿瘝
- * @param {string} response - 鍝嶅簲鍐呭
- * @param {array} keywords - 澶辫触鍏抽敭璇嶅垪琛? */
+ * 检查响应是否包含失败关键词
+ * @param {string} response - 响应内容
+ * @param {array} keywords - 失败关键词列表
+ */
 const containsFailureKeyword = (response, keywords) => {
   if (!keywords || !Array.isArray(keywords) || keywords.length === 0) {
     return false;
@@ -62,16 +65,17 @@ const containsFailureKeyword = (response, keywords) => {
 };
 
 /**
- * 鑾峰彇璐﹀彿鍙敤浣欓锛堜紭鍏堜粠缂撳瓨鑾峰彇锛? * @param {number} accountId - 璐﹀彿ID
+ * 获取账号可用余额（优先从缓存获取）
+ * @param {number} accountId - 账号ID
  */
 const getAccountAvailableBalance = async (accountId) => {
-  // 鍏堜粠缂撳瓨鑾峰彇
+  // 先从缓存获取
   const cachedBalance = await cacheService.getAccountBalance(accountId);
   if (cachedBalance !== null) {
     return cachedBalance;
   }
 
-  // 缂撳瓨涓嶅瓨鍦ㄥ垯浠庢暟鎹簱鑾峰彇
+  // 缓存不存在则从数据库获取
   const account = await Account.findByPk(accountId);
   return account ? parseFloat(account.balance) || 0 : 0;
 };
@@ -159,18 +163,20 @@ const resolveFormatParam = (account, site, requestedFormat) => {
 };
 
 /**
- * 鏋勫缓鎻愬彇閾炬帴
- * @param {object} account - 璐﹀彿瀵硅薄
- * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? * @param {number} durationValue - 鏃堕暱鍊硷紙times锛? * @param {string} format - 鏍煎紡鍙傛暟
+ * 构建提取链接
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象（可能为null）
+ * @param {number} durationValue - 时长值（times）
+ * @param {string} format - 格式参数
  */
 const buildExtractUrl = (account, site, durationValue, formatValue) => {
   let url = account.extractUrlTemplate || (site ? site.extractUrlTemplate : '');
 
   if (!url) {
-    throw new Error('缂哄皯鎻愬彇閾炬帴妯℃澘');
+    throw new Error('缺少提取链接模板');
   }
 
-  // 鏋勫缓鏇挎崲鍙傛暟
+  // 构建替换参数
   const replaceParams = {
     duration: durationValue,
     times: durationValue,
@@ -183,32 +189,34 @@ const buildExtractUrl = (account, site, durationValue, formatValue) => {
       : account.extractParams;
     Object.entries(accountParams).forEach(([key, value]) => {
       replaceParams[key] = value;
-      // 鍚屾椂鏀寔 params.xxx 鏍煎紡
+      // 同时支持 params.xxx 格式
       replaceParams[`params.${key}`] = value;
     });
   }
 
-  // 鏇挎崲妯℃澘鍙橀噺
+  // 替换模板变量
   url = replaceUrlParams(url, replaceParams);
 
   return url;
 };
 
 /**
- * 璁板綍浠ｇ悊鎻愬彇鏃ュ織
+ * 记录代理提取日志
  */
 const logProxyRequest = async (data) => {
   try {
     await logStatsService.createProxyLog(data);
   } catch (error) {
-    logger.error('璁板綍浠ｇ悊鏃ュ織澶辫触:', error);
+    logger.error('记录代理日志失败:', error);
   }
 };
 
 /**
- * 鏍规嵁鏃堕暱鑾峰彇浠锋牸
- * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? * @param {object} account - 璐﹀彿瀵硅薄
- * @param {number} durationValue - 鏃堕暱鍊? * @returns {number} 浠锋牸
+ * 根据时长获取价格
+ * @param {object} site - 网站对象（可能为null）
+ * @param {object} account - 账号对象
+ * @param {number} durationValue - 时长值
+ * @returns {number} 价格
  */
 const getDurationPrice = (site, account, durationValue) => {
   const durationNum = parseInt(durationValue, 10);
@@ -234,9 +242,10 @@ const getDurationPrice = (site, account, durationValue) => {
 };
 
 /**
- * 澧炲姞璐﹀彿澶辫触娆℃暟
- * @param {object} account - 璐﹀彿瀵硅薄
- * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? */
+ * 增加账号失败次数
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象（可能为null）
+ */
 const incrementFailCount = async (account, site) => {
   const accountId = account.id;
   const accountEntity = await Account.findByPk(accountId);
@@ -244,17 +253,17 @@ const incrementFailCount = async (account, site) => {
 
   const newFailCount = accountEntity.failCount + 1;
 
-  // 妫€鏌ユ槸鍚︿负鍖呮湀璐﹀彿锛堢嫭绔嬪寘鏈堣处鍙枫€佺綉绔欑被鍨嬩负鍖呮湀 鎴?璐﹀彿鏈夊埌鏈熸椂闂翠笖鏈繃鏈燂級
+  // 检查是否为包月账号（独立包月账号、网站类型为包月 或 账号有到期时间且未过期）
   const isMonthly = isStandaloneMonthlyAccount(accountEntity) ||
     (site && site.balanceType === 'monthly') ||
     (accountEntity.expireAt && new Date(accountEntity.expireAt) > new Date());
 
   if (isMonthly) {
-    // 鍖呮湀璐﹀彿锛氬彧澧炲姞澶辫触娆℃暟锛屼笉绂佺敤
+    // 包月账号：只增加失败次数，不禁用
     await Account.update({ failCount: newFailCount }, { where: { id: accountId } });
-    logger.warn(`account disabled after failures: ${accountEntity.name}, count=${newFailCount}`);
+    logger.warn(`包月账号失败次数增加: ${accountEntity.name}, count=${newFailCount}`);
   } else {
-    // 闈炲寘鏈堣处鍙凤細杈惧埌鏈€澶уけ璐ユ鏁板悗绂佺敤
+    // 非包月账号：达到最大失败次数后禁用
     const maxFailCount = parseInt(await SystemConfig.getValue('max_fail_count', '3'), 10);
 
     if (newFailCount >= maxFailCount) {
@@ -262,7 +271,7 @@ const incrementFailCount = async (account, site) => {
         { failCount: newFailCount, status: 0 },
         { where: { id: accountId } }
       );
-      logger.warn(`account disabled after failures: ${accountEntity.name}, count=${newFailCount}`);
+      logger.warn(`账号因连续失败被禁用: ${accountEntity.name}, count=${newFailCount}`);
     } else {
       await Account.update({ failCount: newFailCount }, { where: { id: accountId } });
     }
@@ -270,23 +279,26 @@ const incrementFailCount = async (account, site) => {
 };
 
 /**
- * 閲嶇疆璐﹀彿澶辫触娆℃暟
+ * 重置账号失败次数
  */
 const resetFailCount = async (accountId) => {
   await Account.update({ failCount: 0 }, { where: { id: accountId } });
 };
 
 /**
- * 妫€鏌ヨ处鍙锋槸鍚︿负鐙珛鐨勫寘鏈堣处鍙凤紙涓嶅叧鑱旂綉绔欙級
- * @param {object} account - 璐﹀彿瀵硅薄
+ * 检查账号是否为独立的包月账号（不关联网站）
+ * @param {object} account - 账号对象
  */
 const isStandaloneMonthlyAccount = (account) => {
   return !account.siteId && account.extractUrlTemplate;
 };
 
 /**
- * 妫€鏌ヨ处鍙锋槸鍚︽敮鎸佹寚瀹氭椂闀? * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? * @param {object} account - 璐﹀彿瀵硅薄
- * @param {number} durationValue - 鏃堕暱鍊? */
+ * 检查账号是否支持指定时长
+ * @param {object} site - 网站对象（可能为null）
+ * @param {object} account - 账号对象
+ * @param {number} durationValue - 时长值
+ */
 const isDurationSupported = (site, account, durationValue) => {
   const durationNum = parseInt(durationValue, 10);
 
@@ -319,8 +331,10 @@ const isDurationSupported = (site, account, durationValue) => {
 };
 
 /**
- * 妫€鏌ヨ处鍙锋槸鍚︿负鏈夋晥鐨勫寘鏈堣处鍙? * @param {object} account - 璐﹀彿瀵硅薄
- * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? */
+ * 检查账号是否为有效的包月账号
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象（可能为null）
+ */
 const isMonthlyAccount = (account, site) => {
   if (isStandaloneMonthlyAccount(account)) {
     return true;
@@ -335,21 +349,23 @@ const isMonthlyAccount = (account, site) => {
 };
 
 /**
- * 妫€鏌ヨ处鍙锋槸鍚﹁繃鏈燂紙浠呭鍖呮湀璐﹀彿鏈夋晥锛? * @param {object} account - 璐﹀彿瀵硅薄
- * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? */
+ * 检查账号是否过期（仅对包月账号有效）
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象（可能为null）
+ */
 const isAccountExpired = (account, site) => {
-  // 闈炲寘鏈堣处鍙蜂笉浼氬洜鏃堕棿杩囨湡
+  // 非包月账号不会因时间过期
   if (!isMonthlyAccount(account, site)) {
     return false;
   }
   if (account.expireAt) {
     return new Date(account.expireAt) <= new Date();
   }
-  // 缃戠珯绫诲瀷涓哄寘鏈堜絾娌℃湁璁剧疆鍒版湡鏃堕棿锛岃涓烘湭杩囨湡
+  // 网站类型为包月但没有设置到期时间，视为未过期
   if (site && site.balanceType === 'monthly') {
     return false;
   }
-  // 鐙珛鍖呮湀璐﹀彿娌℃湁璁剧疆鍒版湡鏃堕棿锛岃涓烘湭杩囨湡
+  // 独立包月账号没有设置到期时间，视为未过期
   if (isStandaloneMonthlyAccount(account)) {
     return false;
   }
@@ -357,11 +373,12 @@ const isAccountExpired = (account, site) => {
 };
 
 /**
- * 鑾峰彇浠ｇ悊IP鏍稿績鏂规硶
- * @param {number} durationValue - 鏃堕暱鍊? * @param {string} format - 鏍煎紡鍙傛暟
- * @param {string} clientIp - 瀹㈡埛绔疘P
- * @param {array} triedAccountIds - 宸插皾璇曡繃鐨勮处鍙稩D鍒楄〃
- * @param {string} remark - 澶囨敞锛堝彲閫夛級
+ * 获取代理IP核心方法
+ * @param {number} durationValue - 时长值
+ * @param {string} format - 格式参数
+ * @param {string} clientIp - 客户端IP
+ * @param {array} triedAccountIds - 已尝试过的账号ID列表
+ * @param {string} remark - 备注（可选）
  */
 const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], remark = null) => {
   const { Op } = require('sequelize');
@@ -409,8 +426,8 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
 
   if (availableAccounts.length === 0) {
     const noAccountMessage = triedAccountIds.length > 0
-      ? '\u6240\u6709\u53ef\u7528\u8d26\u53f7\u90fd\u5df2\u5c1d\u8bd5\uff0c\u65e0\u6cd5\u83b7\u53d6\u4ee3\u7406'
-      : '\u6ca1\u6709\u53ef\u7528\u8d26\u53f7\u652f\u6301\u8be5\u65f6\u957f\u53c2\u6570\u6216\u8d26\u53f7\u5df2\u8fc7\u671f';
+      ? '所有可用账号都已尝试，无法获取代理'
+      : '没有可用账号支持该时长参数或账号已过期';
 
     await logProxyRequest({
       accountId: null,
@@ -466,11 +483,11 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       break;
     }
 
-    logger.info(`account skipped by usage limit: ${item.account.name}, reason=${reservationResult.reason || 'unknown'}`);
+    logger.info(`账号因使用限制跳过: ${item.account.name}, reason=${reservationResult.reason || 'unknown'}`);
   }
 
   if (!selectedAccountItem) {
-    const limitMessage = '\u6240\u6709\u53ef\u7528\u8d26\u53f7\u90fd\u5df2\u8fbe\u5230\u4f7f\u7528\u9650\u5236';
+    const limitMessage = '所有可用账号都已达到使用限制';
 
     await logProxyRequest({
       accountId: null,
@@ -497,11 +514,11 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
   const cost = isMonthly ? 0 : getDurationPrice(site, account, durationValue);
   const resolvedFormat = resolveFormatParam(account, site, format);
 
-  const siteName = site ? site.name : '\u72ec\u7acb\u5305\u6708';
-  logger.info(`selected account: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}, format=${resolvedFormat.requestFormat}, forwardFormat=${resolvedFormat.forwardFormat}`);
+  const siteName = site ? site.name : '独立包月';
+  logger.info(`选中账号: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}, format=${resolvedFormat.requestFormat}, forwardFormat=${resolvedFormat.forwardFormat}`);
 
   const extractUrl = buildExtractUrl(account, site, durationValue, resolvedFormat.forwardFormat);
-  logger.info(`extract url: ${extractUrl}`);
+  logger.info(`提取链接: ${extractUrl}`);
 
   try {
     const response = await get(extractUrl);
@@ -518,15 +535,15 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
 
     try {
       const defaultKeywords = JSON.parse(
-        await SystemConfig.getValue('proxy_failure_keywords', '["\\u4f59\\u989d\\u4e0d\\u8db3","\\u5df2\\u8fc7\\u671f"]')
+        await SystemConfig.getValue('proxy_failure_keywords', '["余额不足","已过期"]')
       );
       failureKeywords = [...failureKeywords, ...defaultKeywords];
     } catch {
-      failureKeywords = [...failureKeywords, '\u4f59\u989d\u4e0d\u8db3', '\u5df2\u8fc7\u671f'];
+      failureKeywords = [...failureKeywords, '余额不足', '已过期'];
     }
 
     if (containsFailureKeyword(response, failureKeywords)) {
-      logger.warn(`account extract failed by keyword: ${account.name}`);
+      logger.warn(`账号提取失败(关键词匹配): ${account.name}`);
 
       await usageLimitService.rollbackUsageCount(account.id, usageReservation);
 
@@ -540,7 +557,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
         format: resolvedFormat.requestFormat,
         success: false,
         cost: 0,
-        errorMessage: '\u54cd\u5e94\u5305\u542b\u5931\u8d25\u5173\u952e\u8bcd',
+        errorMessage: '响应包含失败关键词',
         responsePreview,
         remark,
       });
@@ -563,25 +580,25 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       remark,
     });
 
-    logger.info(`account extract success: ${account.name}, cost=${cost}`);
+    logger.info(`账号提取成功: ${account.name}, cost=${cost}`);
 
     return {
       success: true,
-      message: '\u83b7\u53d6\u6210\u529f',
+      message: '获取成功',
       data: {
         response,
         account: {
           id: account.id,
           name: account.name,
           siteName,
-          balance: isMonthly ? '\u5305\u6708' : balance,
+          balance: isMonthly ? '包月' : balance,
           cost,
           isMonthly,
         },
       },
     };
   } catch (error) {
-    logger.error(`account extract failed: ${account.name}`, error.message);
+    logger.error(`账号提取失败: ${account.name}`, error.message);
 
     await usageLimitService.rollbackUsageCount(account.id, usageReservation);
 

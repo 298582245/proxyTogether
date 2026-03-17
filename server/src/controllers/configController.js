@@ -2,6 +2,7 @@
 const cacheService = require('../services/cacheService');
 const scheduler = require('../schedulers/balanceScheduler');
 const logger = require('../utils/logger');
+const bcrypt = require('bcryptjs');
 
 const MASKED_KEYS = ['jwt_private_key', 'jwt_public_key', 'admin_password'];
 const READ_ONLY_KEYS = ['jwt_private_key', 'jwt_public_key'];
@@ -15,6 +16,12 @@ const LOG_SCHEDULER_KEYS = [
 const normalizeInteger = (value) => {
   const parsedValue = Number.parseInt(value, 10);
   return Number.isNaN(parsedValue) ? null : parsedValue;
+};
+
+const createValidationError = (message) => {
+  const error = new Error(message);
+  error.isKnownError = true;
+  return error;
 };
 
 const assertIntegerRange = (value, minValue, maxValue, message) => {
@@ -47,7 +54,7 @@ const normalizeJsonArrayValue = (value, message) => {
   return JSON.stringify(parsedValue);
 };
 
-const validateAndNormalizeConfigValue = (key, value) => {
+const validateAndNormalizeConfigValue = async (key, value) => {
   if (key === 'admin_password') {
     if (!value || value === '******') {
       return null;
@@ -57,7 +64,9 @@ const validateAndNormalizeConfigValue = (key, value) => {
       throw createValidationError('密码长度不能少于6位');
     }
 
-    return String(value);
+    // 哈希密码
+    const hashedPassword = await bcrypt.hash(String(value), 10);
+    return hashedPassword;
   }
 
   if (JSON_ARRAY_KEYS.includes(key)) {
@@ -148,7 +157,7 @@ const updateConfig = async (req, res) => {
         continue;
       }
 
-      const normalizedValue = validateAndNormalizeConfigValue(key, value);
+      const normalizedValue = await validateAndNormalizeConfigValue(key, value);
       if (normalizedValue === null) {
         continue;
       }
