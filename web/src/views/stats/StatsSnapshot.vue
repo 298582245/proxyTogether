@@ -360,15 +360,21 @@ const selectedStatDateTime = computed(() => `${filters.statDate || '-'} ${filter
 const formatCount = (value) => Number(value || 0).toLocaleString('zh-CN')
 const formatCost = (value) => Number(value || 0).toFixed(4)
 
+// 使用中国时区格式化日期
 const formatDateOnly = (date) => {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
     return ''
   }
 
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
+  // 使用 toLocaleString 获取中国时区的日期
+  const chinaTime = date.toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+  // zh-CN 格式是 YYYY/MM/DD，转换为 YYYY-MM-DD
+  return chinaTime.replace(/\//g, '-')
 }
 
 const getDatePart = (value) => (typeof value === 'string' && value.length >= 10 ? value.slice(0, 10) : '')
@@ -397,14 +403,17 @@ const normalizePickerDate = (value) => {
     return ''
   }
 
+  // Arco Design 日期选择器可能传入字符串格式
   if (typeof value === 'string') {
     return value.slice(0, 10)
   }
 
+  // Date 对象需要使用中国时区转换
   if (value instanceof Date) {
     return formatDateOnly(value)
   }
 
+  // Dayjs 对象
   if (typeof value.format === 'function') {
     return value.format('YYYY-MM-DD')
   }
@@ -440,9 +449,12 @@ const disableStatDate = (current) => {
   if (!dateValue) {
     return false
   }
-  if (dateValue === getCurrentStatDate()) {
+  // 当前日期总是可选
+  const today = getCurrentStatDate()
+  if (dateValue === today) {
     return false
   }
+  // 检查是否在可用日期列表中
   return !availableDateSet.value.has(dateValue)
 }
 

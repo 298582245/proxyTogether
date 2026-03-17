@@ -443,6 +443,11 @@
                   placeholder="参数值"
                   class="param-input"
                 />
+                <a-input
+                  v-model="item.oValue"
+                  placeholder="瀹為檯杞彂鍊?(o_value)"
+                  class="param-input"
+                />
                 <a-button
                   type="text"
                   status="danger"
@@ -455,7 +460,7 @@
               <a-button
                 type="dashed"
                 long
-                @click="dialog.form.formatParams.push({ label: '', value: '' })"
+                @click="dialog.form.formatParams.push({ label: '', value: '', oValue: '' })"
               >
                 <template #icon><icon-plus /></template>
                 添加格式参数
@@ -1009,6 +1014,48 @@ const syncBalanceParams = () => {
     Object.keys(params).length > 0 ? JSON.stringify(params, null, 2) : "";
 };
 
+const createDefaultFormatParams = () => [
+  { label: "纯IP", value: "txt", oValue: "" },
+  { label: "JSON", value: "json", oValue: "" },
+];
+
+const normalizeFormatParams = (formatParams = []) => {
+  if (!Array.isArray(formatParams)) {
+    return [];
+  }
+
+  return formatParams.map((item) => ({
+    label: item?.label || "",
+    value: item?.value || "",
+    oValue: item?.oValue ?? item?.o_value ?? "",
+  }));
+};
+
+const buildFormatParamsPayload = (formatParams = []) => {
+  if (!Array.isArray(formatParams)) {
+    return [];
+  }
+
+  return formatParams
+    .map((item) => {
+      const label = String(item?.label || "").trim();
+      const value = String(item?.value || "").trim();
+      const oValue = String(item?.oValue ?? item?.o_value ?? "").trim();
+
+      if (!value) {
+        return null;
+      }
+
+      const payload = { label, value };
+      if (oValue) {
+        payload.o_value = oValue;
+      }
+
+      return payload;
+    })
+    .filter(Boolean);
+};
+
 const resetForm = () => {
   dialog.form = {
     accountType: "site",
@@ -1028,6 +1075,7 @@ const resetForm = () => {
     expireAt: null,
     status: 1,
   };
+  dialog.form.formatParams = createDefaultFormatParams();
   paramHints.extractParams = [];
   paramHints.balanceParams = [];
   paramHints.durationParams = [];
@@ -1103,6 +1151,7 @@ const handleEdit = async (row) => {
       expireAt: parseLocalDateTime(data.expireAt),
       status: data.status,
     };
+    dialog.form.formatParams = normalizeFormatParams(data.formatParams);
     dialog.isEdit = true;
     dialog.editId = data.id;
     dialog.visible = true;
@@ -1132,8 +1181,8 @@ const handleSubmit = async () => {
       // 独立包月账号
       data.siteId = null;
       data.extractUrlTemplate = dialog.form.extractUrlTemplate || null;
-      data.formatParams =
-        dialog.form.formatParams.length > 0 ? dialog.form.formatParams : null;
+      const formatParams = buildFormatParamsPayload(dialog.form.formatParams);
+      data.formatParams = formatParams.length > 0 ? formatParams : null;
       data.durationParams =
         dialog.form.durationParams.length > 0
           ? dialog.form.durationParams

@@ -643,21 +643,28 @@ const getSnapshotCompareData = async (statDate, compareMonth) => {
 
   return {
     updatedAt: formatChinaDateTime(latestUpdatedAt),
+    ranges: {
+      day: statDate,
+      weekStart: getChinaDateStr(weekRange.startDate),
+      weekEnd: getChinaDateStr(weekRange.endDate),
+      monthKey: monthRange.monthKey,
+      selectedMonthKey,
+    },
     items: [
       buildCompareItem(
-        '当天',
+        `当天 (${statDate})`,
         buildSnapshotTotalsFromRows(snapshotRows, 'todayRequest', 'todaySuccess', 'todayCost'),
         dayAggregate.summary,
         'today',
       ),
       buildCompareItem(
-        '本周',
+        `本周 (${getChinaDateStr(weekRange.startDate)} ~ ${getChinaDateStr(weekRange.endDate)})`,
         buildSnapshotTotalsFromRows(snapshotRows, 'weekRequest', 'weekSuccess', 'weekCost'),
         weekAggregate.summary,
         'week',
       ),
       buildCompareItem(
-        '本月',
+        `本月 (${monthRange.monthKey})`,
         buildSnapshotTotalsFromRows(snapshotRows, 'monthRequest', 'monthSuccess', 'monthCost'),
         monthAggregate.summary,
         'month',

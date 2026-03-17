@@ -196,11 +196,12 @@
             <div v-for="(item, index) in dialog.form.formatParams" :key="index" class="param-row">
               <a-input v-model="item.label" placeholder="显示名称" class="param-input" />
               <a-input v-model="item.value" placeholder="参数值" class="param-input" />
+              <a-input v-model="item.oValue" placeholder="瀹為檯杞彂鍊?(o_value)" class="param-input" />
               <a-button type="text" status="danger" size="small" @click="dialog.form.formatParams.splice(index, 1)">
                 <template #icon><icon-delete /></template>
               </a-button>
             </div>
-            <a-button type="dashed" long @click="dialog.form.formatParams.push({ label: '', value: '' })">
+            <a-button type="dashed" long @click="dialog.form.formatParams.push({ label: '', value: '', oValue: '' })">
               <template #icon><icon-plus /></template>
               添加格式参数
             </a-button>
@@ -338,6 +339,48 @@ const dialog = reactive({
 
 const formatDate = (date) => formatLocalizedDateTime(date)
 
+const createDefaultFormatParams = () => ([
+  { label: '纯IP', value: 'txt', oValue: '' },
+  { label: 'JSON', value: 'json', oValue: '' }
+])
+
+const normalizeFormatParams = (formatParams = []) => {
+  if (!Array.isArray(formatParams)) {
+    return []
+  }
+
+  return formatParams.map((item) => ({
+    label: item?.label || '',
+    value: item?.value || '',
+    oValue: item?.oValue ?? item?.o_value ?? ''
+  }))
+}
+
+const buildFormatParamsPayload = (formatParams = []) => {
+  if (!Array.isArray(formatParams)) {
+    return []
+  }
+
+  return formatParams
+    .map((item) => {
+      const label = String(item?.label || '').trim()
+      const value = String(item?.value || '').trim()
+      const oValue = String(item?.oValue ?? item?.o_value ?? '').trim()
+
+      if (!value) {
+        return null
+      }
+
+      const payload = { label, value }
+      if (oValue) {
+        payload.o_value = oValue
+      }
+
+      return payload
+    })
+    .filter(Boolean)
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -370,6 +413,8 @@ const resetForm = () => {
     balanceField: 'data.balance',
     failureKeywords: []
   }
+
+  dialog.form.formatParams = createDefaultFormatParams()
 }
 
 const handleAdd = () => {
@@ -393,6 +438,7 @@ const handleEdit = async (row) => {
       balanceField: data.balanceField || 'data.balance',
       failureKeywords: data.failureKeywords || []
     }
+    dialog.form.formatParams = normalizeFormatParams(data.formatParams)
     dialog.isEdit = true
     dialog.editId = data.id
     dialog.visible = true
@@ -410,6 +456,8 @@ const handleSubmit = async () => {
   dialog.loading = true
   try {
     const data = { ...dialog.form }
+    const formatParams = buildFormatParamsPayload(dialog.form.formatParams)
+    data.formatParams = formatParams.length > 0 ? formatParams : null
 
     if (dialog.isEdit) {
       await updateSite(dialog.editId, data)

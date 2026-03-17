@@ -76,12 +76,93 @@ const getAccountAvailableBalance = async (accountId) => {
   return account ? parseFloat(account.balance) || 0 : 0;
 };
 
+const parseConfigArray = (value) => {
+  if (!value) {
+    return [];
+  }
+
+  if (Array.isArray(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      const parsedValue = JSON.parse(value);
+      return Array.isArray(parsedValue) ? parsedValue : [];
+    } catch {
+      return [];
+    }
+  }
+
+  return [];
+};
+
+const getFormatParams = (account, site) => {
+  const accountFormatParams = parseConfigArray(account && account.formatParams);
+  if (accountFormatParams.length > 0) {
+    return accountFormatParams;
+  }
+
+  return parseConfigArray(site && site.formatParams);
+};
+
+const resolveFormatParam = (account, site, requestedFormat) => {
+  const formatParams = getFormatParams(account, site)
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const value = item.value !== undefined && item.value !== null
+        ? String(item.value).trim()
+        : '';
+      if (!value) {
+        return null;
+      }
+
+      const originalForwardValue = item.oValue !== undefined
+        ? item.oValue
+        : item.o_value;
+      const forwardValue = originalForwardValue !== undefined && originalForwardValue !== null
+        ? String(originalForwardValue).trim()
+        : '';
+
+      return {
+        value,
+        forwardValue: forwardValue || value,
+      };
+    })
+    .filter(Boolean);
+
+  const formatValue = typeof requestedFormat === 'string' ? requestedFormat.trim() : '';
+  const matchedFormat = formatParams.find((item) => item.value === formatValue);
+  if (matchedFormat) {
+    return {
+      requestFormat: matchedFormat.value,
+      forwardFormat: matchedFormat.forwardValue,
+    };
+  }
+
+  const defaultFormat = formatParams.find((item) => item.value === 'txt');
+  if (defaultFormat) {
+    return {
+      requestFormat: 'txt',
+      forwardFormat: defaultFormat.forwardValue,
+    };
+  }
+
+  return {
+    requestFormat: 'txt',
+    forwardFormat: 'txt',
+  };
+};
+
 /**
  * 鏋勫缓鎻愬彇閾炬帴
  * @param {object} account - 璐﹀彿瀵硅薄
  * @param {object} site - 缃戠珯瀵硅薄锛堝彲鑳戒负null锛? * @param {number} durationValue - 鏃堕暱鍊硷紙times锛? * @param {string} format - 鏍煎紡鍙傛暟
  */
-const buildExtractUrl = (account, site, durationValue, format) => {
+const buildExtractUrl = (account, site, durationValue, formatValue) => {
   let url = account.extractUrlTemplate || (site ? site.extractUrlTemplate : '');
 
   if (!url) {
@@ -92,7 +173,7 @@ const buildExtractUrl = (account, site, durationValue, format) => {
   const replaceParams = {
     duration: durationValue,
     times: durationValue,
-    format: format,
+    format: formatValue,
   };
 
   if (account.extractParams) {
@@ -413,11 +494,12 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
   const { account, balance, site } = selectedAccountItem;
   const isMonthly = isMonthlyAccount(account, site);
   const cost = isMonthly ? 0 : getDurationPrice(site, account, durationValue);
+  const resolvedFormat = resolveFormatParam(account, site, format);
 
   const siteName = site ? site.name : '\u72ec\u7acb\u5305\u6708';
-  logger.info(`selected account: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}`);
+  logger.info(`selected account: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}, format=${resolvedFormat.requestFormat}, forwardFormat=${resolvedFormat.forwardFormat}`);
 
-  const extractUrl = buildExtractUrl(account, site, durationValue, format);
+  const extractUrl = buildExtractUrl(account, site, durationValue, resolvedFormat.forwardFormat);
   logger.info(`extract url: ${extractUrl}`);
 
   try {
@@ -454,7 +536,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
         siteId: site ? site.id : null,
         clientIp,
         duration: durationValue,
-        format,
+        format: resolvedFormat.requestFormat,
         success: false,
         cost: 0,
         errorMessage: '\u54cd\u5e94\u5305\u542b\u5931\u8d25\u5173\u952e\u8bcd',
@@ -473,7 +555,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       siteId: site ? site.id : null,
       clientIp,
       duration: durationValue,
-      format,
+      format: resolvedFormat.requestFormat,
       success: true,
       cost,
       responsePreview,
@@ -509,7 +591,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       siteId: site ? site.id : null,
       clientIp,
       duration: durationValue,
-      format,
+      format: resolvedFormat.requestFormat,
       success: false,
       cost: 0,
       errorMessage: error.message,
