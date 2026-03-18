@@ -1,3 +1,6 @@
+// 设置时区为中国标准时间，确保统计等功能的时间计算正确
+process.env.TZ = 'Asia/Shanghai';
+
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
