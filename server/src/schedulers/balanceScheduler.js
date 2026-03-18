@@ -2,6 +2,7 @@
 const SystemConfig = require('../models/SystemConfig');
 const balanceService = require('../services/balanceService');
 const logStatsService = require('../services/logStatsService');
+const statsNewService = require('../services/statsNewService');
 const usageLimitService = require('../services/usageLimitService');
 const logger = require('../utils/logger');
 
@@ -9,6 +10,8 @@ let balanceCheckJob = null;
 let usageLimitResetJob = null;
 let logStatsFlushJob = null;
 let logCleanupJob = null;
+let dailySettlementJob = null;
+let monthlySettlementJob = null;
 
 const normalizeInteger = (value, defaultValue, minValue, maxValue) => {
   const parsedValue = Number.parseInt(value, 10);
@@ -144,6 +147,58 @@ const stopLogCleanupJob = () => {
   }
 };
 
+const startDailySettlementJob = async () => {
+  stopDailySettlementJob();
+
+  // 每天 0:05 执行，将昨天的数据刷新到 daily_stats
+  dailySettlementJob = cron.schedule('5 0 * * *', async () => {
+    logger.info('daily settlement job triggered');
+    try {
+      const result = await statsNewService.dailySettlement();
+      logger.info(`daily settlement completed: ${result}`);
+    } catch (error) {
+      logger.error('daily settlement failed:', error);
+    }
+  });
+
+  logger.info('daily settlement job started (0:05 daily)');
+  return dailySettlementJob;
+};
+
+const stopDailySettlementJob = () => {
+  if (dailySettlementJob) {
+    dailySettlementJob.stop();
+    dailySettlementJob = null;
+    logger.info('daily settlement job stopped');
+  }
+};
+
+const startMonthlySettlementJob = async () => {
+  stopMonthlySettlementJob();
+
+  // 每月 1 号 0:10 执行，聚合上月数据到 monthly_stats
+  monthlySettlementJob = cron.schedule('10 0 1 * *', async () => {
+    logger.info('monthly settlement job triggered');
+    try {
+      const result = await statsNewService.monthlySettlement();
+      logger.info(`monthly settlement completed: ${result}`);
+    } catch (error) {
+      logger.error('monthly settlement failed:', error);
+    }
+  });
+
+  logger.info('monthly settlement job started (0:10 on 1st of each month)');
+  return monthlySettlementJob;
+};
+
+const stopMonthlySettlementJob = () => {
+  if (monthlySettlementJob) {
+    monthlySettlementJob.stop();
+    monthlySettlementJob = null;
+    logger.info('monthly settlement job stopped');
+  }
+};
+
 const restartBalanceCheckJob = async () => {
   stopBalanceCheckJob();
   return startBalanceCheckJob();
@@ -173,6 +228,18 @@ const initSchedulers = async () => {
     logger.error('log cleanup job init failed:', error);
   }
 
+  try {
+    await startDailySettlementJob();
+  } catch (error) {
+    logger.error('daily settlement job init failed:', error);
+  }
+
+  try {
+    await startMonthlySettlementJob();
+  } catch (error) {
+    logger.error('monthly settlement job init failed:', error);
+  }
+
   logger.info('all scheduler jobs initialized');
 };
 
@@ -181,6 +248,8 @@ const stopAllSchedulers = () => {
   stopUsageLimitResetJob();
   stopLogStatsFlushJob();
   stopLogCleanupJob();
+  stopDailySettlementJob();
+  stopMonthlySettlementJob();
   logger.info('all scheduler jobs stopped');
 };
 
@@ -189,12 +258,16 @@ module.exports = {
   restartBalanceCheckJob,
   restartLogStatsJobs,
   startBalanceCheckJob,
+  startDailySettlementJob,
   startLogCleanupJob,
   startLogStatsFlushJob,
+  startMonthlySettlementJob,
   startUsageLimitResetJob,
   stopAllSchedulers,
   stopBalanceCheckJob,
+  stopDailySettlementJob,
   stopLogCleanupJob,
   stopLogStatsFlushJob,
+  stopMonthlySettlementJob,
   stopUsageLimitResetJob,
 };

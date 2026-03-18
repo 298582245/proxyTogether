@@ -85,14 +85,18 @@ const getAffectedRows = (result) => {
   return 0;
 };
 
+/**
+ * 格式化日期时间为 SQL 字符串
+ * 注意：数据库 timezone='+08:00'，Date 对象使用本地时间方法即可
+ */
 const formatDateTimeForSql = (date) => {
-  const chinaDate = new Date(date.getTime() + (8 * 60 * 60 * 1000));
-  const year = chinaDate.getUTCFullYear();
-  const month = padNumber(chinaDate.getUTCMonth() + 1);
-  const day = padNumber(chinaDate.getUTCDate());
-  const hour = padNumber(chinaDate.getUTCHours());
-  const minute = padNumber(chinaDate.getUTCMinutes());
-  const second = padNumber(chinaDate.getUTCSeconds());
+  // date 已经是本地时间，直接格式化
+  const year = date.getFullYear();
+  const month = padNumber(date.getMonth() + 1);
+  const day = padNumber(date.getDate());
+  const hour = padNumber(date.getHours());
+  const minute = padNumber(date.getMinutes());
+  const second = padNumber(date.getSeconds());
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 
@@ -1426,13 +1430,14 @@ const getOverviewData = async () => {
   const { todayStart, todayEnd } = getTodayDateRange();
   const yesterdayStart = addDays(todayStart, -1);
   const yesterdayEnd = addDays(todayEnd, -1);
-  const weekStart = addDays(todayStart, -6);
+  // 使用 getTimeRange 获取正确的本周一时间范围
+  const { startDate: weekStart, endDate: weekEnd } = getTimeRange('week');
   const monthStart = addDays(todayStart, -29);
 
   const [todayAggregate, yesterdayAggregate, weekAggregate, monthAggregate, totalAggregate, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
     getRealtimeAggregateFromRaw(todayStart, todayEnd),
     getRealtimeAggregateFromRaw(yesterdayStart, yesterdayEnd),
-    getRealtimeAggregateFromRaw(weekStart, todayEnd),
+    getRealtimeAggregateFromRaw(weekStart, weekEnd || todayEnd),
     getRealtimeAggregateFromRaw(monthStart, todayEnd),
     getRealtimeAggregateFromRaw(null, null),
     Account.count(),

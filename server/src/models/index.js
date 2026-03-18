@@ -7,6 +7,7 @@ const AccountUsageLimit = require('./AccountUsageLimit');
 const ProxyLogDailyStat = require('./ProxyLogDailyStat');
 const ProxyLogHourlyStat = require('./ProxyLogHourlyStat');
 const ProxyLogRemarkDailyStat = require('./ProxyLogRemarkDailyStat');
+const ProxyLogMonthlyStat = require('./ProxyLogMonthlyStat');
 const ProxyStatsSnapshot = require('./ProxyStatsSnapshot');
 
 // 定义关联关系
@@ -45,6 +46,7 @@ module.exports = {
   ProxyLogDailyStat,
   ProxyLogHourlyStat,
   ProxyLogRemarkDailyStat,
+  ProxyLogMonthlyStat,
   ProxyStatsSnapshot,
   AccountUsageLimit,
 };

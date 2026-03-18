@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "mcp__codex-cli__codex",
+      "Bash(npm run:*)",
+      "Bash(node:*)"
     ]
   }
 }

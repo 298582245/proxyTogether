@@ -123,6 +123,75 @@ const clearAllConfigCache = async () => {
   }
 };
 
+// ==================== 统计缓存相关 ====================
+
+const STATS_TODAY_PREFIX = 'stats:today';
+const STATS_TODAY_TTL_SECONDS = 60; // 1分钟缓存
+
+// 获取今日统计缓存键
+const getStatsTodayKey = (dateStr) => `${STATS_TODAY_PREFIX}:${dateStr}`;
+
+// 获取今日统计缓存
+const getStatsTodayCache = async (dateStr) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  const data = await redis.get(key);
+  return data ? JSON.parse(data) : null;
+};
+
+// 设置今日统计缓存
+const setStatsTodayCache = async (dateStr, data, ttlSeconds = STATS_TODAY_TTL_SECONDS) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  await redis.set(key, JSON.stringify(data), 'EX', ttlSeconds);
+};
+
+// 删除今日统计缓存
+const deleteStatsTodayCache = async (dateStr) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  await redis.del(key);
+};
+
+// 清除所有今日统计缓存
+const clearAllStatsTodayCache = async () => {
+  const redis = getRedis();
+  const keys = await redis.keys(`${STATS_TODAY_PREFIX}:*`);
+  if (keys.length > 0) {
+    await redis.del(keys);
+  }
+};
+
+// 增量更新今日统计（用于实时写入）
+const incrStatsTodayField = async (dateStr, field, value = 1) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  // 使用 HINCRBY 操作哈希字段
+  await redis.hincrby(key, field, value);
+  // 设置过期时间
+  await redis.expire(key, 86400); // 24小时过期
+};
+
+// 批量增量更新今日统计
+const incrStatsTodayFields = async (dateStr, fields) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  const multi = redis.multi();
+  Object.entries(fields).forEach(([field, value]) => {
+    multi.hincrby(key, field, value);
+  });
+  multi.expire(key, 86400);
+  await multi.exec();
+};
+
+// 获取今日统计哈希数据
+const getStatsTodayHash = async (dateStr) => {
+  const redis = getRedis();
+  const key = getStatsTodayKey(dateStr);
+  const data = await redis.hgetall(key);
+  return data;
+};
+
 module.exports = {
   initRedis,
   getRedis,
@@ -137,4 +206,13 @@ module.exports = {
   getConfigCache,
   deleteConfigCache,
   clearAllConfigCache,
+  // 统计缓存
+  getStatsTodayKey,
+  getStatsTodayCache,
+  setStatsTodayCache,
+  deleteStatsTodayCache,
+  clearAllStatsTodayCache,
+  incrStatsTodayField,
+  incrStatsTodayFields,
+  getStatsTodayHash,
 };

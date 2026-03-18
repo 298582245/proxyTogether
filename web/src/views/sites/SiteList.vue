@@ -216,15 +216,19 @@
               <span class="param-unit">分钟</span>
               <a-input-number v-model="item.price" placeholder="价格" class="param-input-sm" :min="0" :precision="4" />
               <span class="param-unit">元</span>
+              <a-input v-model="item.oValue" placeholder="实际转发值(o_value)" class="param-input" />
               <a-button type="text" status="danger" size="small" @click="dialog.form.durationParams.splice(index, 1)">
                 <template #icon><icon-delete /></template>
               </a-button>
             </div>
-            <a-button type="dashed" long @click="dialog.form.durationParams.push({ label: '', times: undefined, price: undefined })">
+            <a-button type="dashed" long @click="dialog.form.durationParams.push({ label: '', times: undefined, price: undefined, oValue: '' })">
               <template #icon><icon-plus /></template>
               添加时长参数
             </a-button>
           </div>
+          <template #extra>
+            <span class="form-tip">实际转发值可选，用于将请求的分钟数转换为供应商API所需的实际值</span>
+          </template>
         </a-form-item>
 
         <a-divider>余额查询配置</a-divider>
@@ -381,6 +385,49 @@ const buildFormatParamsPayload = (formatParams = []) => {
     .filter(Boolean)
 }
 
+const normalizeDurationParams = (durationParams = []) => {
+  if (!Array.isArray(durationParams)) {
+    return []
+  }
+
+  return durationParams.map((item) => ({
+    label: item?.label || '',
+    times: item?.times ?? undefined,
+    price: item?.price ?? undefined,
+    oValue: item?.oValue ?? item?.o_value ?? ''
+  }))
+}
+
+const buildDurationParamsPayload = (durationParams = []) => {
+  if (!Array.isArray(durationParams)) {
+    return []
+  }
+
+  return durationParams
+    .map((item) => {
+      const label = String(item?.label || '').trim()
+      const times = parseInt(item?.times, 10)
+      const price = parseFloat(item?.price)
+      const oValue = String(item?.oValue ?? item?.o_value ?? '').trim()
+
+      if (Number.isNaN(times)) {
+        return null
+      }
+
+      const payload = {
+        label,
+        times,
+        price: Number.isNaN(price) ? 0 : price
+      }
+      if (oValue) {
+        payload.o_value = oValue
+      }
+
+      return payload
+    })
+    .filter(Boolean)
+}
+
 const loadData = async () => {
   loading.value = true
   try {
@@ -439,6 +486,7 @@ const handleEdit = async (row) => {
       failureKeywords: data.failureKeywords || []
     }
     dialog.form.formatParams = normalizeFormatParams(data.formatParams)
+    dialog.form.durationParams = normalizeDurationParams(data.durationParams)
     dialog.isEdit = true
     dialog.editId = data.id
     dialog.visible = true
@@ -458,6 +506,8 @@ const handleSubmit = async () => {
     const data = { ...dialog.form }
     const formatParams = buildFormatParamsPayload(dialog.form.formatParams)
     data.formatParams = formatParams.length > 0 ? formatParams : null
+    const durationParams = buildDurationParamsPayload(dialog.form.durationParams)
+    data.durationParams = durationParams.length > 0 ? durationParams : null
 
     if (dialog.isEdit) {
       await updateSite(dialog.editId, data)

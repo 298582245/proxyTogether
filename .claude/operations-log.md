@@ -75,3 +75,6 @@
 - 运行 `cd server && npm install` 安装 bcrypt 依赖
 - 重新编译前端代码（如有需要）
 - 重启后端服务
+
+- 2026-03-18 23:29 | 事件: task_marker=20260318-103000-DURATION 未匹配会话 | 结论: conversationId 记为 NOT_FOUND
+- 2026-03-18 23:55 | event: task_marker=20260318-104500-STATS no match | result: conversationId NOT_FOUND

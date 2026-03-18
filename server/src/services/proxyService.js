@@ -163,23 +163,89 @@ const resolveFormatParam = (account, site, requestedFormat) => {
 };
 
 /**
+ * 获取时长参数配置（优先账号，其次网站）
+ */
+const getDurationParams = (account, site) => {
+  const accountDurationParams = parseConfigArray(account && account.durationParams);
+  if (accountDurationParams.length > 0) {
+    return accountDurationParams;
+  }
+
+  return parseConfigArray(site && site.durationParams);
+};
+
+/**
+ * 解析时长参数，返回请求时长和转发时长
+ * @param {object} account - 账号对象
+ * @param {object} site - 网站对象
+ * @param {number} requestedTimes - 请求的时长（分钟）
+ * @returns {object} { requestTimes: 请求时长, forwardTimes: 转发时长 }
+ */
+const resolveDurationParam = (account, site, requestedTimes) => {
+  const durationParams = getDurationParams(account, site)
+    .map((item) => {
+      if (!item || typeof item !== 'object') {
+        return null;
+      }
+
+      const times = parseInt(item.times, 10);
+      if (Number.isNaN(times)) {
+        return null;
+      }
+
+      const originalForwardValue = item.oValue !== undefined
+        ? item.oValue
+        : item.o_value;
+      const forwardTimes = originalForwardValue !== undefined && originalForwardValue !== null
+        ? String(originalForwardValue).trim()
+        : String(times);
+
+      return {
+        times,
+        forwardTimes,
+      };
+    })
+    .filter(Boolean);
+
+  const requestedNum = parseInt(requestedTimes, 10);
+  const matchedDuration = durationParams.find((item) => item.times === requestedNum);
+
+  if (matchedDuration) {
+    return {
+      requestTimes: requestedNum,
+      forwardTimes: matchedDuration.forwardTimes,
+    };
+  }
+
+  return {
+    requestTimes: requestedNum,
+    forwardTimes: String(requestedNum),
+  };
+};
+
+/**
  * 构建提取链接
  * @param {object} account - 账号对象
  * @param {object} site - 网站对象（可能为null）
  * @param {number} durationValue - 时长值（times）
  * @param {string} format - 格式参数
  */
-const buildExtractUrl = (account, site, durationValue, formatValue) => {
+const buildExtractUrl = (account, site, durationValue, formatValue, resolvedDuration = null) => {
   let url = account.extractUrlTemplate || (site ? site.extractUrlTemplate : '');
 
   if (!url) {
     throw new Error('缺少提取链接模板');
   }
 
+  // 使用解析后的时长值
+  const durationToUse = resolvedDuration
+    ? resolvedDuration.forwardTimes
+    : String(durationValue);
+
   // 构建替换参数
   const replaceParams = {
-    duration: durationValue,
-    times: durationValue,
+    duration: durationToUse,
+    times: durationToUse,
     format: formatValue,
   };
 
@@ -513,11 +579,12 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
   const isMonthly = isMonthlyAccount(account, site);
   const cost = isMonthly ? 0 : getDurationPrice(site, account, durationValue);
   const resolvedFormat = resolveFormatParam(account, site, format);
+  const resolvedDuration = resolveDurationParam(account, site, durationValue);
 
   const siteName = site ? site.name : '独立包月';
-  logger.info(`选中账号: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}, format=${resolvedFormat.requestFormat}, forwardFormat=${resolvedFormat.forwardFormat}`);
+  logger.info(`选中账号: ${account.name}(${siteName}), monthly=${isMonthly}, balance=${balance}, cost=${cost}, format=${resolvedFormat.requestFormat}, forwardFormat=${resolvedFormat.forwardFormat}, times=${resolvedDuration.requestTimes}, forwardTimes=${resolvedDuration.forwardTimes}`);
 
-  const extractUrl = buildExtractUrl(account, site, durationValue, resolvedFormat.forwardFormat);
+  const extractUrl = buildExtractUrl(account, site, durationValue, resolvedFormat.forwardFormat, resolvedDuration);
   logger.info(`提取链接: ${extractUrl}`);
 
   try {

@@ -6,5 +6,21 @@
     "description": "",
     "status": "not_found",
     "notes": "未收到 conversationId"
+  },
+  {
+    "task_marker": "20260318-103000-DURATION",
+    "conversation_id": null,
+    "timestamp": "2026-03-18T23:29:00+08:00",
+    "description": "会话ID查询",
+    "status": "not_found",
+    "notes": "未找到对应 conversationId"
+  },
+  {
+    "task_marker": "20260318-104500-STATS",
+    "conversation_id": null,
+    "timestamp": "2026-03-18T23:55:36+08:00",
+    "description": "会话ID查询",
+    "status": "not_found",
+    "notes": "未找到对应conversationId"
   }
 ]

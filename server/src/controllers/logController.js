@@ -253,39 +253,65 @@ const getDurationConfig = async (req, res) => {
       raw: true,
     });
 
+    const normalizeDurationParams = (params = []) => params
+      .map((item) => {
+        if (!item || typeof item !== 'object') {
+          return null;
+        }
+
+        const times = parseInt(item.times, 10);
+        if (Number.isNaN(times)) {
+          return null;
+        }
+
+        const label = item.label !== undefined && item.label !== null
+          ? String(item.label).trim()
+          : `${times}分钟`;
+        const originalForwardValue = item.oValue !== undefined
+          ? item.oValue
+          : item.o_value;
+        const forwardValue = originalForwardValue !== undefined && originalForwardValue !== null
+          ? String(originalForwardValue).trim()
+          : '';
+
+        return {
+          times,
+          label: label || `${times}分钟`,
+          forwardValue: forwardValue || String(times),
+        };
+      })
+      .filter(Boolean);
+
+    const parseJsonArray = (value) => {
+      if (!value) return [];
+      if (Array.isArray(value)) return value;
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    };
+
     const siteDurationMap = {};
     sites.forEach((site) => {
-      if (site.durationParams) {
-        const params = typeof site.durationParams === 'string'
-          ? JSON.parse(site.durationParams)
-          : site.durationParams;
-        if (Array.isArray(params)) {
-          siteDurationMap[`site_${site.id}`] = {
-            name: site.name,
-            params: params.map((item) => ({
-              times: item.times,
-              label: item.label || `${item.times}分钟`,
-            })),
-          };
-        }
+      const params = normalizeDurationParams(parseJsonArray(site.durationParams));
+      if (params.length > 0) {
+        siteDurationMap[`site_${site.id}`] = {
+          name: site.name,
+          params,
+        };
       }
     });
 
     const accountDurationMap = {};
     accounts.forEach((account) => {
-      if (account.durationParams) {
-        const params = typeof account.durationParams === 'string'
-          ? JSON.parse(account.durationParams)
-          : account.durationParams;
-        if (Array.isArray(params)) {
-          accountDurationMap[`account_${account.id}`] = {
-            name: account.name,
-            params: params.map((item) => ({
-              times: item.times,
-              label: item.label || `${item.times}分钟`,
-            })),
-          };
-        }
+      const params = normalizeDurationParams(parseJsonArray(account.durationParams));
+      if (params.length > 0) {
+        accountDurationMap[`account_${account.id}`] = {
+          name: account.name,
+          params,
+        };
       }
     });
 

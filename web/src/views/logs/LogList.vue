@@ -628,43 +628,59 @@ const getFormatDetailLabel = (format, siteId, accountId) => {
   return `${label}(${value}->${forwardValue})`;
 };
 
-// 根据网站ID或账号ID获取时长标签
-const getDurationLabel = (duration, siteId, accountId) => {
-  if (!duration) return "-";
+// 查找时长参数配置
+const findDurationParam = (duration, siteId, accountId) => {
+  if (!duration) return null;
 
-  // 将duration转为字符串进行比较
   const durationStr = String(duration);
 
-  // 先尝试从独立包月账号配置中查找
   if (accountId) {
     const accountConfig = durationConfig.value.accounts[`account_${accountId}`];
     if (accountConfig && accountConfig.params) {
       const param = accountConfig.params.find((p) => String(p.times) === durationStr);
-      if (param) return param.label;
+      if (param) return param;
     }
   }
 
-  // 再从网站配置中查找
   if (siteId) {
     const siteConfig = durationConfig.value.sites[`site_${siteId}`];
     if (siteConfig && siteConfig.params) {
       const param = siteConfig.params.find((p) => String(p.times) === durationStr);
-      if (param) return param.label;
+      if (param) return param;
     }
   }
 
-  // 如果没有找到配置，返回原始值
+  return null;
+};
+
+// 根据网站ID或账号ID获取时长标签
+const getDurationLabel = (duration, siteId, accountId) => {
+  if (!duration) return "-";
+
+  const param = findDurationParam(duration, siteId, accountId);
+  if (param) return param.label;
+
   return duration;
 };
 
-// 获取详情中的时长显示（包含label和原始值）
+// 获取详情中的时长显示（包含label和转发值）
 const getDurationDetailLabel = (duration, siteId, accountId) => {
   if (!duration) return "-";
-  const label = getDurationLabel(duration, siteId, accountId);
-  // 如果label和duration相同，说明没有配置，直接返回
-  if (label === duration) return duration;
-  // 否则返回 label(duration)
-  return `${label} (${duration})`;
+
+  const param = findDurationParam(duration, siteId, accountId);
+  if (!param) return duration;
+
+  const label = param.label || duration;
+  const times = param.times || duration;
+  const forwardValue = param.forwardValue || times;
+
+  // 如果没有配置转发值或转发值与原值相同，直接显示 label(times)
+  if (forwardValue === String(times)) {
+    return `${label} (${times})`;
+  }
+
+  // 否则显示 label(times->forwardValue)
+  return `${label} (${times}->${forwardValue})`;
 };
 
 const loadData = async () => {

@@ -4,6 +4,7 @@ const Account = require('../models/Account');
 const Site = require('../models/Site');
 const ProxyStatsSnapshot = require('../models/ProxyStatsSnapshot');
 const logStatsService = require('./logStatsService');
+const statsNewService = require('./statsNewService');
 const {
   addDays,
   getChinaDateStr,
@@ -370,6 +371,14 @@ const refreshSnapshotByDate = async (statDate) => {
     throw new Error('统计日期格式不正确');
   }
 
+  const today = getChinaDateStr(new Date());
+  const isToday = statDate === today;
+
+  // 如果是今天，先清除今天的 Redis 缓存，确保获取最新数据
+  if (isToday) {
+    await statsNewService.clearTodayStatsCache(today);
+  }
+
   await ProxyStatsSnapshot.destroy({
     where: {
       accountId: 0,
@@ -382,11 +391,47 @@ const refreshSnapshotByDate = async (statDate) => {
   const weekRange = getWeekRangeByDate(statDate);
   const monthRange = getMonthRangeByDate(statDate);
 
-  const [dayAggregate, weekAggregate, monthAggregate] = await Promise.all([
-    logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
-    logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
-    logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
-  ]);
+  let dayAggregate, weekAggregate, monthAggregate;
+
+  if (isToday) {
+    // 使用新方案获取今天的实时数据
+    const todayStats = await statsNewService.getTodayStats(today);
+
+    dayAggregate = {
+      summary: todayStats.summary,
+      hours: todayStats.hours,
+      accounts: todayStats.accounts,
+      sites: todayStats.sites,
+      remarks: todayStats.remarks,
+    };
+
+    // 获取已过天数的 daily_stats
+    const weekDailyStats = await getWeekDailyStats(statDate);
+    const monthDailyStats = await getMonthDailyStats(statDate);
+
+    weekAggregate = {
+      summary: statsNewService.mergeStats(weekDailyStats, todayStats.summary),
+      hours: todayStats.hours,
+      accounts: {},
+      sites: {},
+      remarks: {},
+    };
+
+    monthAggregate = {
+      summary: statsNewService.mergeStats(monthDailyStats, todayStats.summary),
+      hours: todayStats.hours,
+      accounts: {},
+      sites: {},
+      remarks: {},
+    };
+  } else {
+    // 非今天的数据：从 proxy_logs 直接查询
+    [dayAggregate, weekAggregate, monthAggregate] = await Promise.all([
+      logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
+      logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
+      logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
+    ]);
+  }
 
   const rowEntries = await buildSnapshotRowEntries(dayAggregate, weekAggregate, monthAggregate);
   const rowEntryMap = rowEntries.reduce((result, item) => ({
@@ -685,17 +730,58 @@ const getSnapshotDetail = async (statDate, compareMonth, statDateTime) => {
     resolvedCompareMonth,
   } = resolveSnapshotTarget(statDate, statDateTime, compareMonth);
 
+  const today = getChinaDateStr(new Date());
+  const isToday = resolvedStatDate === today;
+
   const dayStart = getChinaDayStart(resolvedStatDate);
   const dayEnd = getChinaDayEnd(resolvedStatDate);
   const weekRange = getWeekRangeByDate(resolvedStatDate);
   const monthRange = getMonthRangeByDate(resolvedStatDate);
 
-  const [dayAggregate, weekAggregate, monthAggregate, compareData] = await Promise.all([
-    logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
-    logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
-    logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
-    getSnapshotCompareData(resolvedStatDate, resolvedCompareMonth),
-  ]);
+  // 使用新方案获取实时数据
+  let dayAggregate, weekAggregate, monthAggregate;
+
+  if (isToday) {
+    // 今天的数据：从 Redis 缓存 + proxy_logs 实时查询
+    const todayStats = await statsNewService.getTodayStats(today);
+
+    // 获取本周已过天数的 daily_stats
+    const weekDailyStats = await getWeekDailyStats(resolvedStatDate);
+    const monthDailyStats = await getMonthDailyStats(resolvedStatDate);
+
+    dayAggregate = {
+      summary: todayStats.summary,
+      hours: todayStats.hours,
+      accounts: todayStats.accounts,
+      sites: todayStats.sites,
+      remarks: todayStats.remarks,
+    };
+
+    weekAggregate = {
+      summary: statsNewService.mergeStats(weekDailyStats, todayStats.summary),
+      hours: todayStats.hours,
+      accounts: {},
+      sites: {},
+      remarks: {},
+    };
+
+    monthAggregate = {
+      summary: statsNewService.mergeStats(monthDailyStats, todayStats.summary),
+      hours: todayStats.hours,
+      accounts: {},
+      sites: {},
+      remarks: {},
+    };
+  } else {
+    // 非今天的数据：从 proxy_logs 直接查询（保留原有逻辑）
+    [dayAggregate, weekAggregate, monthAggregate] = await Promise.all([
+      logStatsService.getRawAggregateByDateRange(dayStart, dayEnd),
+      logStatsService.getRawAggregateByDateRange(weekRange.startDate, weekRange.endDate),
+      logStatsService.getRawAggregateByDateRange(monthRange.startDate, monthRange.endDate),
+    ]);
+  }
+
+  const compareData = await getSnapshotCompareData(resolvedStatDate, resolvedCompareMonth);
 
   const [successRanking, failRanking, siteDistribution] = await Promise.all([
     buildAccountSuccessRanking(dayAggregate, 10),
@@ -723,7 +809,44 @@ const getSnapshotDetail = async (statDate, compareMonth, statDateTime) => {
     remarkRequestRanking: buildRemarkRequestRanking(dayAggregate, 10),
     remarkCostRanking: buildRemarkCostRanking(dayAggregate, 10),
     compare: compareData,
+    isRealtime: isToday,
   };
+};
+
+/**
+ * 获取本周已过天数的 daily_stats（不含今天）
+ */
+const getWeekDailyStats = async (statDate) => {
+  const weekStart = getWeekRangeByDate(statDate).startDate;
+  const today = getChinaDateStr(new Date());
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
+
+  // 如果本周开始日期在今天之后，返回空
+  if (weekStart > yesterday) {
+    return statsNewService.buildEmptyMetrics();
+  }
+
+  // 从 daily_stats 查询本周开始到昨天的数据
+  const result = await statsNewService.queryDailyStats(weekStart, yesterday, 'summary');
+  return result;
+};
+
+/**
+ * 获取本月已过天数的 daily_stats（不含今天）
+ */
+const getMonthDailyStats = async (statDate) => {
+  const monthStart = getMonthRangeByDate(statDate).startDate;
+  const today = getChinaDateStr(new Date());
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
+
+  // 如果本月开始日期在今天之后，返回空
+  if (monthStart > yesterday) {
+    return statsNewService.buildEmptyMetrics();
+  }
+
+  // 从 daily_stats 查询本月开始到昨天的数据
+  const result = await statsNewService.queryDailyStats(monthStart, yesterday, 'summary');
+  return result;
 };
 
 module.exports = {

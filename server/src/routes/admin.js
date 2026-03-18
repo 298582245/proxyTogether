@@ -71,6 +71,21 @@ router.get('/stats-snapshot/options', authMiddleware, statsSnapshotController.ge
 router.get('/stats-snapshot/detail', authMiddleware, statsSnapshotController.getDetail);
 router.post('/stats-snapshot/refresh', authMiddleware, statsSnapshotController.refresh);
 
+// 新统计方案接口
+router.get('/stats-snapshot/realtime', authMiddleware, statsSnapshotController.getRealtimeStats);
+router.get('/stats-snapshot/overview', authMiddleware, statsSnapshotController.getOverviewNew);
+router.get('/stats-snapshot/account-success-ranking', authMiddleware, statsSnapshotController.getAccountSuccessRankingNew);
+router.get('/stats-snapshot/account-fail-ranking', authMiddleware, statsSnapshotController.getAccountFailRankingNew);
+router.get('/stats-snapshot/site-distribution', authMiddleware, statsSnapshotController.getSiteDistributionNew);
+router.get('/stats-snapshot/hourly-distribution', authMiddleware, statsSnapshotController.getHourlyDistributionNew);
+router.get('/stats-snapshot/remark-request-ranking', authMiddleware, statsSnapshotController.getRemarkRequestRankingNew);
+router.get('/stats-snapshot/remark-cost-ranking', authMiddleware, statsSnapshotController.getRemarkCostRankingNew);
+router.delete('/stats-snapshot/today-cache', authMiddleware, statsSnapshotController.clearTodayCache);
+router.delete('/stats-snapshot/all-new-stats', authMiddleware, statsSnapshotController.clearAllNewStats);
+router.post('/stats-snapshot/daily-settlement', authMiddleware, statsSnapshotController.triggerDailySettlement);
+router.post('/stats-snapshot/batch-settlement', authMiddleware, statsSnapshotController.triggerBatchSettlement);
+router.post('/stats-snapshot/monthly-settlement', authMiddleware, statsSnapshotController.triggerMonthlySettlement);
+
 // 使用限制管理
 router.get('/usage-limits', authMiddleware, usageLimitController.getLimitedAccounts);
 router.get('/usage-limits/:accountId', authMiddleware, usageLimitController.getUsageLimit);
