@@ -527,6 +527,8 @@ const aggregateMonthToStats = async (year, month) => {
   logger.info(`聚合月度统计: ${monthStr}`);
 
   // 从 daily_stats 聚合
+  // 注意：使用 COALESCE 将 NULL 转换为 0，确保唯一键正常工作
+  // MySQL 中 NULL 值不参与唯一键比较，会导致重复插入
   await sequelize.query(
     `
     INSERT INTO proxy_log_monthly_stats
@@ -534,8 +536,8 @@ const aggregateMonthToStats = async (year, month) => {
     SELECT
       :year AS stat_year,
       :month AS stat_month,
-      site_id,
-      account_id,
+      COALESCE(site_id, 0) AS site_id,
+      COALESCE(account_id, 0) AS account_id,
       SUM(request_count) AS request_count,
       SUM(success_count) AS success_count,
       SUM(fail_count) AS fail_count,
@@ -544,7 +546,7 @@ const aggregateMonthToStats = async (year, month) => {
       NOW()
     FROM proxy_log_daily_stats
     WHERE stat_date >= :monthStart AND stat_date < :nextMonthStart
-    GROUP BY site_id, account_id
+    GROUP BY COALESCE(site_id, 0), COALESCE(account_id, 0)
     ON DUPLICATE KEY UPDATE
       request_count = VALUES(request_count),
       success_count = VALUES(success_count),
@@ -591,13 +593,15 @@ const dailySettlement = async (dateStr) => {
 
     // 将指定日期的数据从 proxy_logs 刷新到 daily_stats
     // 注意：created_at 已经是本地时间，不需要 CONVERT_TZ
+    // 注意：使用 COALESCE 将 NULL 转换为 0，确保唯一键正常工作
+    // MySQL 中 NULL 值不参与唯一键比较，会导致重复插入
     await sequelize.query(
       `
       INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
       SELECT
         DATE(created_at) AS stat_date,
-        site_id,
-        account_id,
+        COALESCE(site_id, 0) AS site_id,
+        COALESCE(account_id, 0) AS account_id,
         COUNT(*) AS request_count,
         SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
         SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -606,7 +610,7 @@ const dailySettlement = async (dateStr) => {
         NOW()
       FROM proxy_logs
       WHERE created_at >= :dayStart AND created_at <= :dayEnd
-      GROUP BY DATE(created_at), site_id, account_id
+      GROUP BY DATE(created_at), COALESCE(site_id, 0), COALESCE(account_id, 0)
       ON DUPLICATE KEY UPDATE
         request_count = VALUES(request_count),
         success_count = VALUES(success_count),
