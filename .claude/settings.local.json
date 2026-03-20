@@ -4,7 +4,8 @@
       "Bash(powershell.exe:*)",
       "mcp__codex-cli__codex",
       "Bash(npm run:*)",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "mcp__codex-cli__review"
     ]
   }
 }

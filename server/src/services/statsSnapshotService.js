@@ -4,6 +4,7 @@ const Account = require('../models/Account');
 const Site = require('../models/Site');
 const ProxyStatsSnapshot = require('../models/ProxyStatsSnapshot');
 const logStatsService = require('./logStatsService');
+const cacheService = require('./cacheService');
 const statsNewService = require('./statsNewService');
 const {
   addDays,
@@ -371,20 +372,29 @@ const refreshSnapshotByDate = async (statDate) => {
     throw new Error('统计日期格式不正确');
   }
 
-  const today = getChinaDateStr(new Date());
-  const isToday = statDate === today;
+  const lockKey = `snapshot_refresh:${statDate}`;
+  // 尝试获取分布式锁（120秒过期，快照刷新可能耗时较长）
+  const lockIdentifier = await cacheService.acquireLock(lockKey, 120000);
 
-  // 如果是今天，先清除今天的 Redis 缓存，确保获取最新数据
-  if (isToday) {
-    await statsNewService.clearTodayStatsCache(today);
+  if (!lockIdentifier) {
+    throw new Error(`日期 ${statDate} 的快照刷新正在执行中，请勿重复提交`);
   }
 
-  await ProxyStatsSnapshot.destroy({
-    where: {
-      accountId: 0,
-      siteId: { [Op.ne]: 0 },
-    },
-  });
+  try {
+    const today = getChinaDateStr(new Date());
+    const isToday = statDate === today;
+
+    // 如果是今天，先清除今天的 Redis 缓存，确保获取最新数据
+    if (isToday) {
+      await statsNewService.clearTodayStatsCache(today);
+    }
+
+    await ProxyStatsSnapshot.destroy({
+      where: {
+        accountId: 0,
+        siteId: { [Op.ne]: 0 },
+      },
+    });
 
   const dayStart = getChinaDayStart(statDate);
   const dayEnd = getChinaDayEnd(statDate);
@@ -495,12 +505,16 @@ const refreshSnapshotByDate = async (statDate) => {
     await ProxyStatsSnapshot.create(payload);
   }));
 
-  return {
-    statDate,
-    refreshedRowCount: rowEntries.length,
-    weekKey: weekRange.weekKey,
-    monthKey: monthRange.monthKey,
-  };
+    return {
+      statDate,
+      refreshedRowCount: rowEntries.length,
+      weekKey: weekRange.weekKey,
+      monthKey: monthRange.monthKey,
+    };
+  } finally {
+    // 释放锁
+    await cacheService.releaseLock(lockKey, lockIdentifier);
+  }
 };
 
 const buildAccountSuccessRanking = async (aggregate, limit = 10) => {

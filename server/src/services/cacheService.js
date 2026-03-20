@@ -192,6 +192,82 @@ const getStatsTodayHash = async (dateStr) => {
   return data;
 };
 
+// ==================== 分布式锁相关 ====================
+
+const LOCK_PREFIX = 'lock:';
+
+/**
+ * 尝试获取分布式锁
+ * @param {string} lockKey - 锁的键名
+ * @param {number} ttlMs - 锁的过期时间（毫秒），默认30秒
+ * @param {string} identifier - 锁的唯一标识，默认使用随机值
+ * @returns {Promise<string|null>} 返回锁标识表示获取成功，null表示锁已被占用
+ */
+const acquireLock = async (lockKey, ttlMs = 30000, identifier = null) => {
+  const redis = getRedis();
+  const key = `${LOCK_PREFIX}${lockKey}`;
+  const value = identifier || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  // 使用 SET NX EX 原子操作
+  const result = await redis.set(key, value, 'PX', ttlMs, 'NX');
+
+  if (result === 'OK') {
+    return value;
+  }
+  return null;
+};
+
+/**
+ * 释放分布式锁
+ * @param {string} lockKey - 锁的键名
+ * @param {string} identifier - 锁的唯一标识
+ * @returns {Promise<boolean>} 返回true表示释放成功
+ */
+const releaseLock = async (lockKey, identifier) => {
+  const redis = getRedis();
+  const key = `${LOCK_PREFIX}${lockKey}`;
+
+  // 使用 Lua 脚本确保原子性：只有锁的持有者才能释放锁
+  const script = `
+    if redis.call("get", KEYS[1]) == ARGV[1] then
+      return redis.call("del", KEYS[1])
+    else
+      return 0
+    end
+  `;
+
+  const result = await redis.eval(script, 1, key, identifier);
+  return result === 1;
+};
+
+/**
+ * 带锁执行异步操作
+ * @param {string} lockKey - 锁的键名
+ * @param {Function} fn - 要执行的异步函数
+ * @param {number} ttlMs - 锁的过期时间（毫秒）
+ * @returns {Promise<{success: boolean, result?: any, error?: string}>}
+ */
+const withLock = async (lockKey, fn, ttlMs = 30000) => {
+  const identifier = await acquireLock(lockKey, ttlMs);
+
+  if (!identifier) {
+    return {
+      success: false,
+      error: '操作正在执行中，请稍后重试',
+    };
+  }
+
+  try {
+    const result = await fn();
+    return {
+      success: true,
+      result,
+    };
+  } finally {
+    await releaseLock(lockKey, identifier);
+  }
+};
+
 module.exports = {
   initRedis,
   getRedis,
@@ -215,4 +291,8 @@ module.exports = {
   incrStatsTodayField,
   incrStatsTodayFields,
   getStatsTodayHash,
+  // 分布式锁
+  acquireLock,
+  releaseLock,
+  withLock,
 };

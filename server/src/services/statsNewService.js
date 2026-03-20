@@ -569,62 +569,80 @@ const aggregateMonthToStats = async (year, month) => {
 /**
  * 每日结算任务 - 将指定日期的数据刷新到 daily_stats
  * @param {string} dateStr - 可选，指定日期 YYYY-MM-DD，默认昨天
+ * @returns {Promise<string>} 返回结算的日期
  */
 const dailySettlement = async (dateStr) => {
   const targetDate = dateStr || getChinaDateStr(addDays(new Date(), -1));
-  logger.info(`开始每日结算: ${targetDate}`);
+  const lockKey = `daily_settlement:${targetDate}`;
 
-  // 直接使用日期字符串，因为数据库存储的是本地时间
-  const dayStart = `${targetDate} 00:00:00`;
-  const dayEnd = `${targetDate} 23:59:59`;
+  // 尝试获取分布式锁（60秒过期）
+  const lockIdentifier = await cacheService.acquireLock(lockKey, 60000);
 
-  // 将指定日期的数据从 proxy_logs 刷新到 daily_stats
-  // 注意：created_at 已经是本地时间，不需要 CONVERT_TZ
-  await sequelize.query(
-    `
-    INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
-    SELECT
-      DATE(created_at) AS stat_date,
-      site_id,
-      account_id,
-      COUNT(*) AS request_count,
-      SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
-      SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
-      SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
-      NOW(),
-      NOW()
-    FROM proxy_logs
-    WHERE created_at >= :dayStart AND created_at <= :dayEnd
-    GROUP BY DATE(created_at), site_id, account_id
-    ON DUPLICATE KEY UPDATE
-      request_count = VALUES(request_count),
-      success_count = VALUES(success_count),
-      fail_count = VALUES(fail_count),
-      total_cost = VALUES(total_cost),
-      updated_at = NOW()
-    `,
-    {
-      replacements: {
-        dayStart,
-        dayEnd,
-      },
-      type: QueryTypes.INSERT,
-    },
-  );
-
-  // 清除该日期的 Redis 缓存
-  try {
-    await cacheService.deleteStatsTodayCache(targetDate);
-  } catch (error) {
-    logger.warn('清除统计缓存失败:', error.message);
+  if (!lockIdentifier) {
+    throw new Error(`日期 ${targetDate} 的结算任务正在执行中，请勿重复提交`);
   }
 
-  logger.info(`每日结算完成: ${targetDate}`);
-  return targetDate;
+  try {
+    logger.info(`开始每日结算: ${targetDate}`);
+
+    // 直接使用日期字符串，因为数据库存储的是本地时间
+    const dayStart = `${targetDate} 00:00:00`;
+    const dayEnd = `${targetDate} 23:59:59`;
+
+    // 将指定日期的数据从 proxy_logs 刷新到 daily_stats
+    // 注意：created_at 已经是本地时间，不需要 CONVERT_TZ
+    await sequelize.query(
+      `
+      INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        site_id,
+        account_id,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      WHERE created_at >= :dayStart AND created_at <= :dayEnd
+      GROUP BY DATE(created_at), site_id, account_id
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+      `,
+      {
+        replacements: {
+          dayStart,
+          dayEnd,
+        },
+        type: QueryTypes.INSERT,
+      },
+    );
+
+    // 清除该日期的 Redis 缓存
+    try {
+      await cacheService.deleteStatsTodayCache(targetDate);
+    } catch (error) {
+      logger.warn('清除统计缓存失败:', error.message);
+    }
+
+    logger.info(`每日结算完成: ${targetDate}`);
+    return targetDate;
+  } finally {
+    // 释放锁
+    await cacheService.releaseLock(lockKey, lockIdentifier);
+  }
 };
 
 /**
  * 每月结算任务 - 在每月1号执行，聚合上月数据
+ * @param {number} year - 年份
+ * @param {number} month - 月份
+ * @returns {Promise<string>} 返回结算的月份
  */
 const monthlySettlement = async (year, month) => {
   // 如果没有传入参数，计算上个月
@@ -639,12 +657,25 @@ const monthlySettlement = async (year, month) => {
     year = currentMonth === 1 ? currentYear - 1 : currentYear;
   }
 
-  logger.info(`开始每月结算: ${year}-${padNumber(month)}`);
+  const monthStr = `${year}-${padNumber(month)}`;
+  const lockKey = `monthly_settlement:${monthStr}`;
 
-  await aggregateMonthToStats(year, month);
+  // 尝试获取分布式锁（120秒过期，月度结算耗时更长）
+  const lockIdentifier = await cacheService.acquireLock(lockKey, 120000);
 
-  logger.info(`每月结算完成: ${year}-${padNumber(month)}`);
-  return `${year}-${padNumber(month)}`;
+  if (!lockIdentifier) {
+    throw new Error(`月份 ${monthStr} 的结算任务正在执行中，请勿重复提交`);
+  }
+
+  try {
+    logger.info(`开始每月结算: ${monthStr}`);
+    await aggregateMonthToStats(year, month);
+    logger.info(`每月结算完成: ${monthStr}`);
+    return monthStr;
+  } finally {
+    // 释放锁
+    await cacheService.releaseLock(lockKey, lockIdentifier);
+  }
 };
 
 /**

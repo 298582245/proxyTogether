@@ -45,6 +45,16 @@ const refresh = async (req, res) => {
     });
   } catch (error) {
     logger.error('刷新统计快照失败:', error);
+
+    // 区分重复提交错误和其他错误
+    if (error.message && error.message.includes('正在执行中')) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        code: 'REFRESH_IN_PROGRESS',
+      });
+    }
+
     res.status(500).json({ success: false, message: error.message || '刷新统计快照失败' });
   }
 };
@@ -191,6 +201,16 @@ const triggerDailySettlement = async (req, res) => {
     res.json({ success: true, message: `每日结算完成: ${result}`, data: { date: result } });
   } catch (error) {
     logger.error('触发每日结算失败:', error);
+
+    // 区分重复提交错误和其他错误
+    if (error.message && error.message.includes('正在执行中')) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        code: 'SETTLEMENT_IN_PROGRESS',
+      });
+    }
+
     res.status(500).json({ success: false, message: error.message || '每日结算失败' });
   }
 };
@@ -206,21 +226,31 @@ const triggerBatchSettlement = async (req, res) => {
     }
 
     const results = [];
+    const errors = [];
     const current = new Date(startDate);
     const end = new Date(endDate);
 
     while (current <= end) {
       const dateStr = current.toISOString().slice(0, 10);
-      // eslint-disable-next-line no-await-in-loop
-      const result = await statsNewService.dailySettlement(dateStr);
-      results.push(result);
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const result = await statsNewService.dailySettlement(dateStr);
+        results.push({ date: result, success: true });
+      } catch (error) {
+        // 记录失败但继续处理其他日期
+        errors.push({ date: dateStr, error: error.message });
+        results.push({ date: dateStr, success: false, error: error.message });
+      }
       current.setDate(current.getDate() + 1);
     }
 
+    const successCount = results.filter((r) => r.success).length;
+    const failCount = results.filter((r) => !r.success).length;
+
     res.json({
       success: true,
-      message: `批量结算完成，共处理 ${results.length} 天`,
-      data: { dates: results },
+      message: `批量结算完成，成功 ${successCount} 天${failCount > 0 ? `，失败 ${failCount} 天` : ''}`,
+      data: { results, errors: errors.length > 0 ? errors : undefined },
     });
   } catch (error) {
     logger.error('批量结算失败:', error);
@@ -237,6 +267,16 @@ const triggerMonthlySettlement = async (req, res) => {
     res.json({ success: true, message: `月度结算完成: ${result}`, data: { month: result } });
   } catch (error) {
     logger.error('触发月度结算失败:', error);
+
+    // 区分重复提交错误和其他错误
+    if (error.message && error.message.includes('正在执行中')) {
+      return res.status(409).json({
+        success: false,
+        message: error.message,
+        code: 'SETTLEMENT_IN_PROGRESS',
+      });
+    }
+
     res.status(500).json({ success: false, message: error.message || '月度结算失败' });
   }
 };
