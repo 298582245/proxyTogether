@@ -3,7 +3,6 @@ const ProxyLog = require('../models/ProxyLog');
 const cacheService = require('../services/cacheService');
 const logger = require('../utils/logger');
 
-// 获取客户端IP
 const normalizeClientIp = (ip) => {
   if (!ip) {
     return 'unknown';
@@ -21,39 +20,62 @@ const normalizeClientIp = (ip) => {
 };
 
 const getClientIp = (req) => normalizeClientIp(
-  req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress
+  req.ip || req.socket?.remoteAddress || req.connection?.remoteAddress,
 );
 
-// 记录验证失败的日志
+const getHeaderToken = (req) => {
+  const headerToken = req.headers['x-proxy-token'];
+  if (headerToken) {
+    return headerToken;
+  }
+
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+
+  return null;
+};
+
+const getRequestToken = (req) => {
+  const headerToken = getHeaderToken(req);
+  if (headerToken) {
+    return headerToken;
+  }
+
+  if (req.method === 'GET' && typeof req.query?.token === 'string') {
+    return req.query.token;
+  }
+
+  return null;
+};
+
 const logAuthFailure = async (clientIp, errorMessage) => {
   try {
     await ProxyLog.create({
       accountId: null,
       siteId: null,
-      clientIp: clientIp,
+      clientIp,
       duration: null,
       format: null,
       success: 0,
       cost: 0,
-      errorMessage: errorMessage,
+      errorMessage,
       responsePreview: null,
     });
   } catch (error) {
-    logger.error('记录认证失败日志失败:', error);
+    logger.error('记录代理认证失败日志失败:', error);
   }
 };
 
-// 代理接口认证中间件
 const proxyAuthMiddleware = async (req, res, next) => {
   try {
     const clientIp = getClientIp(req);
     req.clientIp = clientIp;
 
-    // 从缓存获取配置（优先从缓存读取）
     let proxyToken = await cacheService.getConfigCache('proxy_token');
     let ipWhitelist = await cacheService.getConfigCache('ip_whitelist');
 
-    // 缓存不存在则从数据库读取
     if (proxyToken === null) {
       proxyToken = await SystemConfig.getValue('proxy_token', '');
       await cacheService.setConfigCache('proxy_token', proxyToken || '');
@@ -64,49 +86,42 @@ const proxyAuthMiddleware = async (req, res, next) => {
       await cacheService.setConfigCache('ip_whitelist', ipWhitelist);
     }
 
-    // 解析IP白名单
     let ipList = [];
     try {
       ipList = JSON.parse(ipWhitelist || '[]');
-    } catch (e) {
+    } catch (error) {
       ipList = [];
     }
 
-    // 过滤空字符串
     ipList = ipList.filter((ip) => ip && ip.trim());
 
-    // 1. 检查Token（如果配置了）
     if (proxyToken && proxyToken.trim()) {
-      const requestToken = req.query.token || req.headers['x-proxy-token'];
-
+      const requestToken = getRequestToken(req);
       if (!requestToken || requestToken !== proxyToken) {
-        logger.warn(`代理接口Token验证失败，IP: ${clientIp}`);
-        await logAuthFailure(clientIp, 'Token无效');
+        logger.warn(`代理接口 Token 验证失败，IP: ${clientIp}`);
+        await logAuthFailure(clientIp, 'Token 无效');
         return res.status(403).json({
           success: false,
-          message: 'Token无效',
+          message: 'Token 无效',
         });
       }
     }
 
-    // 2. 检查IP白名单（如果配置了）
     if (ipList.length > 0) {
       const isAllowed = ipList.some((ip) => {
-        // 支持通配符匹配
         if (ip.includes('*')) {
           const pattern = ip.replace(/\./g, '\\.').replace(/\*/g, '.*');
-          const regex = new RegExp(`^${pattern}$`);
-          return regex.test(clientIp);
+          return new RegExp(`^${pattern}$`).test(clientIp);
         }
         return ip === clientIp;
       });
 
       if (!isAllowed) {
-        logger.warn(`代理接口IP白名单验证失败，IP: ${clientIp}`);
-        await logAuthFailure(clientIp, 'IP不在白名单中');
+        logger.warn(`代理接口 IP 白名单验证失败，IP: ${clientIp}`);
+        await logAuthFailure(clientIp, 'IP 不在白名单中');
         return res.status(403).json({
           success: false,
-          message: 'IP不在白名单中',
+          message: 'IP 不在白名单中',
         });
       }
     }

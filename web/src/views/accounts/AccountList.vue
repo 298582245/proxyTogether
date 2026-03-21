@@ -976,7 +976,6 @@ const handleSiteChange = async (siteId) => {
 
   try {
     const res = await getSiteParamHints(siteId);
-    console.log("参数提示:", res.data);
 
     paramHints.extractParams = res.data.extractParams || [];
     paramHints.balanceParams = res.data.balanceParams || [];
@@ -994,9 +993,6 @@ const handleSiteChange = async (siteId) => {
     });
     dialog.form.extractParamValues = extractValues;
     dialog.form.balanceParamValues = balanceValues;
-
-    console.log("提取参数:", paramHints.extractParams);
-    console.log("余额参数:", paramHints.balanceParams);
   } catch (error) {
     console.error("获取参数提示失败:", error);
     // 错误已处理

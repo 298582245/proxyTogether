@@ -572,7 +572,6 @@ const loadSuccessRanking = async () => {
       type: rankingType.value,
       limit: 10,
     });
-    console.log("success ranking res:", res);
     if (res.data) {
       successRanking.value = res.data.list || [];
       if (res.data.total) {
@@ -591,7 +590,6 @@ const loadFailRanking = async () => {
       type: rankingType.value,
       limit: 10,
     });
-    console.log("fail ranking res:", res);
     if (res.data) {
       failRanking.value = res.data.list || [];
       if (res.data.total) {
@@ -607,7 +605,6 @@ const loadFailRanking = async () => {
 const loadSiteData = async () => {
   try {
     const res = await getSiteDistribution({ type: siteType.value });
-    console.log("site distribution res:", res);
     if (res.data) {
       siteDistribution.value = res.data.list || [];
       if (res.data.total) {

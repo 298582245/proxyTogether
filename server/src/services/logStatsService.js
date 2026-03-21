@@ -5,6 +5,7 @@ const Account = require('../models/Account');
 const Site = require('../models/Site');
 const SystemConfig = require('../models/SystemConfig');
 const cacheService = require('./cacheService');
+const statsNewService = require('./statsNewService');
 const logger = require('../utils/logger');
 const {
   BUCKET_INTERVAL_MINUTES,
@@ -29,6 +30,7 @@ const DEFAULT_LOG_RETENTION_DAYS = 30;
 const DEFAULT_LOG_STATS_FLUSH_INTERVAL_MINUTES = 10;
 const DEFAULT_LOG_CLEANUP_HOUR = 3;
 const DEFAULT_LOG_CLEANUP_MINUTE = 30;
+const REQUEST_KEY_SQL = "COALESCE(request_id, CONCAT('legacy-', CAST(id AS CHAR)))";
 const LOG_STATS_INITIALIZED_KEY = 'log_stats_initialized';
 const LOG_STATS_LAST_FLUSHED_BUCKET_KEY = 'log_stats_last_flushed_bucket';
 const LOG_RETENTION_DAYS_KEY = 'log_retention_days';
@@ -106,6 +108,34 @@ const normalizeMetrics = (row = {}) => ({
   failCount: toInteger(row.failCount),
   totalCost: toFloat(row.totalCost),
 });
+
+const buildEmptyRequestMetrics = () => ({
+  requestCount: 0,
+  successCount: 0,
+  failCount: 0,
+  attemptCount: 0,
+  totalCost: 0,
+});
+
+const normalizeRequestMetrics = (row = {}) => ({
+  requestCount: toInteger(row.requestCount || row.request_count),
+  successCount: toInteger(row.successCount || row.success_count),
+  failCount: toInteger(row.failCount || row.fail_count),
+  attemptCount: toInteger(row.attemptCount || row.attempt_count),
+  totalCost: toFloat(row.totalCost || row.total_cost),
+});
+
+const normalizeStatDateKey = (statDate) => {
+  if (!statDate) {
+    return null;
+  }
+
+  if (typeof statDate === 'string') {
+    return statDate.slice(0, 10);
+  }
+
+  return getChinaDateStr(new Date(statDate));
+};
 
 const addMetricsInPlace = (target, source) => {
   target.requestCount += toInteger(source.requestCount);
@@ -190,6 +220,70 @@ const queryAll = async (sql, replacements = {}) => sequelize.query(sql, {
   replacements,
   type: QueryTypes.SELECT,
 });
+
+const queryRequestAggregateFromLogs = async (startDate, endDate) => {
+  const replacements = {};
+  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
+  const row = await queryOne(
+    `
+      SELECT
+        COUNT(*) AS requestCount,
+        SUM(requestSuccess) AS successCount,
+        SUM(CASE WHEN requestSuccess = 1 THEN 0 ELSE 1 END) AS failCount,
+        SUM(attemptCount) AS attemptCount,
+        SUM(requestCost) AS totalCost
+      FROM (
+        SELECT
+          DATE(created_at) AS statDate,
+          ${REQUEST_KEY_SQL} AS requestKey,
+          MAX(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS requestSuccess,
+          MAX(CASE WHEN success = 1 THEN cost ELSE 0 END) AS requestCost,
+          COUNT(*) AS attemptCount
+        FROM proxy_logs
+        ${whereSql}
+        GROUP BY DATE(created_at), ${REQUEST_KEY_SQL}
+      ) AS request_scope
+    `,
+    replacements,
+  );
+
+  return normalizeRequestMetrics(row);
+};
+
+const queryRequestChartRowsFromLogs = async (startDate, endDate) => {
+  const replacements = {};
+  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
+  const rows = await queryAll(
+    `
+      SELECT
+        statDate,
+        COUNT(*) AS requestCount,
+        SUM(requestSuccess) AS successCount,
+        SUM(CASE WHEN requestSuccess = 1 THEN 0 ELSE 1 END) AS failCount,
+        SUM(attemptCount) AS attemptCount,
+        SUM(requestCost) AS totalCost
+      FROM (
+        SELECT
+          DATE(created_at) AS statDate,
+          ${REQUEST_KEY_SQL} AS requestKey,
+          MAX(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS requestSuccess,
+          MAX(CASE WHEN success = 1 THEN cost ELSE 0 END) AS requestCost,
+          COUNT(*) AS attemptCount
+        FROM proxy_logs
+        ${whereSql}
+        GROUP BY DATE(created_at), ${REQUEST_KEY_SQL}
+      ) AS request_scope
+      GROUP BY statDate
+      ORDER BY statDate ASC
+    `,
+    replacements,
+  );
+
+  return rows.map((row) => ({
+    ...normalizeRequestMetrics(row),
+    statDate: normalizeStatDateKey(row.statDate),
+  }));
+};
 
 const upsertSystemConfigValue = async (transaction, key, value, description) => {
   await sequelize.query(
@@ -334,11 +428,7 @@ const getPendingRealtimeStart = async () => {
 
 const clearStatsQueryCache = async () => {
   try {
-    const redis = cacheService.getRedis();
-    const cacheKeys = await redis.keys(`${QUERY_CACHE_PREFIX}*`);
-    if (cacheKeys.length > 0) {
-      await redis.del(cacheKeys);
-    }
+    await cacheService.deleteKeysByPattern(`${QUERY_CACHE_PREFIX}*`);
   } catch (error) {
     logger.warn('clear stats query cache failed:', error.message);
   }
@@ -402,6 +492,7 @@ const createProxyLog = async (data) => {
   const log = await ProxyLog.create({
     accountId: data.accountId || null,
     siteId: data.siteId || null,
+    requestId: data.requestId || null,
     clientIp: data.clientIp,
     duration: data.duration,
     format: data.format,
@@ -425,11 +516,7 @@ const createProxyLog = async (data) => {
 
 const deleteRealtimeKeysByDate = async (dateStr) => {
   try {
-    const redis = cacheService.getRedis();
-    const keys = await redis.keys(getRealtimeDatePattern(dateStr));
-    if (keys.length > 0) {
-      await redis.del(keys);
-    }
+    await cacheService.deleteKeysByPattern(getRealtimeDatePattern(dateStr));
   } catch (error) {
     logger.warn('delete realtime keys by date failed:', error.message);
   }
@@ -471,6 +558,13 @@ const syncPendingRealtimeFromRaw = async () => {
 };
 
 const initializeAggregatedStats = async () => {
+  const lockIdentifier = await cacheService.acquireLock('log_stats_initialize', 300000);
+  if (!lockIdentifier) {
+    await syncPendingRealtimeFromRaw();
+    return false;
+  }
+
+  try {
   const initialized = await SystemConfig.getValue(LOG_STATS_INITIALIZED_KEY, '0');
   const currentBucketStart = getBucketStart(new Date());
   const lastClosedBucketStart = addMinutes(currentBucketStart, -BUCKET_INTERVAL_MINUTES);
@@ -568,6 +662,9 @@ const initializeAggregatedStats = async () => {
   await clearStatsQueryCache();
   logger.info('log stats aggregate initialized');
   return true;
+  } finally {
+    await cacheService.releaseLock('log_stats_initialize', lockIdentifier);
+  }
 };
 
 const flushBucketToMysql = async (bucketStart) => {
@@ -683,27 +780,36 @@ const flushBucketToMysql = async (bucketStart) => {
 };
 
 const flushClosedBuckets = async () => {
-  await initializeAggregatedStats();
-
-  const currentBucketStart = getBucketStart(new Date());
-  const lastClosedBucketStart = addMinutes(currentBucketStart, -BUCKET_INTERVAL_MINUTES);
-  const lastFlushedBucketStart = await getLastFlushedBucketStart();
-
-  if (!lastFlushedBucketStart || lastFlushedBucketStart >= lastClosedBucketStart) {
+  const lockIdentifier = await cacheService.acquireLock('log_stats_flush', 300000);
+  if (!lockIdentifier) {
     return 0;
   }
 
-  let flushedCount = 0;
-  let nextBucketStart = addMinutes(lastFlushedBucketStart, BUCKET_INTERVAL_MINUTES);
+  try {
+    await initializeAggregatedStats();
 
-  while (nextBucketStart <= lastClosedBucketStart) {
-    await flushBucketToMysql(nextBucketStart);
-    flushedCount += 1;
-    nextBucketStart = addMinutes(nextBucketStart, BUCKET_INTERVAL_MINUTES);
+    const currentBucketStart = getBucketStart(new Date());
+    const lastClosedBucketStart = addMinutes(currentBucketStart, -BUCKET_INTERVAL_MINUTES);
+    const lastFlushedBucketStart = await getLastFlushedBucketStart();
+
+    if (!lastFlushedBucketStart || lastFlushedBucketStart >= lastClosedBucketStart) {
+      return 0;
+    }
+
+    let flushedCount = 0;
+    let nextBucketStart = addMinutes(lastFlushedBucketStart, BUCKET_INTERVAL_MINUTES);
+
+    while (nextBucketStart <= lastClosedBucketStart) {
+      await flushBucketToMysql(nextBucketStart);
+      flushedCount += 1;
+      nextBucketStart = addMinutes(nextBucketStart, BUCKET_INTERVAL_MINUTES);
+    }
+
+    await syncPendingRealtimeFromRaw();
+    return flushedCount;
+  } finally {
+    await cacheService.releaseLock('log_stats_flush', lockIdentifier);
   }
-
-  await syncPendingRealtimeFromRaw();
-  return flushedCount;
 };
 
 const rebuildAggregatedStatsByDateRange = async (startDate, endDate, transaction) => {
@@ -944,14 +1050,13 @@ const getRealtimeAggregateFromRedis = async () => {
   };
 
   try {
-    const redis = cacheService.getRedis();
     const todayStr = getChinaDateStr(new Date());
     const [summaryKeys, hourlyKeys, accountKeys, siteKeys, remarkKeys] = await Promise.all([
-      redis.keys(`${REALTIME_PREFIX}:summary:${todayStr}:*`),
-      redis.keys(`${REALTIME_PREFIX}:hourly:${todayStr}:*`),
-      redis.keys(`${REALTIME_PREFIX}:account:${todayStr}:*`),
-      redis.keys(`${REALTIME_PREFIX}:site:${todayStr}:*`),
-      redis.keys(`${REALTIME_PREFIX}:remark:${todayStr}:*`),
+      cacheService.scanKeysByPattern(`${REALTIME_PREFIX}:summary:${todayStr}:*`),
+      cacheService.scanKeysByPattern(`${REALTIME_PREFIX}:hourly:${todayStr}:*`),
+      cacheService.scanKeysByPattern(`${REALTIME_PREFIX}:account:${todayStr}:*`),
+      cacheService.scanKeysByPattern(`${REALTIME_PREFIX}:site:${todayStr}:*`),
+      cacheService.scanKeysByPattern(`${REALTIME_PREFIX}:remark:${todayStr}:*`),
     ]);
 
     if (
@@ -964,6 +1069,7 @@ const getRealtimeAggregateFromRedis = async () => {
       return null;
     }
 
+    const redis = cacheService.getRedis();
     const readHashValues = async (keys) => {
       if (!keys.length) {
         return [];
@@ -1427,56 +1533,44 @@ const mergeMetricsMaps = (mysqlRows, realtimeRows, keyGetter) => {
 };
 
 const getOverviewData = async () => {
-  const { todayStart, todayEnd } = getTodayDateRange();
-  const yesterdayStart = addDays(todayStart, -1);
-  const yesterdayEnd = addDays(todayEnd, -1);
-  // 使用 getTimeRange 获取正确的本周一时间范围
-  const { startDate: weekStart, endDate: weekEnd } = getTimeRange('week');
-  const monthStart = addDays(todayStart, -29);
-
-  const [todayAggregate, yesterdayAggregate, weekAggregate, monthAggregate, totalAggregate, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
-    getRealtimeAggregateFromRaw(todayStart, todayEnd),
-    getRealtimeAggregateFromRaw(yesterdayStart, yesterdayEnd),
-    getRealtimeAggregateFromRaw(weekStart, weekEnd || todayEnd),
-    getRealtimeAggregateFromRaw(monthStart, todayEnd),
-    getRealtimeAggregateFromRaw(null, null),
+  const [overview, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
+    statsNewService.getOverviewNew(),
     Account.count(),
     Account.count({ where: { status: 1 } }),
     Account.count({ where: { failCount: { [Op.gte]: 3 }, status: 1 } }),
     Account.count({ where: { balance: { [Op.lt]: 10 }, status: 1, siteId: { [Op.ne]: null } } }),
   ]);
 
-  const todayMetrics = todayAggregate.summary;
-  const yesterdayMetrics = yesterdayAggregate.summary;
-  const weekMetrics = weekAggregate.summary;
-  const monthMetrics = monthAggregate.summary;
-  const totalMetrics = totalAggregate.summary;
-
   return {
     today: {
-      requests: todayMetrics.requestCount,
-      successCount: todayMetrics.successCount,
-      cost: todayMetrics.totalCost,
+      requests: overview.today.requests,
+      successCount: overview.today.successCount,
+      attempts: overview.today.attempts,
+      cost: overview.today.cost,
     },
     yesterday: {
-      requests: yesterdayMetrics.requestCount,
-      successCount: yesterdayMetrics.successCount,
-      cost: yesterdayMetrics.totalCost,
+      requests: overview.yesterday.requests,
+      successCount: overview.yesterday.successCount,
+      attempts: overview.yesterday.attempts,
+      cost: overview.yesterday.cost,
     },
     week: {
-      requests: weekMetrics.requestCount,
-      successCount: weekMetrics.successCount,
-      cost: weekMetrics.totalCost,
+      requests: overview.week.requests,
+      successCount: overview.week.successCount,
+      attempts: overview.week.attempts,
+      cost: overview.week.cost,
     },
     month: {
-      requests: monthMetrics.requestCount,
-      successCount: monthMetrics.successCount,
-      cost: monthMetrics.totalCost,
+      requests: overview.month.requests,
+      successCount: overview.month.successCount,
+      attempts: overview.month.attempts,
+      cost: overview.month.cost,
     },
     total: {
-      requests: totalMetrics.requestCount,
-      successCount: totalMetrics.successCount,
-      cost: totalMetrics.totalCost,
+      requests: overview.total.requests,
+      successCount: overview.total.successCount,
+      attempts: overview.total.attempts,
+      cost: overview.total.cost,
     },
     accounts: {
       total: totalAccounts,
@@ -1697,30 +1791,29 @@ const getLogStatsData = async (startDateValue, endDateValue) => {
   const startDate = startDateValue ? getChinaDayStart(startDateValue) : null;
   const endDate = endDateValue ? getChinaDayEnd(endDateValue) : null;
 
-  const [totalAggregate, todayAggregate, yesterdayAggregate] = await Promise.all([
-    getRealtimeAggregateFromRaw(startDate, endDate),
+  const [totalMetrics, todayMetrics, yesterdayMetrics] = await Promise.all([
+    queryRequestAggregateFromLogs(startDate, endDate),
     (!startDate || startDate <= todayEnd) && (!endDate || endDate >= todayStart)
-      ? getRealtimeAggregateFromRaw(todayStart, todayEnd)
-      : Promise.resolve({ summary: buildEmptyMetrics() }),
+      ? queryRequestAggregateFromLogs(todayStart, todayEnd)
+      : Promise.resolve(buildEmptyRequestMetrics()),
     (!startDate || startDate <= yesterdayEnd) && (!endDate || endDate >= yesterdayStart)
-      ? getRealtimeAggregateFromRaw(yesterdayStart, yesterdayEnd)
-      : Promise.resolve({ summary: buildEmptyMetrics() }),
+      ? queryRequestAggregateFromLogs(yesterdayStart, yesterdayEnd)
+      : Promise.resolve(buildEmptyRequestMetrics()),
   ]);
-
-  const totalMetrics = totalAggregate.summary;
-  const todayMetrics = todayAggregate.summary;
-  const yesterdayMetrics = yesterdayAggregate.summary;
 
   return {
     totalRequests: totalMetrics.requestCount,
     successRequests: totalMetrics.successCount,
     failRequests: totalMetrics.failCount,
+    totalAttempts: totalMetrics.attemptCount,
     totalCost: totalMetrics.totalCost,
     todayRequests: todayMetrics.requestCount,
     todaySuccess: todayMetrics.successCount,
+    todayAttempts: todayMetrics.attemptCount,
     todayCost: todayMetrics.totalCost,
     yesterdayRequests: yesterdayMetrics.requestCount,
     yesterdaySuccess: yesterdayMetrics.successCount,
+    yesterdayAttempts: yesterdayMetrics.attemptCount,
     yesterdayCost: yesterdayMetrics.totalCost,
     successRate: totalMetrics.requestCount > 0 ? ((totalMetrics.successCount / totalMetrics.requestCount) * 100).toFixed(2) : '0.00',
   };
@@ -1732,41 +1825,26 @@ const getLogChartData = async (type) => {
     return [];
   }
 
-  const replacements = {};
-  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
-  const rows = await queryAll(
-    `
-      SELECT
-        DATE(created_at) AS statDate,
-        COUNT(*) AS requestCount,
-        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
-        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
-        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost
-      FROM proxy_logs
-      ${whereSql}
-      GROUP BY DATE(created_at)
-      ORDER BY DATE(created_at) ASC
-    `,
-    replacements,
-  );
+  const rows = await queryRequestChartRowsFromLogs(startDate, endDate);
   const chartMap = {};
 
   rows.forEach((row) => {
-    chartMap[row.statDate] = normalizeMetrics(row);
+    chartMap[row.statDate] = normalizeRequestMetrics(row);
   });
 
   const chartData = [];
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     const dateKey = getChinaDateStr(currentDate);
-    const metrics = chartMap[dateKey] || buildEmptyMetrics();
+    const metrics = chartMap[dateKey] || buildEmptyRequestMetrics();
     chartData.push({
       date: dateKey,
       requests: metrics.requestCount,
       successCount: metrics.successCount,
+      attempts: metrics.attemptCount,
       cost: metrics.totalCost,
     });
-    currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+    currentDate.setDate(currentDate.getDate() + 1);
   }
 
   return chartData;
@@ -1799,4 +1877,3 @@ module.exports = {
   initializeAggregatedStats,
   syncPendingRealtimeFromRaw,
 };
-

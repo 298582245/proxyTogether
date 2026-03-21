@@ -3,42 +3,52 @@ const { sequelize } = require('../config/database');
 const logger = require('../utils/logger');
 
 const calculateNextResetTime = (limitType, limitDays, resetTime, fromDate = new Date()) => {
-  const timezoneOffset = 8 * 60 * 60 * 1000;
-  const chinaTime = new Date(fromDate.getTime() + timezoneOffset);
   const [hours, minutes, seconds] = String(resetTime || '00:00:00').split(':').map(Number);
-  const todayReset = new Date(chinaTime);
+  const baseDate = new Date(fromDate);
 
-  todayReset.setUTCHours((hours || 0) - 8, minutes || 0, seconds || 0, 0);
+  const buildResetTime = (date) => {
+    const resetDate = new Date(date);
+    resetDate.setHours(hours || 0, minutes || 0, seconds || 0, 0);
+    return resetDate;
+  };
 
   switch (limitType) {
     case 'daily': {
-      if (fromDate >= todayReset) {
-        const nextReset = new Date(todayReset);
-        nextReset.setUTCDate(nextReset.getUTCDate() + 1);
-        return nextReset;
+      const currentReset = buildResetTime(baseDate);
+      if (baseDate >= currentReset) {
+        currentReset.setDate(currentReset.getDate() + 1);
       }
-      return todayReset;
+      return currentReset;
     }
     case 'weekly': {
-      const dayOfWeek = chinaTime.getUTCDay();
-      const daysUntilMonday = (8 - dayOfWeek) % 7 || 7;
-      const nextReset = new Date(todayReset);
-      nextReset.setUTCDate(nextReset.getUTCDate() + daysUntilMonday);
-      return nextReset;
+      const currentWeekReset = buildResetTime(baseDate);
+      const dayOfWeek = currentWeekReset.getDay();
+      const diffToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+      currentWeekReset.setDate(currentWeekReset.getDate() - diffToMonday);
+
+      if (baseDate >= currentWeekReset) {
+        currentWeekReset.setDate(currentWeekReset.getDate() + 7);
+      }
+
+      return currentWeekReset;
     }
     case 'monthly': {
-      const nextReset = new Date(todayReset);
-      nextReset.setUTCMonth(nextReset.getUTCMonth() + 1, 1);
-      return nextReset;
+      const currentMonthReset = buildResetTime(baseDate);
+      currentMonthReset.setDate(1);
+
+      if (baseDate >= currentMonthReset) {
+        currentMonthReset.setMonth(currentMonthReset.getMonth() + 1, 1);
+      }
+
+      return currentMonthReset;
     }
     case 'custom': {
-      const days = limitDays || 1;
-      const nextReset = new Date(todayReset);
-      nextReset.setUTCDate(nextReset.getUTCDate() + days);
+      const nextReset = buildResetTime(baseDate);
+      nextReset.setDate(nextReset.getDate() + (limitDays || 1));
       return nextReset;
     }
     default:
-      return todayReset;
+      return buildResetTime(baseDate);
   }
 };
 

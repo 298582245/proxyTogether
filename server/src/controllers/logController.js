@@ -118,15 +118,13 @@ const getList = async (req, res) => {
     if (startDate) {
       whereClause.createdAt = {
         ...whereClause.createdAt,
-        [Op.gte]: new Date(startDate),
+        [Op.gte]: getChinaDayStart(startDate),
       };
     }
     if (endDate) {
-      const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
       whereClause.createdAt = {
         ...whereClause.createdAt,
-        [Op.lte]: end,
+        [Op.lte]: getChinaDayEnd(endDate),
       };
     }
 

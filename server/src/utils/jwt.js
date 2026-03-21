@@ -2,68 +2,89 @@ const fs = require('fs');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 const config = require('../config');
+const logger = require('./logger');
 
-// 密钥文件路径
 const KEYS_DIR = path.join(__dirname, '../keys');
 const PRIVATE_KEY_PATH = path.join(KEYS_DIR, 'private.key');
 const PUBLIC_KEY_PATH = path.join(KEYS_DIR, 'public.key');
 
-// 确保密钥目录存在
+let loadedPrivateKey = null;
+let loadedPublicKey = null;
+
 const ensureKeysDir = () => {
   if (!fs.existsSync(KEYS_DIR)) {
     fs.mkdirSync(KEYS_DIR, { recursive: true });
   }
 };
 
-// 检查密钥是否存在
-const keysExist = () => {
-  return fs.existsSync(PRIVATE_KEY_PATH) && fs.existsSync(PUBLIC_KEY_PATH);
+const loadKeyFromFile = (filePath) => {
+  if (!fs.existsSync(filePath)) {
+    return null;
+  }
+  return fs.readFileSync(filePath, 'utf8');
 };
 
-// 获取私钥
+const setKeys = (privateKey, publicKey, options = {}) => {
+  const { persistToFile = false } = options;
+
+  loadedPrivateKey = privateKey || null;
+  loadedPublicKey = publicKey || null;
+
+  if (persistToFile && loadedPrivateKey && loadedPublicKey) {
+    ensureKeysDir();
+    fs.writeFileSync(PRIVATE_KEY_PATH, loadedPrivateKey, 'utf8');
+    fs.writeFileSync(PUBLIC_KEY_PATH, loadedPublicKey, 'utf8');
+    logger.info('JWT 密钥已写入本地文件');
+  }
+};
+
+const keysExist = () => Boolean(
+  (loadedPrivateKey && loadedPublicKey)
+  || (fs.existsSync(PRIVATE_KEY_PATH) && fs.existsSync(PUBLIC_KEY_PATH)),
+);
+
 const getPrivateKey = () => {
-  ensureKeysDir();
-  if (!fs.existsSync(PRIVATE_KEY_PATH)) {
-    return null;
+  if (loadedPrivateKey) {
+    return loadedPrivateKey;
   }
-  return fs.readFileSync(PRIVATE_KEY_PATH, 'utf8');
+
+  ensureKeysDir();
+  loadedPrivateKey = loadKeyFromFile(PRIVATE_KEY_PATH);
+  return loadedPrivateKey;
 };
 
-// 获取公钥
 const getPublicKey = () => {
-  ensureKeysDir();
-  if (!fs.existsSync(PUBLIC_KEY_PATH)) {
-    return null;
+  if (loadedPublicKey) {
+    return loadedPublicKey;
   }
-  return fs.readFileSync(PUBLIC_KEY_PATH, 'utf8');
-};
 
-// 保存密钥
-const saveKeys = (privateKey, publicKey) => {
   ensureKeysDir();
-  fs.writeFileSync(PRIVATE_KEY_PATH, privateKey, 'utf8');
-  fs.writeFileSync(PUBLIC_KEY_PATH, publicKey, 'utf8');
-  console.log('JWT密钥已生成并保存');
+  loadedPublicKey = loadKeyFromFile(PUBLIC_KEY_PATH);
+  return loadedPublicKey;
 };
 
-// 生成JWT Token
+const saveKeys = (privateKey, publicKey) => {
+  setKeys(privateKey, publicKey, { persistToFile: true });
+};
+
 const generateToken = (payload = {}) => {
   const privateKey = getPrivateKey();
   if (!privateKey) {
-    throw new Error('JWT私钥未初始化');
+    throw new Error('JWT 私钥未初始化');
   }
+
   return jwt.sign(payload, privateKey, {
     algorithm: 'RS256',
     expiresIn: config.jwt.expiresIn,
   });
 };
 
-// 验证JWT Token
 const verifyToken = (token) => {
   const publicKey = getPublicKey();
   if (!publicKey) {
-    throw new Error('JWT公钥未初始化');
+    throw new Error('JWT 公钥未初始化');
   }
+
   try {
     return jwt.verify(token, publicKey, { algorithms: ['RS256'] });
   } catch (error) {
@@ -76,6 +97,7 @@ module.exports = {
   getPrivateKey,
   getPublicKey,
   saveKeys,
+  setKeys,
   generateToken,
   verifyToken,
   KEYS_DIR,

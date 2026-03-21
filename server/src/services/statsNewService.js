@@ -18,6 +18,7 @@ const cacheService = require('./cacheService');
 const logger = require('../utils/logger');
 const {
   addDays,
+  formatChinaDateTime,
   getChinaDateStr,
   getChinaDayEnd,
   getChinaDayStart,
@@ -54,6 +55,96 @@ const addMetrics = (target, source = {}) => ({
   failCount: toInteger(target.failCount) + toInteger(source.failCount),
   totalCost: Number((toFloat(target.totalCost) + toFloat(source.totalCost)).toFixed(4)),
 });
+
+const buildEmptyOverviewMetrics = () => ({
+  requestCount: 0,
+  successCount: 0,
+  failCount: 0,
+  attemptCount: 0,
+  totalCost: 0,
+});
+
+const normalizeOverviewMetrics = (row = {}) => ({
+  requestCount: toInteger(row.requestCount || row.request_count),
+  successCount: toInteger(row.successCount || row.success_count),
+  failCount: toInteger(row.failCount || row.fail_count),
+  attemptCount: toInteger(row.attemptCount || row.attempt_count),
+  totalCost: toFloat(row.totalCost || row.total_cost),
+});
+
+const addOverviewMetrics = (target, source = {}) => ({
+  requestCount: toInteger(target.requestCount) + toInteger(source.requestCount),
+  successCount: toInteger(target.successCount) + toInteger(source.successCount),
+  failCount: toInteger(target.failCount) + toInteger(source.failCount),
+  attemptCount: toInteger(target.attemptCount) + toInteger(source.attemptCount),
+  totalCost: Number((toFloat(target.totalCost) + toFloat(source.totalCost)).toFixed(4)),
+});
+
+const REQUEST_KEY_SQL = "COALESCE(request_id, CONCAT('legacy-', CAST(id AS CHAR)))";
+
+const getDaySqlRange = (dateStr) => ({
+  createdStart: `${dateStr} 00:00:00`,
+  createdEnd: `${dateStr} 23:59:59`,
+});
+
+const queryRequestSummaryFromLogs = async (dateStr) => {
+  const replacements = getDaySqlRange(dateStr);
+  const row = await sequelize.query(
+    `
+    SELECT
+      COUNT(*) AS requestCount,
+      SUM(request_success) AS successCount,
+      SUM(CASE WHEN request_success = 1 THEN 0 ELSE 1 END) AS failCount,
+      SUM(attempt_count) AS attemptCount,
+      SUM(request_cost) AS totalCost
+    FROM (
+      SELECT
+        ${REQUEST_KEY_SQL} AS request_key,
+        MAX(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS request_success,
+        MAX(CASE WHEN success = 1 THEN cost ELSE 0 END) AS request_cost,
+        COUNT(*) AS attempt_count
+      FROM proxy_logs
+      WHERE created_at >= :createdStart AND created_at <= :createdEnd
+      GROUP BY ${REQUEST_KEY_SQL}
+    ) AS request_summary
+    `,
+    { replacements, type: QueryTypes.SELECT },
+  );
+
+  return normalizeOverviewMetrics(row[0]);
+};
+
+const queryDailyRequestStats = async (startDate, endDate) => {
+  const replacements = {};
+  const conditions = [];
+
+  if (startDate) {
+    replacements.startDate = startDate;
+    conditions.push('stat_date >= :startDate');
+  }
+
+  if (endDate) {
+    replacements.endDate = endDate;
+    conditions.push('stat_date <= :endDate');
+  }
+
+  const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const row = await sequelize.query(
+    `
+    SELECT
+      SUM(request_count) AS requestCount,
+      SUM(success_count) AS successCount,
+      SUM(fail_count) AS failCount,
+      SUM(attempt_count) AS attemptCount,
+      SUM(total_cost) AS totalCost
+    FROM proxy_log_request_daily_stats
+    ${whereSql}
+    `,
+    { replacements, type: QueryTypes.SELECT },
+  );
+
+  return normalizeOverviewMetrics(row[0]);
+};
 
 /**
  * 获取今日日期字符串（中国时区）
@@ -218,7 +309,7 @@ const queryTodayStatsFromLogs = async (dateStr) => {
     sites,
     remarks,
     dateStr,
-    updatedAt: new Date().toISOString(),
+    updatedAt: formatChinaDateTime(new Date()),
   };
 };
 
@@ -608,6 +699,17 @@ const dailySettlement = async (dateStr) => {
 
     await sequelize.query(
       `
+      DELETE FROM proxy_log_request_daily_stats
+      WHERE stat_date = :targetDate
+      `,
+      {
+        replacements: { targetDate },
+        type: QueryTypes.DELETE,
+      },
+    );
+
+    await sequelize.query(
+      `
       INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
       SELECT
         DATE(created_at) AS stat_date,
@@ -626,6 +728,47 @@ const dailySettlement = async (dateStr) => {
         request_count = VALUES(request_count),
         success_count = VALUES(success_count),
         fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+      `,
+      {
+        replacements: {
+          dayStart,
+          dayEnd,
+        },
+        type: QueryTypes.INSERT,
+      },
+    );
+
+    await sequelize.query(
+      `
+      INSERT INTO proxy_log_request_daily_stats (stat_date, request_count, success_count, fail_count, attempt_count, total_cost, created_at, updated_at)
+      SELECT
+        request_day.stat_date,
+        COUNT(*) AS request_count,
+        SUM(request_day.request_success) AS success_count,
+        SUM(CASE WHEN request_day.request_success = 1 THEN 0 ELSE 1 END) AS fail_count,
+        SUM(request_day.attempt_count) AS attempt_count,
+        SUM(request_day.request_cost) AS total_cost,
+        NOW(),
+        NOW()
+      FROM (
+        SELECT
+          DATE(created_at) AS stat_date,
+          ${REQUEST_KEY_SQL} AS request_key,
+          MAX(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS request_success,
+          MAX(CASE WHEN success = 1 THEN cost ELSE 0 END) AS request_cost,
+          COUNT(*) AS attempt_count
+        FROM proxy_logs
+        WHERE created_at >= :dayStart AND created_at <= :dayEnd
+        GROUP BY DATE(created_at), ${REQUEST_KEY_SQL}
+      ) AS request_day
+      GROUP BY request_day.stat_date
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        attempt_count = VALUES(attempt_count),
         total_cost = VALUES(total_cost),
         updated_at = NOW()
       `,
@@ -1123,6 +1266,58 @@ const getOverviewNew = async () => {
   };
 };
 
+const getOverviewByRequestScope = async () => {
+  const today = getTodayDateStr();
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
+
+  const todaySummary = await queryRequestSummaryFromLogs(today);
+  const yesterdaySummary = await queryDailyRequestStats(yesterday, yesterday);
+
+  const weekStart = getWeekStart(new Date());
+  const weekDailySummary = await queryDailyRequestStats(weekStart, yesterday);
+  const weekSummary = addOverviewMetrics(weekDailySummary, todaySummary);
+
+  const monthStart = getMonthStart(new Date());
+  const monthDailySummary = await queryDailyRequestStats(monthStart, yesterday);
+  const monthSummary = addOverviewMetrics(monthDailySummary, todaySummary);
+
+  const totalDailySummary = await queryDailyRequestStats(null, yesterday);
+  const totalSummary = addOverviewMetrics(totalDailySummary, todaySummary);
+
+  return {
+    today: {
+      requests: todaySummary.requestCount,
+      successCount: todaySummary.successCount,
+      attempts: todaySummary.attemptCount,
+      cost: todaySummary.totalCost,
+    },
+    yesterday: {
+      requests: yesterdaySummary.requestCount,
+      successCount: yesterdaySummary.successCount,
+      attempts: yesterdaySummary.attemptCount,
+      cost: yesterdaySummary.totalCost,
+    },
+    week: {
+      requests: weekSummary.requestCount,
+      successCount: weekSummary.successCount,
+      attempts: weekSummary.attemptCount,
+      cost: weekSummary.totalCost,
+    },
+    month: {
+      requests: monthSummary.requestCount,
+      successCount: monthSummary.successCount,
+      attempts: monthSummary.attemptCount,
+      cost: monthSummary.totalCost,
+    },
+    total: {
+      requests: totalSummary.requestCount,
+      successCount: totalSummary.successCount,
+      attempts: totalSummary.attemptCount,
+      cost: totalSummary.totalCost,
+    },
+  };
+};
+
 /**
  * 合并账号/网站统计
  */
@@ -1145,6 +1340,7 @@ const mergeAccountStats = (dailyStats, todayStats) => {
 const clearAllNewStatsData = async () => {
   const results = {
     dailyStatsDeleted: 0,
+    requestDailyStatsDeleted: 0,
     monthlyStatsDeleted: 0,
     cacheCleared: false,
   };
@@ -1163,6 +1359,17 @@ const clearAllNewStatsData = async () => {
   }
 
   // 清空 monthly_stats 表
+  try {
+    const requestDailyResult = await sequelize.query(
+      'DELETE FROM proxy_log_request_daily_stats',
+      { type: QueryTypes.DELETE },
+    );
+    results.requestDailyStatsDeleted = requestDailyResult;
+  } catch (error) {
+    logger.error('clear proxy_log_request_daily_stats failed:', error.message);
+    throw error;
+  }
+
   try {
     const monthlyResult = await sequelize.query(
       'DELETE FROM proxy_log_monthly_stats',
@@ -1220,7 +1427,7 @@ module.exports = {
   getAvailableMonths,
 
   // 新增的排行和分布接口
-  getOverviewNew,
+  getOverviewNew: getOverviewByRequestScope,
   getAccountSuccessRankingNew,
   getAccountFailRankingNew,
   getSiteDistributionNew,

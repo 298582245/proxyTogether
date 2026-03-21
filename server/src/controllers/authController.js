@@ -62,14 +62,14 @@ const initJwtKeys = async () => {
     await SystemConfig.setValue('jwt_public_key', keys.publicKey, 'JWT公钥');
 
     // 同时保存到文件系统
-    jwtUtil.saveKeys(keys.privateKey, keys.publicKey);
+    jwtUtil.setKeys(keys.privateKey, keys.publicKey);
 
     logger.info('JWT密钥已初始化');
     return keys;
   }
 
   // 保存到文件系统
-  jwtUtil.saveKeys(privateKey, publicKey);
+  jwtUtil.setKeys(privateKey, publicKey);
 
   return { privateKey, publicKey };
 };

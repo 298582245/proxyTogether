@@ -446,7 +446,7 @@ const isAccountExpired = (account, site) => {
  * @param {array} triedAccountIds - 已尝试过的账号ID列表
  * @param {string} remark - 备注（可选）
  */
-const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], remark = null) => {
+const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], remark = null, requestId = null) => {
   const { Op } = require('sequelize');
 
   const accounts = await Account.findAll({
@@ -496,6 +496,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       : '没有可用账号支持该时长参数或账号已过期';
 
     await logProxyRequest({
+      requestId,
       accountId: null,
       siteId: null,
       clientIp,
@@ -556,6 +557,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
     const limitMessage = '所有可用账号都已达到使用限制';
 
     await logProxyRequest({
+      requestId,
       accountId: null,
       siteId: null,
       clientIp,
@@ -617,6 +619,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       await incrementFailCount(account, site);
 
       await logProxyRequest({
+        requestId,
         accountId: account.id,
         siteId: site ? site.id : null,
         clientIp,
@@ -629,13 +632,14 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
         remark,
       });
 
-      return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark);
+      return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark, requestId);
     }
 
     await resetFailCount(account.id);
     await usageLimitService.confirmUsageCount(account.id, usageReservation);
 
     await logProxyRequest({
+      requestId,
       accountId: account.id,
       siteId: site ? site.id : null,
       clientIp,
@@ -672,6 +676,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
     await incrementFailCount(account, site);
 
     await logProxyRequest({
+      requestId,
       accountId: account.id,
       siteId: site ? site.id : null,
       clientIp,
@@ -684,7 +689,7 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
       remark,
     });
 
-    return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark);
+    return getProxy(durationValue, format, clientIp, [...triedAccountIds, account.id], remark, requestId);
   }
 };
 

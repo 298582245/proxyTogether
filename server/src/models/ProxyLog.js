@@ -15,7 +15,12 @@ const ProxyLog = sequelize.define('ProxyLog', {
   siteId: {
     type: DataTypes.INTEGER,
     field: 'site_id',
-    comment: '关联网站ID',
+    comment: '关联站点ID',
+  },
+  requestId: {
+    type: DataTypes.STRING(64),
+    field: 'request_id',
+    comment: '请求ID',
   },
   clientIp: {
     type: DataTypes.STRING(50),

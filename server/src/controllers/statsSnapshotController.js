@@ -1,6 +1,7 @@
 const statsSnapshotService = require('../services/statsSnapshotService');
 const statsNewService = require('../services/statsNewService');
 const logger = require('../utils/logger');
+const { addDays, getChinaDateStr, parseChinaDate } = require('../utils/statsTime');
 
 const getOptions = async (req, res) => {
   try {
@@ -227,11 +228,11 @@ const triggerBatchSettlement = async (req, res) => {
 
     const results = [];
     const errors = [];
-    const current = new Date(startDate);
-    const end = new Date(endDate);
+    const current = parseChinaDate(startDate);
+    const end = parseChinaDate(endDate);
 
     while (current <= end) {
-      const dateStr = current.toISOString().slice(0, 10);
+      const dateStr = getChinaDateStr(current);
       try {
         // eslint-disable-next-line no-await-in-loop
         const result = await statsNewService.dailySettlement(dateStr);
@@ -241,7 +242,8 @@ const triggerBatchSettlement = async (req, res) => {
         errors.push({ date: dateStr, error: error.message });
         results.push({ date: dateStr, success: false, error: error.message });
       }
-      current.setDate(current.getDate() + 1);
+      const nextDate = addDays(current, 1);
+      current.setTime(nextDate.getTime());
     }
 
     const successCount = results.filter((r) => r.success).length;
