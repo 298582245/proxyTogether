@@ -5,7 +5,6 @@ const Account = require('../models/Account');
 const Site = require('../models/Site');
 const SystemConfig = require('../models/SystemConfig');
 const cacheService = require('./cacheService');
-const statsNewService = require('./statsNewService');
 const logger = require('../utils/logger');
 const {
   BUCKET_INTERVAL_MINUTES,
@@ -220,6 +219,50 @@ const queryAll = async (sql, replacements = {}) => sequelize.query(sql, {
   replacements,
   type: QueryTypes.SELECT,
 });
+
+const queryDirectAggregateFromLogs = async (startDate, endDate) => {
+  const replacements = {};
+  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
+  const row = await queryOne(
+    `
+      SELECT
+        COUNT(*) AS requestCount,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost
+      FROM proxy_logs
+      ${whereSql}
+    `,
+    replacements,
+  );
+
+  return normalizeMetrics(row);
+};
+
+const queryDirectChartRowsFromLogs = async (startDate, endDate) => {
+  const replacements = {};
+  const whereSql = buildCreatedAtWhere(startDate, endDate, replacements);
+  const rows = await queryAll(
+    `
+      SELECT
+        DATE(created_at) AS statDate,
+        COUNT(*) AS requestCount,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS successCount,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS failCount,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS totalCost
+      FROM proxy_logs
+      ${whereSql}
+      GROUP BY DATE(created_at)
+      ORDER BY DATE(created_at) ASC
+    `,
+    replacements,
+  );
+
+  return rows.map((row) => ({
+    ...normalizeMetrics(row),
+    statDate: normalizeStatDateKey(row.statDate),
+  }));
+};
 
 const queryRequestAggregateFromLogs = async (startDate, endDate) => {
   const replacements = {};
@@ -1533,8 +1576,18 @@ const mergeMetricsMaps = (mysqlRows, realtimeRows, keyGetter) => {
 };
 
 const getOverviewData = async () => {
-  const [overview, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
-    statsNewService.getOverviewNew(),
+  const { todayStart, todayEnd } = getTodayDateRange();
+  const yesterdayStart = addDays(todayStart, -1);
+  const yesterdayEnd = addDays(todayEnd, -1);
+  const { startDate: weekStart, endDate: weekEnd } = getTimeRange('week');
+  const monthStart = addDays(todayStart, -29);
+
+  const [todayMetrics, yesterdayMetrics, weekMetrics, monthMetrics, totalMetrics, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
+    queryDirectAggregateFromLogs(todayStart, todayEnd),
+    queryDirectAggregateFromLogs(yesterdayStart, yesterdayEnd),
+    queryDirectAggregateFromLogs(weekStart, weekEnd || todayEnd),
+    queryDirectAggregateFromLogs(monthStart, todayEnd),
+    queryDirectAggregateFromLogs(null, null),
     Account.count(),
     Account.count({ where: { status: 1 } }),
     Account.count({ where: { failCount: { [Op.gte]: 3 }, status: 1 } }),
@@ -1543,34 +1596,29 @@ const getOverviewData = async () => {
 
   return {
     today: {
-      requests: overview.today.requests,
-      successCount: overview.today.successCount,
-      attempts: overview.today.attempts,
-      cost: overview.today.cost,
+      requests: todayMetrics.requestCount,
+      successCount: todayMetrics.successCount,
+      cost: todayMetrics.totalCost,
     },
     yesterday: {
-      requests: overview.yesterday.requests,
-      successCount: overview.yesterday.successCount,
-      attempts: overview.yesterday.attempts,
-      cost: overview.yesterday.cost,
+      requests: yesterdayMetrics.requestCount,
+      successCount: yesterdayMetrics.successCount,
+      cost: yesterdayMetrics.totalCost,
     },
     week: {
-      requests: overview.week.requests,
-      successCount: overview.week.successCount,
-      attempts: overview.week.attempts,
-      cost: overview.week.cost,
+      requests: weekMetrics.requestCount,
+      successCount: weekMetrics.successCount,
+      cost: weekMetrics.totalCost,
     },
     month: {
-      requests: overview.month.requests,
-      successCount: overview.month.successCount,
-      attempts: overview.month.attempts,
-      cost: overview.month.cost,
+      requests: monthMetrics.requestCount,
+      successCount: monthMetrics.successCount,
+      cost: monthMetrics.totalCost,
     },
     total: {
-      requests: overview.total.requests,
-      successCount: overview.total.successCount,
-      attempts: overview.total.attempts,
-      cost: overview.total.cost,
+      requests: totalMetrics.requestCount,
+      successCount: totalMetrics.successCount,
+      cost: totalMetrics.totalCost,
     },
     accounts: {
       total: totalAccounts,
@@ -1792,28 +1840,25 @@ const getLogStatsData = async (startDateValue, endDateValue) => {
   const endDate = endDateValue ? getChinaDayEnd(endDateValue) : null;
 
   const [totalMetrics, todayMetrics, yesterdayMetrics] = await Promise.all([
-    queryRequestAggregateFromLogs(startDate, endDate),
+    queryDirectAggregateFromLogs(startDate, endDate),
     (!startDate || startDate <= todayEnd) && (!endDate || endDate >= todayStart)
-      ? queryRequestAggregateFromLogs(todayStart, todayEnd)
-      : Promise.resolve(buildEmptyRequestMetrics()),
+      ? queryDirectAggregateFromLogs(todayStart, todayEnd)
+      : Promise.resolve(buildEmptyMetrics()),
     (!startDate || startDate <= yesterdayEnd) && (!endDate || endDate >= yesterdayStart)
-      ? queryRequestAggregateFromLogs(yesterdayStart, yesterdayEnd)
-      : Promise.resolve(buildEmptyRequestMetrics()),
+      ? queryDirectAggregateFromLogs(yesterdayStart, yesterdayEnd)
+      : Promise.resolve(buildEmptyMetrics()),
   ]);
 
   return {
     totalRequests: totalMetrics.requestCount,
     successRequests: totalMetrics.successCount,
     failRequests: totalMetrics.failCount,
-    totalAttempts: totalMetrics.attemptCount,
     totalCost: totalMetrics.totalCost,
     todayRequests: todayMetrics.requestCount,
     todaySuccess: todayMetrics.successCount,
-    todayAttempts: todayMetrics.attemptCount,
     todayCost: todayMetrics.totalCost,
     yesterdayRequests: yesterdayMetrics.requestCount,
     yesterdaySuccess: yesterdayMetrics.successCount,
-    yesterdayAttempts: yesterdayMetrics.attemptCount,
     yesterdayCost: yesterdayMetrics.totalCost,
     successRate: totalMetrics.requestCount > 0 ? ((totalMetrics.successCount / totalMetrics.requestCount) * 100).toFixed(2) : '0.00',
   };
@@ -1825,23 +1870,22 @@ const getLogChartData = async (type) => {
     return [];
   }
 
-  const rows = await queryRequestChartRowsFromLogs(startDate, endDate);
+  const rows = await queryDirectChartRowsFromLogs(startDate, endDate);
   const chartMap = {};
 
   rows.forEach((row) => {
-    chartMap[row.statDate] = normalizeRequestMetrics(row);
+    chartMap[row.statDate] = normalizeMetrics(row);
   });
 
   const chartData = [];
   const currentDate = new Date(startDate);
   while (currentDate <= endDate) {
     const dateKey = getChinaDateStr(currentDate);
-    const metrics = chartMap[dateKey] || buildEmptyRequestMetrics();
+    const metrics = chartMap[dateKey] || buildEmptyMetrics();
     chartData.push({
       date: dateKey,
       requests: metrics.requestCount,
       successCount: metrics.successCount,
-      attempts: metrics.attemptCount,
       cost: metrics.totalCost,
     });
     currentDate.setDate(currentDate.getDate() + 1);
