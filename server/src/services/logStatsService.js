@@ -490,8 +490,8 @@ const initializeAggregatedStats = async () => {
         INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
         SELECT
           DATE(created_at) AS stat_date,
-          site_id,
-          account_id,
+          COALESCE(site_id, 0) AS site_id,
+          COALESCE(account_id, 0) AS account_id,
           COUNT(*) AS request_count,
           SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -500,7 +500,7 @@ const initializeAggregatedStats = async () => {
           NOW()
         FROM proxy_logs
         WHERE created_at < :currentBucketStart
-        GROUP BY DATE(created_at), site_id, account_id
+        GROUP BY DATE(created_at), COALESCE(site_id, 0), COALESCE(account_id, 0)
       `,
       {
         transaction,
@@ -579,8 +579,8 @@ const flushBucketToMysql = async (bucketStart) => {
         INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
         SELECT
           DATE(created_at) AS stat_date,
-          site_id,
-          account_id,
+          COALESCE(site_id, 0) AS site_id,
+          COALESCE(account_id, 0) AS account_id,
           COUNT(*) AS request_count,
           SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
           SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -589,7 +589,7 @@ const flushBucketToMysql = async (bucketStart) => {
           NOW()
         FROM proxy_logs
         WHERE created_at >= :bucketStart AND created_at < :bucketEnd
-        GROUP BY DATE(created_at), site_id, account_id
+        GROUP BY DATE(created_at), COALESCE(site_id, 0), COALESCE(account_id, 0)
         ON DUPLICATE KEY UPDATE
           request_count = request_count + VALUES(request_count),
           success_count = success_count + VALUES(success_count),
@@ -744,8 +744,8 @@ const rebuildAggregatedStatsByDateRange = async (startDate, endDate, transaction
       INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
       SELECT
         DATE(created_at) AS stat_date,
-        site_id,
-        account_id,
+        COALESCE(site_id, 0) AS site_id,
+        COALESCE(account_id, 0) AS account_id,
         COUNT(*) AS request_count,
         SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
         SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
@@ -754,7 +754,7 @@ const rebuildAggregatedStatsByDateRange = async (startDate, endDate, transaction
         NOW()
       FROM proxy_logs
       ${createdAtWhereSql}
-      GROUP BY DATE(created_at), site_id, account_id
+      GROUP BY DATE(created_at), COALESCE(site_id, 0), COALESCE(account_id, 0)
       ON DUPLICATE KEY UPDATE
         request_count = VALUES(request_count),
         success_count = VALUES(success_count),
@@ -1799,5 +1799,4 @@ module.exports = {
   initializeAggregatedStats,
   syncPendingRealtimeFromRaw,
 };
-
 

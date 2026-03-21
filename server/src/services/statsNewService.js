@@ -597,6 +597,17 @@ const dailySettlement = async (dateStr) => {
     // MySQL 中 NULL 值不参与唯一键比较，会导致重复插入
     await sequelize.query(
       `
+      DELETE FROM proxy_log_daily_stats
+      WHERE stat_date = :targetDate
+      `,
+      {
+        replacements: { targetDate },
+        type: QueryTypes.DELETE,
+      },
+    );
+
+    await sequelize.query(
+      `
       INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
       SELECT
         DATE(created_at) AS stat_date,

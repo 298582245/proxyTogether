@@ -1,8 +1,8 @@
 CREATE TABLE IF NOT EXISTS `proxy_log_daily_stats` (
   `id` BIGINT NOT NULL AUTO_INCREMENT,
   `stat_date` DATE NOT NULL,
-  `site_id` INT NULL,
-  `account_id` INT NULL,
+  `site_id` INT NOT NULL DEFAULT 0,
+  `account_id` INT NOT NULL DEFAULT 0,
   `request_count` INT NOT NULL DEFAULT 0,
   `success_count` INT NOT NULL DEFAULT 0,
   `fail_count` INT NOT NULL DEFAULT 0,

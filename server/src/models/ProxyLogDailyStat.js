@@ -14,12 +14,14 @@ const ProxyLogDailyStat = sequelize.define('ProxyLogDailyStat', {
   },
   siteId: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
+    defaultValue: 0,
     field: 'site_id',
   },
   accountId: {
     type: DataTypes.INTEGER,
-    allowNull: true,
+    allowNull: false,
+    defaultValue: 0,
     field: 'account_id',
   },
   requestCount: {
