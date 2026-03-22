@@ -82,6 +82,12 @@ const getTimeRange = (type) => {
       startDate = getChinaDayStart(todayStr);
       endDate = getChinaDayEnd(todayStr);
       break;
+    case 'yesterday': {
+      const yesterdayStr = getChinaDateStr(addDays(now, -1));
+      startDate = getChinaDayStart(yesterdayStr);
+      endDate = getChinaDayEnd(yesterdayStr);
+      break;
+    }
     case 'week': {
       const weekStartDate = new Date(now);
       const dayOfWeek = weekStartDate.getDay();

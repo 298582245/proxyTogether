@@ -78,3 +78,6 @@
 
 - 2026-03-18 23:29 | 事件: task_marker=20260318-103000-DURATION 未匹配会话 | 结论: conversationId 记为 NOT_FOUND
 - 2026-03-18 23:55 | event: task_marker=20260318-104500-STATS no match | result: conversationId NOT_FOUND
+- 2026-03-22 22:31 | 工具: shell_command | 命令: `rg -n "/api/admin/logs/chart|getChartData|getTimeRange|yesterday"` | 摘要: 定位首页图表接口与日期范围实现，确认 `yesterday` 未被处理
+- 2026-03-22 22:32 | 工具: apply_patch | 目标: `server/src/utils/statsTime.js` | 摘要: 为 `getTimeRange()` 补充 `yesterday` 分支，修复昨日图表接口错误返回今日数据的问题
+- 2026-03-22 22:33 | 工具: node | 命令: `node -` | 摘要: 验证 `getTimeRange('today')` 返回 `2026-03-22`，`getTimeRange('yesterday')` 返回 `2026-03-21`
