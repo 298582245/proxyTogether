@@ -43,6 +43,10 @@ export const getStatsOverviewNew = () => {
   return request.get('/admin/stats-snapshot/overview')
 }
 
+export const getDashboardChartNew = (params) => {
+  return request.get('/admin/stats-snapshot/dashboard-chart', { params })
+}
+
 export const getAccountSuccessRankingNew = (params) => {
   return request.get('/admin/stats-snapshot/account-success-ranking', { params })
 }

@@ -74,6 +74,7 @@ router.post('/stats-snapshot/refresh', authMiddleware, statsSnapshotController.r
 // 新统计方案接口
 router.get('/stats-snapshot/realtime', authMiddleware, statsSnapshotController.getRealtimeStats);
 router.get('/stats-snapshot/overview', authMiddleware, statsSnapshotController.getOverviewNew);
+router.get('/stats-snapshot/dashboard-chart', authMiddleware, statsSnapshotController.getDashboardChartNew);
 router.get('/stats-snapshot/account-success-ranking', authMiddleware, statsSnapshotController.getAccountSuccessRankingNew);
 router.get('/stats-snapshot/account-fail-ranking', authMiddleware, statsSnapshotController.getAccountFailRankingNew);
 router.get('/stats-snapshot/site-distribution', authMiddleware, statsSnapshotController.getSiteDistributionNew);

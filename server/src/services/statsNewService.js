@@ -146,6 +146,55 @@ const queryDailyRequestStats = async (startDate, endDate) => {
   return normalizeOverviewMetrics(row[0]);
 };
 
+const normalizeStatDate = (value) => {
+  if (!value) {
+    return null;
+  }
+
+  if (typeof value === 'string') {
+    return value.slice(0, 10);
+  }
+
+  return getChinaDateStr(new Date(value));
+};
+
+const queryDailyRequestChartRows = async (startDate, endDate) => {
+  const replacements = {};
+  const conditions = [];
+
+  if (startDate) {
+    replacements.startDate = startDate;
+    conditions.push('stat_date >= :startDate');
+  }
+
+  if (endDate) {
+    replacements.endDate = endDate;
+    conditions.push('stat_date <= :endDate');
+  }
+
+  const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  const rows = await sequelize.query(
+    `
+    SELECT
+      stat_date AS statDate,
+      request_count AS requestCount,
+      success_count AS successCount,
+      fail_count AS failCount,
+      attempt_count AS attemptCount,
+      total_cost AS totalCost
+    FROM proxy_log_request_daily_stats
+    ${whereSql}
+    ORDER BY stat_date ASC
+    `,
+    { replacements, type: QueryTypes.SELECT },
+  );
+
+  return rows.map((row) => ({
+    statDate: normalizeStatDate(row.statDate),
+    ...normalizeOverviewMetrics(row),
+  }));
+};
+
 /**
  * 获取今日日期字符串（中国时区）
  */
@@ -1499,6 +1548,52 @@ const getOverviewByRequestScope = async () => {
   };
 };
 
+const buildDashboardChartPoint = (date, metrics = {}) => ({
+  date,
+  requests: toInteger(metrics.requestCount),
+  successCount: toInteger(metrics.successCount),
+  cost: toFloat(metrics.totalCost),
+});
+
+const buildDashboardChartNew = async (type = 'week') => {
+  const now = new Date();
+  const today = getTodayDateStr();
+  const yesterday = getChinaDateStr(addDays(now, -1));
+
+  if (type === 'today') {
+    const todaySummary = await queryRequestSummaryFromLogs(today);
+    return [buildDashboardChartPoint(today, todaySummary)];
+  }
+
+  if (type === 'yesterday') {
+    const yesterdaySummary = await queryDailyRequestStats(yesterday, yesterday);
+    return [buildDashboardChartPoint(yesterday, yesterdaySummary)];
+  }
+
+  const startDate = type === 'month' ? getMonthStart(now) : getWeekStart(now);
+  const dailyRows = await queryDailyRequestChartRows(startDate, yesterday);
+  const todaySummary = await queryRequestSummaryFromLogs(today);
+  const chartMap = {};
+
+  dailyRows.forEach((row) => {
+    chartMap[row.statDate] = row;
+  });
+
+  chartMap[today] = todaySummary;
+
+  const result = [];
+  let currentDate = new Date(`${startDate}T00:00:00`);
+  const endDate = new Date(`${today}T00:00:00`);
+
+  while (currentDate <= endDate) {
+    const dateKey = getChinaDateStr(currentDate);
+    result.push(buildDashboardChartPoint(dateKey, chartMap[dateKey] || buildEmptyOverviewMetrics()));
+    currentDate = addDays(currentDate, 1);
+  }
+
+  return result;
+};
+
 /**
  * 合并账号/网站统计
  */
@@ -1609,6 +1704,7 @@ module.exports = {
 
   // 新增的排行和分布接口
   getOverviewNew: getOverviewByRequestScope,
+  getDashboardChartNew: buildDashboardChartNew,
   getAccountSuccessRankingNew,
   getAccountFailRankingNew,
   getSiteDistributionNew,

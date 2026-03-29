@@ -19,6 +19,11 @@ const routes = [
         component: () => import('@/views/Dashboard.vue')
       },
       {
+        path: 'dashboard-snapshot',
+        name: 'DashboardSnapshot',
+        component: () => import('@/views/DashboardSnapshot.vue')
+      },
+      {
         path: 'sites',
         name: 'Sites',
         component: () => import('@/views/sites/SiteList.vue')

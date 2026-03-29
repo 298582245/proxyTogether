@@ -90,6 +90,17 @@ const getOverviewNew = async (req, res) => {
   }
 };
 
+const getDashboardChartNew = async (req, res) => {
+  try {
+    const { type = 'week' } = req.query;
+    const data = await statsNewService.getDashboardChartNew(type);
+    res.json({ success: true, data });
+  } catch (error) {
+    logger.error('获取仪表盘核对图表失败:', error);
+    res.status(500).json({ success: false, message: error.message || '获取仪表盘核对图表失败' });
+  }
+};
+
 /**
  * 获取账号成功排行（新方案）
  */
@@ -308,6 +319,7 @@ module.exports = {
   getOptions,
   getRealtimeStats,
   getOverviewNew,
+  getDashboardChartNew,
   getAccountSuccessRankingNew,
   getAccountFailRankingNew,
   getSiteDistributionNew,
