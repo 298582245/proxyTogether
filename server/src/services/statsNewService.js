@@ -81,6 +81,7 @@ const addOverviewMetrics = (target, source = {}) => ({
 });
 
 const REQUEST_KEY_SQL = "COALESCE(request_id, CONCAT('legacy-', CAST(id AS CHAR)))";
+const UNREMARKED_LABEL = '未备注';
 
 const getDaySqlRange = (dateStr) => ({
   createdStart: `${dateStr} 00:00:00`,
@@ -193,6 +194,53 @@ const queryDailyRequestChartRows = async (startDate, endDate) => {
     statDate: normalizeStatDate(row.statDate),
     ...normalizeOverviewMetrics(row),
   }));
+};
+
+const appendUnremarkedMetrics = (metricsMap, summaryMetrics = {}) => {
+  const remarkedMetrics = Object.values(metricsMap).reduce((result, metrics) => addMetrics(result, metrics), buildEmptyMetrics());
+  const unremarkedRequestCount = Math.max(toInteger(summaryMetrics.requestCount) - toInteger(remarkedMetrics.requestCount), 0);
+  const unremarkedSuccessCount = Math.max(toInteger(summaryMetrics.successCount) - toInteger(remarkedMetrics.successCount), 0);
+  const unremarkedFailCount = Math.max(toInteger(summaryMetrics.failCount) - toInteger(remarkedMetrics.failCount), 0);
+  const unremarkedTotalCost = Math.max(Number((toFloat(summaryMetrics.totalCost) - toFloat(remarkedMetrics.totalCost)).toFixed(4)), 0);
+
+  if (unremarkedRequestCount === 0 && unremarkedSuccessCount === 0 && unremarkedFailCount === 0 && unremarkedTotalCost === 0) {
+    return metricsMap;
+  }
+
+  return {
+    ...metricsMap,
+    [UNREMARKED_LABEL]: {
+      requestCount: unremarkedRequestCount,
+      successCount: unremarkedSuccessCount,
+      failCount: unremarkedFailCount,
+      totalCost: unremarkedTotalCost,
+    },
+  };
+};
+
+const getSummaryMetricsByType = async (type, todayStats, yesterday) => {
+  if (type === 'today') {
+    return todayStats.summary || buildEmptyMetrics();
+  }
+
+  if (type === 'week') {
+    const weekStart = getWeekStart(new Date());
+    const dailySummary = await queryDailyStats(weekStart, yesterday, 'summary');
+    return mergeStats(dailySummary, todayStats.summary || buildEmptyMetrics());
+  }
+
+  if (type === 'month') {
+    const monthStart = getMonthStart(new Date());
+    const dailySummary = await queryDailyStats(monthStart, yesterday, 'summary');
+    return mergeStats(dailySummary, todayStats.summary || buildEmptyMetrics());
+  }
+
+  if (type === 'total') {
+    const dailySummary = await queryDailyStats(null, yesterday, 'summary');
+    return mergeStats(dailySummary, todayStats.summary || buildEmptyMetrics());
+  }
+
+  return todayStats.summary || buildEmptyMetrics();
 };
 
 /**
@@ -1374,6 +1422,9 @@ const getRemarkRequestRankingNew = async (type, limit = 10) => {
     remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
   }
 
+  const summaryMetrics = await getSummaryMetricsByType(type, todayStats, yesterday);
+  remarkStats = appendUnremarkedMetrics(remarkStats, summaryMetrics);
+
   // 构建排行数据
   const list = Object.entries(remarkStats)
     .filter(([remark]) => remark && remark.trim())
@@ -1419,6 +1470,9 @@ const getRemarkCostRankingNew = async (type, limit = 10) => {
     const dailyRemarkStats = await queryDailyStats(null, yesterday, 'remark');
     remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
   }
+
+  const summaryMetrics = await getSummaryMetricsByType(type, todayStats, yesterday);
+  remarkStats = appendUnremarkedMetrics(remarkStats, summaryMetrics);
 
   // 构建排行数据
   const list = Object.entries(remarkStats)

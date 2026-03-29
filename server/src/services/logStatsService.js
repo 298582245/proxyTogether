@@ -157,6 +157,8 @@ const normalizeRemark = (remark) => {
   return trimmedRemark.slice(0, 255);
 };
 
+const UNREMARKED_LABEL = '未备注';
+
 const encodeRemark = (remark) => Buffer.from(remark, 'utf8').toString('base64');
 const decodeRemark = (remark) => Buffer.from(remark, 'base64').toString('utf8');
 
@@ -1575,6 +1577,32 @@ const mergeMetricsMaps = (mysqlRows, realtimeRows, keyGetter) => {
   return resultMap;
 };
 
+const appendUnremarkedMetrics = (metricsMap, summaryMetrics = {}) => {
+  const remarkedMetrics = Object.values(metricsMap).reduce(
+    (result, metrics) => addMetricsInPlace(result, metrics),
+    buildEmptyMetrics(),
+  );
+
+  const unremarkedRequestCount = Math.max(toInteger(summaryMetrics.requestCount) - toInteger(remarkedMetrics.requestCount), 0);
+  const unremarkedSuccessCount = Math.max(toInteger(summaryMetrics.successCount) - toInteger(remarkedMetrics.successCount), 0);
+  const unremarkedFailCount = Math.max(toInteger(summaryMetrics.failCount) - toInteger(remarkedMetrics.failCount), 0);
+  const unremarkedTotalCost = Math.max(Number((toFloat(summaryMetrics.totalCost) - toFloat(remarkedMetrics.totalCost)).toFixed(4)), 0);
+
+  if (unremarkedRequestCount === 0 && unremarkedSuccessCount === 0 && unremarkedFailCount === 0 && unremarkedTotalCost === 0) {
+    return metricsMap;
+  }
+
+  return {
+    ...metricsMap,
+    [UNREMARKED_LABEL]: {
+      requestCount: unremarkedRequestCount,
+      successCount: unremarkedSuccessCount,
+      failCount: unremarkedFailCount,
+      totalCost: unremarkedTotalCost,
+    },
+  };
+};
+
 const getOverviewData = async () => {
   const { todayStart, todayEnd } = getTodayDateRange();
   const yesterdayStart = addDays(todayStart, -1);
@@ -1786,7 +1814,7 @@ const getHourlyDistributionData = async (type) => {
 const getRemarkRequestRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const aggregate = await getRealtimeAggregateFromRaw(startDate, endDate);
-  const mergedMetrics = aggregate.remarks;
+  const mergedMetrics = appendUnremarkedMetrics(aggregate.remarks, aggregate.summary);
 
   const list = Object.entries(mergedMetrics)
     .map(([remark, metrics]) => ({
@@ -1811,7 +1839,7 @@ const getRemarkRequestRankingData = async (type, limit) => {
 const getRemarkCostRankingData = async (type, limit) => {
   const { startDate, endDate } = getTimeRange(type);
   const aggregate = await getRealtimeAggregateFromRaw(startDate, endDate);
-  const mergedMetrics = aggregate.remarks;
+  const mergedMetrics = appendUnremarkedMetrics(aggregate.remarks, aggregate.summary);
 
   const list = Object.entries(mergedMetrics)
     .map(([remark, metrics]) => ({

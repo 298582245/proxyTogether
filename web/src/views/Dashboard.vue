@@ -62,7 +62,7 @@
             </div>
             <div class="stat-info">
               <div class="stat-value">{{ logStats.totalRequests }}</div>
-              <div class="stat-label">总请求数</div>
+              <div class="stat-label">累计请求</div>
             </div>
           </div>
         </a-card>
@@ -75,7 +75,7 @@
             </div>
             <div class="stat-info">
               <div class="stat-value">¥{{ Number(logStats.totalCost || 0).toFixed(4) }}</div>
-              <div class="stat-label">总消费</div>
+              <div class="stat-label">累计消费</div>
             </div>
           </div>
         </a-card>
