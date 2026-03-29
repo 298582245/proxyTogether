@@ -436,6 +436,54 @@ const queryDailyStats = async (startDate, endDate, groupBy = 'day') => {
   }
 
   // 按天返回
+  if (groupBy === 'hour') {
+    const rows = await sequelize.query(
+      `
+      SELECT
+        stat_hour AS statHour,
+        SUM(request_count) AS requestCount,
+        SUM(success_count) AS successCount,
+        SUM(fail_count) AS failCount,
+        SUM(total_cost) AS totalCost
+      FROM proxy_log_hourly_stats
+      ${whereSql}
+      GROUP BY stat_hour
+      ORDER BY stat_hour ASC
+      `,
+      { replacements, type: QueryTypes.SELECT },
+    );
+    const result = {};
+    rows.forEach((row) => {
+      result[String(row.statHour)] = normalizeMetrics(row);
+    });
+    return result;
+  }
+
+  if (groupBy === 'remark') {
+    const remarkWhereSql = `${whereSql} ${whereSql ? 'AND' : 'WHERE'} remark IS NOT NULL AND TRIM(remark) <> ''`;
+    const rows = await sequelize.query(
+      `
+      SELECT
+        TRIM(remark) AS remark,
+        SUM(request_count) AS requestCount,
+        SUM(success_count) AS successCount,
+        SUM(fail_count) AS failCount,
+        SUM(total_cost) AS totalCost
+      FROM proxy_log_remark_daily_stats
+      ${remarkWhereSql}
+      GROUP BY TRIM(remark)
+      `,
+      { replacements, type: QueryTypes.SELECT },
+    );
+    const result = {};
+    rows.forEach((row) => {
+      if (row.remark) {
+        result[row.remark] = normalizeMetrics(row);
+      }
+    });
+    return result;
+  }
+
   const rows = await sequelize.query(
     `
     SELECT
@@ -710,6 +758,28 @@ const dailySettlement = async (dateStr) => {
 
     await sequelize.query(
       `
+      DELETE FROM proxy_log_hourly_stats
+      WHERE stat_date = :targetDate
+      `,
+      {
+        replacements: { targetDate },
+        type: QueryTypes.DELETE,
+      },
+    );
+
+    await sequelize.query(
+      `
+      DELETE FROM proxy_log_remark_daily_stats
+      WHERE stat_date = :targetDate
+      `,
+      {
+        replacements: { targetDate },
+        type: QueryTypes.DELETE,
+      },
+    );
+
+    await sequelize.query(
+      `
       INSERT INTO proxy_log_daily_stats (stat_date, site_id, account_id, request_count, success_count, fail_count, total_cost, created_at, updated_at)
       SELECT
         DATE(created_at) AS stat_date,
@@ -769,6 +839,69 @@ const dailySettlement = async (dateStr) => {
         success_count = VALUES(success_count),
         fail_count = VALUES(fail_count),
         attempt_count = VALUES(attempt_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+      `,
+      {
+        replacements: {
+          dayStart,
+          dayEnd,
+        },
+        type: QueryTypes.INSERT,
+      },
+    );
+
+    await sequelize.query(
+      `
+      INSERT INTO proxy_log_hourly_stats (stat_date, stat_hour, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        HOUR(created_at) AS stat_hour,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      WHERE created_at >= :dayStart AND created_at <= :dayEnd
+      GROUP BY DATE(created_at), HOUR(created_at)
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
+        total_cost = VALUES(total_cost),
+        updated_at = NOW()
+      `,
+      {
+        replacements: {
+          dayStart,
+          dayEnd,
+        },
+        type: QueryTypes.INSERT,
+      },
+    );
+
+    await sequelize.query(
+      `
+      INSERT INTO proxy_log_remark_daily_stats (stat_date, remark, request_count, success_count, fail_count, total_cost, created_at, updated_at)
+      SELECT
+        DATE(created_at) AS stat_date,
+        TRIM(remark) AS remark,
+        COUNT(*) AS request_count,
+        SUM(CASE WHEN success = 1 THEN 1 ELSE 0 END) AS success_count,
+        SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) AS fail_count,
+        SUM(CASE WHEN success = 1 THEN cost ELSE 0 END) AS total_cost,
+        NOW(),
+        NOW()
+      FROM proxy_logs
+      WHERE created_at >= :dayStart AND created_at <= :dayEnd
+        AND remark IS NOT NULL AND TRIM(remark) <> ''
+      GROUP BY DATE(created_at), TRIM(remark)
+      ON DUPLICATE KEY UPDATE
+        request_count = VALUES(request_count),
+        success_count = VALUES(success_count),
+        fail_count = VALUES(fail_count),
         total_cost = VALUES(total_cost),
         updated_at = NOW()
       `,
@@ -1128,10 +1261,26 @@ const getSiteDistributionNew = async (type) => {
  */
 const getHourlyDistributionNew = async (type) => {
   const today = getTodayDateStr();
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
   const todayStats = await getTodayStats(today);
 
   // 小时分布只从今日实时数据获取
-  const hours = todayStats.hours || {};
+  let hours = {};
+
+  if (type === 'today') {
+    hours = todayStats.hours || {};
+  } else if (type === 'week') {
+    const weekStart = getWeekStart(new Date());
+    const dailyHourlyStats = await queryDailyStats(weekStart, yesterday, 'hour');
+    hours = mergeAccountStats(dailyHourlyStats, todayStats.hours || {});
+  } else if (type === 'month') {
+    const monthStart = getMonthStart(new Date());
+    const dailyHourlyStats = await queryDailyStats(monthStart, yesterday, 'hour');
+    hours = mergeAccountStats(dailyHourlyStats, todayStats.hours || {});
+  } else if (type === 'total') {
+    const dailyHourlyStats = await queryDailyStats(null, yesterday, 'hour');
+    hours = mergeAccountStats(dailyHourlyStats, todayStats.hours || {});
+  }
 
   // 构建 0-23 小时数据
   const list = [];
@@ -1155,10 +1304,26 @@ const getHourlyDistributionNew = async (type) => {
  */
 const getRemarkRequestRankingNew = async (type, limit = 10) => {
   const today = getTodayDateStr();
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
   const todayStats = await getTodayStats(today);
 
   // 备注统计目前只支持今日
-  const remarkStats = todayStats.remarks || {};
+  let remarkStats = {};
+
+  if (type === 'today') {
+    remarkStats = todayStats.remarks || {};
+  } else if (type === 'week') {
+    const weekStart = getWeekStart(new Date());
+    const dailyRemarkStats = await queryDailyStats(weekStart, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  } else if (type === 'month') {
+    const monthStart = getMonthStart(new Date());
+    const dailyRemarkStats = await queryDailyStats(monthStart, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  } else if (type === 'total') {
+    const dailyRemarkStats = await queryDailyStats(null, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  }
 
   // 构建排行数据
   const list = Object.entries(remarkStats)
@@ -1185,10 +1350,26 @@ const getRemarkRequestRankingNew = async (type, limit = 10) => {
  */
 const getRemarkCostRankingNew = async (type, limit = 10) => {
   const today = getTodayDateStr();
+  const yesterday = getChinaDateStr(addDays(new Date(), -1));
   const todayStats = await getTodayStats(today);
 
   // 备注统计目前只支持今日
-  const remarkStats = todayStats.remarks || {};
+  let remarkStats = {};
+
+  if (type === 'today') {
+    remarkStats = todayStats.remarks || {};
+  } else if (type === 'week') {
+    const weekStart = getWeekStart(new Date());
+    const dailyRemarkStats = await queryDailyStats(weekStart, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  } else if (type === 'month') {
+    const monthStart = getMonthStart(new Date());
+    const dailyRemarkStats = await queryDailyStats(monthStart, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  } else if (type === 'total') {
+    const dailyRemarkStats = await queryDailyStats(null, yesterday, 'remark');
+    remarkStats = mergeAccountStats(dailyRemarkStats, todayStats.remarks || {});
+  }
 
   // 构建排行数据
   const list = Object.entries(remarkStats)

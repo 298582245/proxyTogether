@@ -81,3 +81,7 @@
 - 2026-03-22 22:31 | 工具: shell_command | 命令: `rg -n "/api/admin/logs/chart|getChartData|getTimeRange|yesterday"` | 摘要: 定位首页图表接口与日期范围实现，确认 `yesterday` 未被处理
 - 2026-03-22 22:32 | 工具: apply_patch | 目标: `server/src/utils/statsTime.js` | 摘要: 为 `getTimeRange()` 补充 `yesterday` 分支，修复昨日图表接口错误返回今日数据的问题
 - 2026-03-22 22:33 | 工具: node | 命令: `node -` | 摘要: 验证 `getTimeRange('today')` 返回 `2026-03-22`，`getTimeRange('yesterday')` 返回 `2026-03-21`
+- 2026-03-29 18:31 | 工具: shell_command | 命令: `rg -n "stats-snapshot|totalCost|dailySettlement|remark|hourly"` | 摘要: 定位 `/stats-snapshot` 新统计链路，确认历史金额缺口集中在日结算未写入备注/小时聚合以及对应查询未接入
+- 2026-03-29 18:31 | 工具: apply_patch | 目标: `server/src/services/statsNewService.js` | 摘要: 为 `dailySettlement()` 补充 `proxy_log_hourly_stats`、`proxy_log_remark_daily_stats` 的删除与写入逻辑，并让小时分布、备注请求排行、备注消费排行支持历史金额聚合
+- 2026-03-29 18:31 | 工具: apply_patch | 目标: `server/src/services/schemaMigrationService.js` | 摘要: 补充小时聚合表和备注日聚合表的自动建表逻辑，避免新环境执行结算时报表缺失
+- 2026-03-29 18:31 | 工具: node | 命令: `node --check server/src/services/statsNewService.js && node --check server/src/services/schemaMigrationService.js` | 摘要: 语法校验通过
