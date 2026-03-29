@@ -47,8 +47,8 @@
         <a-card :loading="loadingChart" hoverable>
           <div class="compare-card">
             <div class="compare-label">{{ chartTypeLabel }}请求总计</div>
-            <div class="compare-main">{{ formatInteger(chartOldSummary.requests) }}</div>
-            <div class="compare-sub">新口径 {{ formatInteger(chartNewSummary.requests) }}</div>
+            <div class="compare-main">{{ formatInteger(oldChartSummary.requests) }}</div>
+            <div class="compare-sub">新口径 {{ formatInteger(newChartSummary.requests) }}</div>
             <div class="compare-diff" :class="getDiffClass(chartRequestsDiff)">
               差值 {{ formatSignedInteger(chartRequestsDiff) }}
             </div>
@@ -59,8 +59,8 @@
         <a-card :loading="loadingChart" hoverable>
           <div class="compare-card">
             <div class="compare-label">{{ chartTypeLabel }}消费总计</div>
-            <div class="compare-main">¥{{ formatCost(chartOldSummary.cost) }}</div>
-            <div class="compare-sub">新口径 ¥{{ formatCost(chartNewSummary.cost) }}</div>
+            <div class="compare-main">¥{{ formatCost(oldChartSummary.cost) }}</div>
+            <div class="compare-sub">新口径 ¥{{ formatCost(newChartSummary.cost) }}</div>
             <div class="compare-diff" :class="getDiffClass(chartCostDiff)">
               差值 {{ formatSignedCost(chartCostDiff) }}
             </div>
@@ -69,18 +69,44 @@
       </a-col>
     </a-row>
 
-    <a-card class="chart-card" :loading="loadingChart">
-      <template #title>
-        <div class="card-title">图表核对</div>
-      </template>
-      <div ref="chartRef" class="chart-container"></div>
-    </a-card>
+    <a-row :gutter="16" class="chart-row">
+      <a-col :xs="24" :xl="12">
+        <a-card class="chart-card" :loading="loadingChart" hoverable>
+          <template #title>
+            <div class="chart-header">
+              <div class="chart-title">
+                <span>旧口径图表</span>
+                <span class="chart-summary">
+                  总计: {{ oldChartSummary.requests }} 次请求 | {{ oldChartSummary.success }} 次成功 | ¥{{ formatCost(oldChartSummary.cost) }} 消费
+                </span>
+              </div>
+            </div>
+          </template>
+          <div ref="oldChartRef" class="chart-container"></div>
+        </a-card>
+      </a-col>
+      <a-col :xs="24" :xl="12">
+        <a-card class="chart-card" :loading="loadingChart" hoverable>
+          <template #title>
+            <div class="chart-header">
+              <div class="chart-title">
+                <span>新口径图表</span>
+                <span class="chart-summary">
+                  总计: {{ newChartSummary.requests }} 次请求 | {{ newChartSummary.success }} 次成功 | ¥{{ formatCost(newChartSummary.cost) }} 消费
+                </span>
+              </div>
+            </div>
+          </template>
+          <div ref="newChartRef" class="chart-container"></div>
+        </a-card>
+      </a-col>
+    </a-row>
 
     <a-card class="table-card" :loading="loadingChart">
       <template #title>
         <div class="card-title">明细核对</div>
       </template>
-      <a-table :columns="columns" :data="compareRows" :pagination="false" :scroll="{ x: 900 }" row-key="date">
+      <a-table :columns="columns" :data="compareRows" :pagination="false" :scroll="{ x: 1100 }" row-key="date">
         <template #date="{ record }">
           {{ formatDateLabel(record.date) }}
         </template>
@@ -92,6 +118,12 @@
         </template>
         <template #requestDiff="{ record }">
           <span :class="getDiffClass(record.requestDiff)">{{ formatSignedInteger(record.requestDiff) }}</span>
+        </template>
+        <template #oldSuccess="{ record }">
+          {{ formatInteger(record.oldSuccess) }}
+        </template>
+        <template #newSuccess="{ record }">
+          {{ formatInteger(record.newSuccess) }}
         </template>
         <template #oldCost="{ record }">
           ¥{{ formatCost(record.oldCost) }}
@@ -116,7 +148,8 @@ import { getDashboardChartNew, getStatsOverviewNew } from '@/api/statsSnapshot'
 const chartType = ref('week')
 const loadingOverview = ref(false)
 const loadingChart = ref(false)
-const chartRef = ref(null)
+const oldChartRef = ref(null)
+const newChartRef = ref(null)
 
 const oldOverview = reactive({
   totalRequests: 0,
@@ -144,14 +177,15 @@ const costDiff = computed(() => Number((newOverview.totalCost - oldOverview.tota
 
 const sumChartMetrics = (list) => list.reduce((summary, item) => {
   summary.requests += Number(item.requests || 0)
+  summary.success += Number(item.successCount || 0)
   summary.cost += Number(item.cost || 0)
   return summary
-}, { requests: 0, cost: 0 })
+}, { requests: 0, success: 0, cost: 0 })
 
-const chartOldSummary = computed(() => sumChartMetrics(oldChartData.value))
-const chartNewSummary = computed(() => sumChartMetrics(newChartData.value))
-const chartRequestsDiff = computed(() => chartNewSummary.value.requests - chartOldSummary.value.requests)
-const chartCostDiff = computed(() => Number((chartNewSummary.value.cost - chartOldSummary.value.cost).toFixed(4)))
+const oldChartSummary = computed(() => sumChartMetrics(oldChartData.value))
+const newChartSummary = computed(() => sumChartMetrics(newChartData.value))
+const chartRequestsDiff = computed(() => newChartSummary.value.requests - oldChartSummary.value.requests)
+const chartCostDiff = computed(() => Number((newChartSummary.value.cost - oldChartSummary.value.cost).toFixed(4)))
 
 const compareRows = computed(() => {
   const oldMap = {}
@@ -172,6 +206,8 @@ const compareRows = computed(() => {
     const newItem = newMap[date] || {}
     const oldRequests = Number(oldItem.requests || 0)
     const newRequests = Number(newItem.requests || 0)
+    const oldSuccess = Number(oldItem.successCount || 0)
+    const newSuccess = Number(newItem.successCount || 0)
     const oldCost = Number(oldItem.cost || 0)
     const newCost = Number(newItem.cost || 0)
 
@@ -180,6 +216,8 @@ const compareRows = computed(() => {
       oldRequests,
       newRequests,
       requestDiff: newRequests - oldRequests,
+      oldSuccess,
+      newSuccess,
       oldCost,
       newCost,
       costDiff: Number((newCost - oldCost).toFixed(4))
@@ -192,6 +230,8 @@ const columns = [
   { title: '旧请求数', dataIndex: 'oldRequests', slotName: 'oldRequests', width: 120 },
   { title: '新请求数', dataIndex: 'newRequests', slotName: 'newRequests', width: 120 },
   { title: '请求差值', dataIndex: 'requestDiff', slotName: 'requestDiff', width: 120 },
+  { title: '旧成功数', dataIndex: 'oldSuccess', slotName: 'oldSuccess', width: 120 },
+  { title: '新成功数', dataIndex: 'newSuccess', slotName: 'newSuccess', width: 120 },
   { title: '旧消费', dataIndex: 'oldCost', slotName: 'oldCost', width: 140 },
   { title: '新消费', dataIndex: 'newCost', slotName: 'newCost', width: 140 },
   { title: '消费差值', dataIndex: 'costDiff', slotName: 'costDiff', width: 140 }
@@ -220,84 +260,92 @@ const getDiffClass = (value) => {
   return 'diff-flat'
 }
 
-let chartInstance = null
+const buildChartOption = (data) => {
+  const dates = data.map((item) => formatDateLabel(item.date))
+  const requests = data.map((item) => Number(item.requests || 0))
+  const successCount = data.map((item) => Number(item.successCount || 0))
+  const costs = data.map((item) => Number(item.cost || 0))
 
-const renderChart = () => {
-  if (!chartRef.value) {
-    return
-  }
-
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value)
-  }
-
-  const rows = compareRows.value
-  const option = {
+  return {
     tooltip: {
-      trigger: 'axis'
+      trigger: 'axis',
+      axisPointer: {
+        type: 'cross'
+      }
     },
     legend: {
-      top: 0,
-      data: ['旧请求数', '新请求数', '旧消费', '新消费']
+      data: ['请求数', '成功数', '消费金额']
     },
     grid: {
-      left: 50,
-      right: 60,
-      top: 48,
-      bottom: 24
+      left: '3%',
+      right: '4%',
+      bottom: '3%',
+      containLabel: true
     },
     xAxis: {
       type: 'category',
-      data: rows.map((item) => formatDateLabel(item.date))
+      data: dates
     },
     yAxis: [
       {
         type: 'value',
-        name: '请求数'
+        name: '请求数',
+        position: 'left'
       },
       {
         type: 'value',
-        name: '消费',
-        axisLabel: {
-          formatter: (value) => `¥${Number(value).toFixed(2)}`
-        }
+        name: '消费(元)',
+        position: 'right'
       }
     ],
     series: [
       {
-        name: '旧请求数',
+        name: '请求数',
         type: 'bar',
-        data: rows.map((item) => item.oldRequests),
-        itemStyle: { color: '#165dff' }
+        data: requests,
+        itemStyle: {
+          color: '#165DFF'
+        }
       },
       {
-        name: '新请求数',
-        type: 'line',
-        data: rows.map((item) => item.newRequests),
-        smooth: true,
-        itemStyle: { color: '#00b42a' }
+        name: '成功数',
+        type: 'bar',
+        data: successCount,
+        itemStyle: {
+          color: '#00B42A'
+        }
       },
       {
-        name: '旧消费',
-        type: 'line',
-        yAxisIndex: 1,
-        data: rows.map((item) => item.oldCost),
-        smooth: true,
-        itemStyle: { color: '#ff7d00' }
-      },
-      {
-        name: '新消费',
+        name: '消费金额',
         type: 'line',
         yAxisIndex: 1,
-        data: rows.map((item) => item.newCost),
-        smooth: true,
-        lineStyle: { type: 'dashed' },
-        itemStyle: { color: '#722ed1' }
+        data: costs,
+        itemStyle: {
+          color: '#FF7D00'
+        },
+        smooth: true
       }
     ]
   }
+}
 
-  chartInstance.setOption(option)
+let oldChartInstance = null
+let newChartInstance = null
+
+const renderCharts = () => {
+  if (oldChartRef.value) {
+    if (!oldChartInstance) {
+      oldChartInstance = echarts.init(oldChartRef.value)
+    }
+    oldChartInstance.setOption(buildChartOption(oldChartData.value))
+  }
+
+  if (newChartRef.value) {
+    if (!newChartInstance) {
+      newChartInstance = echarts.init(newChartRef.value)
+    }
+    newChartInstance.setOption(buildChartOption(newChartData.value))
+  }
 }
 
 const loadOverview = async () => {
@@ -333,7 +381,7 @@ const loadChartData = async () => {
     oldChartData.value = oldRes.data || []
     newChartData.value = newRes.data || []
     await nextTick()
-    renderChart()
+    renderCharts()
   } finally {
     loadingChart.value = false
   }
@@ -344,9 +392,8 @@ const reloadAll = async () => {
 }
 
 const handleResize = () => {
-  if (chartInstance) {
-    chartInstance.resize()
-  }
+  oldChartInstance?.resize()
+  newChartInstance?.resize()
 }
 
 onMounted(async () => {
@@ -356,9 +403,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
-  if (chartInstance) {
-    chartInstance.dispose()
-  }
+  oldChartInstance?.dispose()
+  newChartInstance?.dispose()
 })
 </script>
 
@@ -376,7 +422,7 @@ onUnmounted(() => {
 .compare-alert,
 .toolbar-section,
 .compare-cards,
-.chart-card,
+.chart-row,
 .table-card {
   flex-shrink: 0;
 }
@@ -420,12 +466,28 @@ onUnmounted(() => {
   color: var(--color-text-3);
 }
 
-.card-title {
-  font-weight: 600;
+.chart-card {
+  height: 100%;
 }
 
 .chart-card :deep(.arco-card-body) {
   padding: 12px;
+}
+
+.chart-header {
+  display: flex;
+  align-items: center;
+}
+
+.chart-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chart-summary {
+  font-size: 12px;
+  color: var(--color-text-3);
 }
 
 .chart-container {
@@ -433,11 +495,19 @@ onUnmounted(() => {
   height: 360px;
 }
 
+.card-title {
+  font-weight: 600;
+}
+
 .table-card :deep(.arco-card-body) {
   padding: 12px;
 }
 
 @media (max-width: 768px) {
+  .chart-row :deep(.arco-col) {
+    margin-bottom: 16px;
+  }
+
   .chart-container {
     height: 300px;
   }
