@@ -380,11 +380,12 @@ const loadChartData = async () => {
 
     oldChartData.value = oldRes.data || []
     newChartData.value = newRes.data || []
-    await nextTick()
-    renderCharts()
   } finally {
     loadingChart.value = false
   }
+
+  await nextTick()
+  renderCharts()
 }
 
 const reloadAll = async () => {
