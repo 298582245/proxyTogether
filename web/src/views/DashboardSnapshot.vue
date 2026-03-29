@@ -71,7 +71,7 @@
 
     <a-row :gutter="16" class="chart-row">
       <a-col :xs="24" :xl="12">
-        <a-card class="chart-card" :loading="loadingChart" hoverable>
+        <a-card class="chart-card" hoverable>
           <template #title>
             <div class="chart-header">
               <div class="chart-title">
@@ -86,7 +86,7 @@
         </a-card>
       </a-col>
       <a-col :xs="24" :xl="12">
-        <a-card class="chart-card" :loading="loadingChart" hoverable>
+        <a-card class="chart-card" hoverable>
           <template #title>
             <div class="chart-header">
               <div class="chart-title">
@@ -332,18 +332,41 @@ const buildChartOption = (data) => {
 let oldChartInstance = null
 let newChartInstance = null
 
+const ensureChartInstance = (chartRef, chartInstance) => {
+  if (!chartRef.value) {
+    return null
+  }
+
+  if (chartInstance && chartInstance.getDom() === chartRef.value) {
+    return chartInstance
+  }
+
+  chartInstance?.dispose()
+  return echarts.init(chartRef.value)
+}
+
+const toggleChartLoading = (isLoading) => {
+  oldChartInstance = ensureChartInstance(oldChartRef, oldChartInstance)
+  newChartInstance = ensureChartInstance(newChartRef, newChartInstance)
+
+  if (isLoading) {
+    oldChartInstance?.showLoading('default', { text: '加载中...' })
+    newChartInstance?.showLoading('default', { text: '加载中...' })
+    return
+  }
+
+  oldChartInstance?.hideLoading()
+  newChartInstance?.hideLoading()
+}
+
 const renderCharts = () => {
   if (oldChartRef.value) {
-    if (!oldChartInstance) {
-      oldChartInstance = echarts.init(oldChartRef.value)
-    }
+    oldChartInstance = ensureChartInstance(oldChartRef, oldChartInstance)
     oldChartInstance.setOption(buildChartOption(oldChartData.value))
   }
 
   if (newChartRef.value) {
-    if (!newChartInstance) {
-      newChartInstance = echarts.init(newChartRef.value)
-    }
+    newChartInstance = ensureChartInstance(newChartRef, newChartInstance)
     newChartInstance.setOption(buildChartOption(newChartData.value))
   }
 }
@@ -372,6 +395,9 @@ const loadOverview = async () => {
 
 const loadChartData = async () => {
   loadingChart.value = true
+  await nextTick()
+  toggleChartLoading(true)
+
   try {
     const [oldRes, newRes] = await Promise.all([
       getLogChart({ type: chartType.value }),
@@ -386,6 +412,7 @@ const loadChartData = async () => {
 
   await nextTick()
   renderCharts()
+  toggleChartLoading(false)
 }
 
 const reloadAll = async () => {
