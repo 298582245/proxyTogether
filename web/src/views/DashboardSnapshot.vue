@@ -6,7 +6,7 @@
 
     <div class="toolbar-section">
       <a-space>
-        <a-radio-group v-model="chartType" type="button" size="small" @change="loadChartData">
+        <a-radio-group v-model="chartType" type="button" size="small">
           <a-radio value="today">今日</a-radio>
           <a-radio value="yesterday">昨日</a-radio>
           <a-radio value="week">本周</a-radio>
@@ -140,7 +140,7 @@
 </template>
 
 <script setup>
-import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { getLogChart, getLogStats } from '@/api/log'
 import { getDashboardChartNew, getStatsOverviewNew } from '@/api/statsSnapshot'
@@ -362,12 +362,16 @@ const toggleChartLoading = (isLoading) => {
 const renderCharts = () => {
   if (oldChartRef.value) {
     oldChartInstance = ensureChartInstance(oldChartRef, oldChartInstance)
-    oldChartInstance.setOption(buildChartOption(oldChartData.value))
+    oldChartInstance.clear()
+    oldChartInstance.setOption(buildChartOption(oldChartData.value), true)
+    oldChartInstance.resize()
   }
 
   if (newChartRef.value) {
     newChartInstance = ensureChartInstance(newChartRef, newChartInstance)
-    newChartInstance.setOption(buildChartOption(newChartData.value))
+    newChartInstance.clear()
+    newChartInstance.setOption(buildChartOption(newChartData.value), true)
+    newChartInstance.resize()
   }
 }
 
@@ -427,6 +431,10 @@ const handleResize = () => {
 onMounted(async () => {
   await reloadAll()
   window.addEventListener('resize', handleResize)
+})
+
+watch(chartType, async () => {
+  await loadChartData()
 })
 
 onUnmounted(() => {
