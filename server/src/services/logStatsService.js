@@ -1608,14 +1608,14 @@ const getOverviewData = async () => {
   const yesterdayStart = addDays(todayStart, -1);
   const yesterdayEnd = addDays(todayEnd, -1);
   const { startDate: weekStart, endDate: weekEnd } = getTimeRange('week');
-  const monthStart = addDays(todayStart, -29);
+  const { startDate: monthStart, endDate: monthEnd } = getTimeRange('month');
 
   const [todayMetrics, yesterdayMetrics, weekMetrics, monthMetrics, totalMetrics, totalAccounts, activeAccounts, abnormalAccounts, lowBalanceAccounts] = await Promise.all([
-    queryDirectAggregateFromLogs(todayStart, todayEnd),
-    queryDirectAggregateFromLogs(yesterdayStart, yesterdayEnd),
-    queryDirectAggregateFromLogs(weekStart, weekEnd || todayEnd),
-    queryDirectAggregateFromLogs(monthStart, todayEnd),
-    queryDirectAggregateFromLogs(null, null),
+    getMergedSummaryMetrics(todayStart, todayEnd),
+    getMergedSummaryMetrics(yesterdayStart, yesterdayEnd),
+    getMergedSummaryMetrics(weekStart, weekEnd || todayEnd),
+    getMergedSummaryMetrics(monthStart, monthEnd || todayEnd),
+    getMergedSummaryMetrics(null, null),
     Account.count(),
     Account.count({ where: { status: 1 } }),
     Account.count({ where: { failCount: { [Op.gte]: 3 }, status: 1 } }),

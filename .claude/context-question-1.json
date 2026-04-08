@@ -1,0 +1,75 @@
+{
+  "meta": {
+    "date": "2026-04-05 22:25",
+    "executor": "Codex",
+    "task": "分析 /stats-snapshot 与 /stats 的本周/本月/累计请求显示异常"
+  },
+  "tooling": {
+    "sequential_thinking": "不可用，使用内置推理替代",
+    "code_index": "不可用，使用 rg 与代码阅读替代"
+  },
+  "findings": [
+    {
+      "route": "/stats-snapshot",
+      "conclusion": "当前出现“本周请求 6.32k > 本月请求 4.47k”不一定是程序错误，按现有自然周/自然月口径这是可能成立的。",
+      "evidence": [
+        "server/src/services/statsNewService.js:254",
+        "server/src/services/statsNewService.js:268",
+        "server/src/services/statsNewService.js:1553",
+        "web/src/views/stats/StatsSnapshot.vue:636"
+      ],
+      "analysis": [
+        "week 使用自然周口径：从本周一到今天。",
+        "month 使用自然月口径：从当月 1 号到今天。",
+        "当前日期为 2026-04-05，本周区间为 2026-03-30 至 2026-04-05，本月区间为 2026-04-01 至 2026-04-05。",
+        "因此如果 3 月 30 日与 3 月 31 日的请求量较大，本周累计大于本月累计是正常现象。",
+        "前端页面仅调用 overview 接口并直接展示返回值，没有额外二次计算逻辑。"
+      ],
+      "judgement": "更像口径理解问题或 UI 文案问题，不是明确的后端统计错误。"
+    },
+    {
+      "route": "/stats",
+      "conclusion": "存在真实统计口径缺陷，“本月请求”与“累计请求”容易相同或非常接近，而且这里的“本月”并不是自然月。",
+      "evidence": [
+        "server/src/services/logStatsService.js:1606",
+        "server/src/services/logStatsService.js:28",
+        "server/src/services/logStatsService.js:982",
+        "server/src/utils/statsTime.js:74",
+        "server/src/utils/statsTime.js:100",
+        "web/src/views/stats/Stats.vue:559"
+      ],
+      "analysis": [
+        "旧版 overview 在 getOverviewData() 中将 monthStart 直接设为 todayStart - 29 天，实际表示最近 30 天，而不是自然月。",
+        "旧版 overview 的 total 直接统计 proxy_logs 原始日志，没有读取 daily_stats 或 request_daily_stats 聚合历史。",
+        "系统默认只保留 30 天原始日志，旧日志会被 cleanupExpiredLogs() 清理。",
+        "因此当原始日志只剩近 30 天数据时，total 会退化为“当前仍保留的原始日志总量”，与 month 高度重合，甚至完全一致。",
+        "同一个 /stats 页面中的排行、分布等接口却又通过 getTimeRange('month') 使用自然月口径，导致页面内部“本月”定义不一致。"
+      ],
+      "extra_issue": "旧版 overview 的 requestCount 使用 COUNT(*) 直接统计日志条数，而新版 /stats-snapshot 使用 request_scope 去重后的请求数，两页口径也不一致。",
+      "judgement": "这是明确的旧逻辑问题，应优先修复。"
+    }
+  ],
+  "suggestions": [
+    {
+      "option": "保留 /stats-snapshot 作为主统计页",
+      "details": [
+        "在页面上明确标注“本周=自然周、本月=自然月”。",
+        "必要时将文案改为“自然周请求”“自然月请求”，降低误解。"
+      ]
+    },
+    {
+      "option": "修复 /stats 旧页统计口径",
+      "details": [
+        "将 overview.month 改为自然月起始而非最近 30 天。",
+        "将 overview.total 改为 request_daily_stats 或 daily_stats + today 的历史累计口径。",
+        "将 overview 的请求数统一为 request_scope 去重口径，而不是 COUNT(*) 日志条数。",
+        "让 overview、排行、图表的 week/month/total 采用同一套时间范围定义。"
+      ]
+    }
+  ],
+  "decision_suggestion": {
+    "stats_snapshot": "需讨论",
+    "stats": "退回"
+  },
+  "conversationId": null
+}

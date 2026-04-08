@@ -69,7 +69,7 @@
       <a-col :xs="12" :sm="8" :md="6" :lg="4">
         <a-card hoverable class="stat-card">
           <a-tooltip :content="`${overview.week.requests.toLocaleString()} 次`">
-            <a-statistic title="本周请求" :value="getStatValue(overview.week.requests)" :precision="getStatPrecision(overview.week.requests)">
+            <a-statistic title="自然周请求" :value="getStatValue(overview.week.requests)" :precision="getStatPrecision(overview.week.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.week.requests) }}</span>
               </template>
@@ -82,7 +82,7 @@
           <a-tooltip
             :content="`${overview.month.requests.toLocaleString()} 次`"
           >
-            <a-statistic title="本月请求" :value="getStatValue(overview.month.requests)" :precision="getStatPrecision(overview.month.requests)">
+            <a-statistic title="自然月请求" :value="getStatValue(overview.month.requests)" :precision="getStatPrecision(overview.month.requests)">
               <template #suffix>
                 <span class="stat-suffix">{{ getStatSuffix(overview.month.requests) }}</span>
               </template>
