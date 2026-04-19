@@ -32,10 +32,6 @@
             <template #icon><icon-dashboard /></template>
             仪表盘
           </a-menu-item>
-          <a-menu-item key="/dashboard-snapshot">
-            <template #icon><icon-dashboard /></template>
-            仪表盘核对
-          </a-menu-item>
           <a-menu-item key="/sites">
             <template #icon><icon-link /></template>
             网站管理
@@ -51,10 +47,6 @@
           <a-menu-item key="/stats">
             <template #icon><icon-bar-chart /></template>
             统计分析
-          </a-menu-item>
-          <a-menu-item key="/stats-snapshot">
-            <template #icon><icon-bar-chart /></template>
-            统计核对
           </a-menu-item>
           <a-menu-item key="/settings">
             <template #icon><icon-settings /></template>
@@ -92,10 +84,6 @@
               <template #icon><icon-dashboard /></template>
               仪表盘
             </a-menu-item>
-            <a-menu-item key="/dashboard-snapshot">
-              <template #icon><icon-dashboard /></template>
-              仪表盘核对
-            </a-menu-item>
             <a-menu-item key="/sites">
               <template #icon><icon-link /></template>
               网站管理
@@ -111,10 +99,6 @@
             <a-menu-item key="/stats">
               <template #icon><icon-bar-chart /></template>
               统计分析
-            </a-menu-item>
-            <a-menu-item key="/stats-snapshot">
-              <template #icon><icon-bar-chart /></template>
-              统计核对
             </a-menu-item>
             <a-menu-item key="/settings">
               <template #icon><icon-settings /></template>

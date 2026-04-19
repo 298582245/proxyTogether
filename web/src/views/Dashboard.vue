@@ -135,7 +135,7 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { getAccountStats, refreshAllBalance } from '@/api/account'
-import { getLogChart, getLogStats } from '@/api/log'
+import { getDashboardChartNew, getStatsOverviewNew } from '@/api/statsSnapshot'
 import { Message } from '@arco-design/web-vue'
 import {
   IconCodeSquare,
@@ -204,8 +204,11 @@ const loadStats = async () => {
 
 const loadLogStats = async () => {
   try {
-    const res = await getLogStats()
-    Object.assign(logStats, res.data)
+    const res = await getStatsOverviewNew()
+    Object.assign(logStats, {
+      totalRequests: Number(res.data?.total?.requests || 0),
+      totalCost: Number(res.data?.total?.cost || 0)
+    })
   } catch (error) {
     // 错误已处理
   }
@@ -213,7 +216,7 @@ const loadLogStats = async () => {
 
 const loadChartData = async () => {
   try {
-    const res = await getLogChart({ type: chartType.value })
+    const res = await getDashboardChartNew({ type: chartType.value })
     chartData.value = res.data
     await nextTick()
     renderChart(res.data)

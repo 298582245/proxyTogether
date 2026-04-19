@@ -19,11 +19,6 @@ const routes = [
         component: () => import('@/views/Dashboard.vue')
       },
       {
-        path: 'dashboard-snapshot',
-        name: 'DashboardSnapshot',
-        component: () => import('@/views/DashboardSnapshot.vue')
-      },
-      {
         path: 'sites',
         name: 'Sites',
         component: () => import('@/views/sites/SiteList.vue')
@@ -46,12 +41,11 @@ const routes = [
       {
         path: 'stats',
         name: 'Stats',
-        component: () => import('@/views/stats/Stats.vue')
+        component: () => import('@/views/stats/StatsSnapshot.vue')
       },
       {
         path: 'stats-snapshot',
-        name: 'StatsSnapshot',
-        component: () => import('@/views/stats/StatsSnapshot.vue')
+        redirect: '/stats'
       }
     ]
   }
