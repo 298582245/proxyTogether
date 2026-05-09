@@ -271,9 +271,10 @@ const buildExtractUrl = (account, site, durationValue, formatValue, resolvedDura
  */
 const logProxyRequest = async (data) => {
   try {
-    await logStatsService.createProxyLog(data);
+    return await logStatsService.createProxyLog(data);
   } catch (error) {
     logger.error('记录代理日志失败:', error);
+    return null;
   }
 };
 
@@ -693,8 +694,233 @@ const getProxy = async (durationValue, format, clientIp, triedAccountIds = [], r
   }
 };
 
+const getProxyByAccount = async (accountId, durationValue, format, clientIp, remark = null, requestId = null) => {
+  const account = await Account.findByPk(accountId, {
+    include: [
+      {
+        model: Site,
+        as: 'site',
+        required: false,
+      },
+    ],
+  });
+
+  if (!account) {
+    return {
+      success: false,
+      message: '账号不存在',
+      data: null,
+    };
+  }
+
+  const site = account.site;
+  const hasExtractConfig = Boolean(site || account.extractUrlTemplate);
+  if (!hasExtractConfig) {
+    return {
+      success: false,
+      message: '账号缺少提取配置',
+      data: null,
+    };
+  }
+
+  const siteName = site ? site.name : '独立包月';
+  const baseLogData = {
+    requestId,
+    accountId: account.id,
+    siteId: site ? site.id : null,
+    clientIp,
+    duration: durationValue,
+    format,
+    remark,
+  };
+
+  if (account.status !== 1) {
+    await logProxyRequest({
+      ...baseLogData,
+      success: false,
+      cost: 0,
+      errorMessage: '账号已禁用',
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message: '账号已禁用',
+      data: null,
+    };
+  }
+
+  if (site && site.status !== 1) {
+    await logProxyRequest({
+      ...baseLogData,
+      success: false,
+      cost: 0,
+      errorMessage: '网站已禁用',
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message: '网站已禁用',
+      data: null,
+    };
+  }
+
+  if (!isDurationSupported(site, account, durationValue)) {
+    await logProxyRequest({
+      ...baseLogData,
+      success: false,
+      cost: 0,
+      errorMessage: '账号不支持该时长参数',
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message: '账号不支持该时长参数',
+      data: null,
+    };
+  }
+
+  if (isAccountExpired(account, site)) {
+    await logProxyRequest({
+      ...baseLogData,
+      success: false,
+      cost: 0,
+      errorMessage: '账号已过期',
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message: '账号已过期',
+      data: null,
+    };
+  }
+
+  const usageReservation = await usageLimitService.reserveUsageCount(account.id);
+  if (!usageReservation.reserved) {
+    const message = usageReservation.reason || '账号已达到使用限制';
+    await logProxyRequest({
+      ...baseLogData,
+      success: false,
+      cost: 0,
+      errorMessage: message,
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message,
+      data: null,
+    };
+  }
+
+  const balance = await getAccountAvailableBalance(account.id);
+  const isMonthly = isMonthlyAccount(account, site);
+  const cost = isMonthly ? 0 : getDurationPrice(site, account, durationValue);
+  const resolvedFormat = resolveFormatParam(account, site, format);
+  const resolvedDuration = resolveDurationParam(account, site, durationValue);
+  const extractUrl = buildExtractUrl(account, site, durationValue, resolvedFormat.forwardFormat, resolvedDuration);
+  logger.info(`定向提取账号: ${account.name}(${siteName}), format=${resolvedFormat.requestFormat}, times=${resolvedDuration.requestTimes}`);
+  logger.info(`定向提取链接: ${extractUrl}`);
+
+  try {
+    const response = await get(extractUrl);
+    const responseStr = typeof response === 'object' ? JSON.stringify(response) : String(response);
+    const responsePreview = responseStr.substring(0, 500);
+
+    let failureKeywords = [];
+    if (account.failureKeywords && Array.isArray(account.failureKeywords)) {
+      failureKeywords = [...account.failureKeywords];
+    }
+    if (site && site.failureKeywords) {
+      failureKeywords = [...failureKeywords, ...site.failureKeywords];
+    }
+
+    try {
+      const defaultKeywords = JSON.parse(
+        await SystemConfig.getValue('proxy_failure_keywords', '["余额不足","已过期"]')
+      );
+      failureKeywords = [...failureKeywords, ...defaultKeywords];
+    } catch {
+      failureKeywords = [...failureKeywords, '余额不足', '已过期'];
+    }
+
+    if (containsFailureKeyword(response, failureKeywords)) {
+      await usageLimitService.rollbackUsageCount(account.id, usageReservation);
+      await incrementFailCount(account, site);
+
+      await logProxyRequest({
+        ...baseLogData,
+        format: resolvedFormat.requestFormat,
+        success: false,
+        cost: 0,
+        errorMessage: '响应包含失败关键词',
+        responsePreview,
+      });
+
+      return {
+        success: false,
+        message: '响应包含失败关键词',
+        data: { response },
+      };
+    }
+
+    await resetFailCount(account.id);
+    await usageLimitService.confirmUsageCount(account.id, usageReservation);
+
+    const log = await logProxyRequest({
+      ...baseLogData,
+      format: resolvedFormat.requestFormat,
+      success: true,
+      cost,
+      responsePreview,
+    });
+
+    logger.info(`定向提取成功: ${account.name}, cost=${cost}`);
+
+    return {
+      success: true,
+      message: '获取成功',
+      data: {
+        response,
+        logId: log ? log.id : null,
+        account: {
+          id: account.id,
+          name: account.name,
+          siteName,
+          balance: isMonthly ? '包月' : balance,
+          cost,
+          isMonthly,
+        },
+      },
+    };
+  } catch (error) {
+    logger.error(`定向提取失败: ${account.name}`, error.message);
+    await usageLimitService.rollbackUsageCount(account.id, usageReservation);
+    await incrementFailCount(account, site);
+
+    await logProxyRequest({
+      ...baseLogData,
+      format: resolvedFormat.requestFormat,
+      success: false,
+      cost: 0,
+      errorMessage: error.message,
+      responsePreview: null,
+    });
+
+    return {
+      success: false,
+      message: error.message,
+      data: null,
+    };
+  }
+};
+
 module.exports = {
   getProxy,
+  getProxyByAccount,
   buildExtractUrl,
   extractParamNames,
   isDurationSupported,

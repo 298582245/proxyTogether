@@ -85,3 +85,10 @@
 - 2026-03-29 18:31 | 工具: apply_patch | 目标: `server/src/services/statsNewService.js` | 摘要: 为 `dailySettlement()` 补充 `proxy_log_hourly_stats`、`proxy_log_remark_daily_stats` 的删除与写入逻辑，并让小时分布、备注请求排行、备注消费排行支持历史金额聚合
 - 2026-03-29 18:31 | 工具: apply_patch | 目标: `server/src/services/schemaMigrationService.js` | 摘要: 补充小时聚合表和备注日聚合表的自动建表逻辑，避免新环境执行结算时报表缺失
 - 2026-03-29 18:31 | 工具: node | 命令: `node --check server/src/services/statsNewService.js && node --check server/src/services/schemaMigrationService.js` | 摘要: 语法校验通过
+- 2026-05-10 01:42 | 工具: shell_command | 命令: `rg --files`、`rg -n "getProxy|ProxyLog|scheduler|SystemConfig"` | 摘要: 定位代理提取链路、提取日志和现有定时任务入口，确认可通过 `proxy_logs` 判断账号最近成功提取时间
+- 2026-05-10 01:42 | 工具: apply_patch | 目标: `server/src/services/proxyService.js` | 摘要: 新增账号定向提取方法 `getProxyByAccount()`，保留原 `/api/proxy/get` 自动选账号逻辑不变，并返回日志ID供保活追加访问结果
+- 2026-05-10 01:42 | 工具: apply_patch | 目标: `server/src/services/proxyKeepaliveService.js` | 摘要: 新增代理白名单保活服务：每轮筛选超过配置天数未成功提取的账号，定向提取IP后使用该代理访问目标URL，并以备注“代理白名单保活”写入日志
+- 2026-05-10 01:42 | 工具: apply_patch | 目标: `server/src/schedulers/balanceScheduler.js` | 摘要: 新增每日保活调度任务，任务内部按 `proxy_keepalive_interval_days` 判断是否满周期，不到周期记录跳过
+- 2026-05-10 01:42 | 工具: apply_patch | 目标: `server/src/controllers/configController.js`, `server/src/services/schemaMigrationService.js`, `web/src/views/settings/SystemConfig.vue` | 摘要: 增加保活开关、间隔、执行时间、访问URL配置及默认值迁移，修改执行时间后自动重启保活调度
+- 2026-05-10 01:43 | 工具: node | 命令: `node --check server/src/services/proxyService.js && node --check server/src/services/proxyKeepaliveService.js && node --check server/src/schedulers/balanceScheduler.js && node --check server/src/controllers/configController.js && node --check server/src/services/schemaMigrationService.js` | 摘要: 后端变更文件语法校验通过
+- 2026-05-10 01:44 | 工具: npm | 命令: `cd web && npm run build` | 摘要: 前端生产构建通过，更新 `web/dist` 构建产物；Vite 仅提示既有大 chunk 警告

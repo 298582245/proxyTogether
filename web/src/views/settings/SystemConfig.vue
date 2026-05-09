@@ -95,6 +95,65 @@
             </template>
           </a-form-item>
 
+          <a-form-item label="代理白名单保活">
+            <a-switch
+              v-model="form.proxy_keepalive_enabled"
+              :checked-value="1"
+              :unchecked-value="0"
+            />
+            <template #extra>
+              <span class="form-tip">启用后定期为长期未提取IP的账号执行一次提取并通过该IP访问目标网站</span>
+            </template>
+          </a-form-item>
+
+          <a-form-item label="保活检测间隔">
+            <div class="inline-input">
+              <a-input-number
+                v-model="form.proxy_keepalive_interval_days"
+                :min="1"
+                :max="365"
+                style="width: 150px"
+              />
+              <span class="input-suffix">天</span>
+            </div>
+            <template #extra>
+              <span class="form-tip">默认 7 天；超过该天数没有成功提取记录的账号会触发保活</span>
+            </template>
+          </a-form-item>
+
+          <a-form-item label="保活执行时间">
+            <div class="inline-input">
+              <a-input-number
+                v-model="form.proxy_keepalive_check_hour"
+                :min="0"
+                :max="23"
+                style="width: 100px"
+              />
+              <span class="input-suffix">时</span>
+              <a-input-number
+                v-model="form.proxy_keepalive_check_minute"
+                :min="0"
+                :max="59"
+                style="width: 100px"
+              />
+              <span class="input-suffix">分</span>
+            </div>
+            <template #extra>
+              <span class="form-tip">每天到点检查一次，距离上次保活不足检测间隔时会自动跳过</span>
+            </template>
+          </a-form-item>
+
+          <a-form-item label="保活访问地址">
+            <a-input
+              v-model="form.proxy_keepalive_target_url"
+              placeholder="http://example.com"
+              style="max-width: 420px"
+            />
+            <template #extra>
+              <span class="form-tip">保活任务会使用提取到的代理IP访问该HTTP/HTTPS地址；日志备注可搜索“代理白名单保活”查看</span>
+            </template>
+          </a-form-item>
+
           <div class="form-actions">
             <a-button type="primary" :loading="saving" @click="handleSave"
               >保存设置</a-button
@@ -123,6 +182,11 @@ const form = reactive({
   max_fail_count: 3,
   proxy_failure_keywords: ["余额不足", "已过期"],
   balance_check_interval: 30,
+  proxy_keepalive_enabled: 1,
+  proxy_keepalive_interval_days: 7,
+  proxy_keepalive_check_hour: 3,
+  proxy_keepalive_check_minute: 20,
+  proxy_keepalive_target_url: "http://example.com",
 });
 
 const loadConfig = async () => {
@@ -153,6 +217,16 @@ const loadConfig = async () => {
         }
       } else if (item.key === "balance_check_interval") {
         form.balance_check_interval = parseInt(item.value, 10) || 30;
+      } else if (item.key === "proxy_keepalive_enabled") {
+        form.proxy_keepalive_enabled = item.value === "0" ? 0 : 1;
+      } else if (item.key === "proxy_keepalive_interval_days") {
+        form.proxy_keepalive_interval_days = parseInt(item.value, 10) || 7;
+      } else if (item.key === "proxy_keepalive_check_hour") {
+        form.proxy_keepalive_check_hour = parseInt(item.value, 10) || 0;
+      } else if (item.key === "proxy_keepalive_check_minute") {
+        form.proxy_keepalive_check_minute = parseInt(item.value, 10) || 0;
+      } else if (item.key === "proxy_keepalive_target_url") {
+        form.proxy_keepalive_target_url = item.value || "http://example.com";
       }
     });
   } catch (error) {
@@ -187,6 +261,26 @@ const handleSave = async () => {
     configs.push({
       key: "balance_check_interval",
       value: form.balance_check_interval.toString(),
+    });
+    configs.push({
+      key: "proxy_keepalive_enabled",
+      value: form.proxy_keepalive_enabled.toString(),
+    });
+    configs.push({
+      key: "proxy_keepalive_interval_days",
+      value: form.proxy_keepalive_interval_days.toString(),
+    });
+    configs.push({
+      key: "proxy_keepalive_check_hour",
+      value: form.proxy_keepalive_check_hour.toString(),
+    });
+    configs.push({
+      key: "proxy_keepalive_check_minute",
+      value: form.proxy_keepalive_check_minute.toString(),
+    });
+    configs.push({
+      key: "proxy_keepalive_target_url",
+      value: form.proxy_keepalive_target_url || "http://example.com",
     });
 
     await updateConfig(configs);

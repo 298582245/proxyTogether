@@ -2,6 +2,7 @@
 const SystemConfig = require('../models/SystemConfig');
 const balanceService = require('../services/balanceService');
 const logStatsService = require('../services/logStatsService');
+const proxyKeepaliveService = require('../services/proxyKeepaliveService');
 const statsNewService = require('../services/statsNewService');
 const usageLimitService = require('../services/usageLimitService');
 const logger = require('../utils/logger');
@@ -12,6 +13,7 @@ let logStatsFlushJob = null;
 let logCleanupJob = null;
 let dailySettlementJob = null;
 let monthlySettlementJob = null;
+let proxyKeepaliveJob = null;
 
 const normalizeInteger = (value, defaultValue, minValue, maxValue) => {
   const parsedValue = Number.parseInt(value, 10);
@@ -147,6 +149,40 @@ const stopLogCleanupJob = () => {
   }
 };
 
+const startProxyKeepaliveJob = async () => {
+  stopProxyKeepaliveJob();
+  await proxyKeepaliveService.ensureProxyKeepaliveConfigDefaults();
+
+  const { checkHour, checkMinute } = await proxyKeepaliveService.getConfig();
+  const cronExpression = `${checkMinute} ${checkHour} * * *`;
+
+  logger.info(`proxy keepalive job started, time=${String(checkHour).padStart(2, '0')}:${String(checkMinute).padStart(2, '0')}`);
+
+  proxyKeepaliveJob = cron.schedule(cronExpression, async () => {
+    try {
+      const result = await proxyKeepaliveService.runProxyKeepalive();
+      if (result.skipped) {
+        logger.info(`proxy keepalive job skipped: ${result.reason}`);
+        return;
+      }
+
+      logger.info(`proxy keepalive job completed: total=${result.total}, success=${result.successCount}, fail=${result.failCount}`);
+    } catch (error) {
+      logger.error('proxy keepalive job failed:', error);
+    }
+  });
+
+  return proxyKeepaliveJob;
+};
+
+const stopProxyKeepaliveJob = () => {
+  if (proxyKeepaliveJob) {
+    proxyKeepaliveJob.stop();
+    proxyKeepaliveJob = null;
+    logger.info('proxy keepalive job stopped');
+  }
+};
+
 const startDailySettlementJob = async () => {
   stopDailySettlementJob();
 
@@ -212,6 +248,11 @@ const restartLogStatsJobs = async () => {
   return true;
 };
 
+const restartProxyKeepaliveJob = async () => {
+  stopProxyKeepaliveJob();
+  return startProxyKeepaliveJob();
+};
+
 const initSchedulers = async () => {
   await startBalanceCheckJob();
   await startUsageLimitResetJob();
@@ -240,6 +281,12 @@ const initSchedulers = async () => {
     logger.error('monthly settlement job init failed:', error);
   }
 
+  try {
+    await startProxyKeepaliveJob();
+  } catch (error) {
+    logger.error('proxy keepalive job init failed:', error);
+  }
+
   logger.info('all scheduler jobs initialized');
 };
 
@@ -250,6 +297,7 @@ const stopAllSchedulers = () => {
   stopLogCleanupJob();
   stopDailySettlementJob();
   stopMonthlySettlementJob();
+  stopProxyKeepaliveJob();
   logger.info('all scheduler jobs stopped');
 };
 
@@ -257,11 +305,13 @@ module.exports = {
   initSchedulers,
   restartBalanceCheckJob,
   restartLogStatsJobs,
+  restartProxyKeepaliveJob,
   startBalanceCheckJob,
   startDailySettlementJob,
   startLogCleanupJob,
   startLogStatsFlushJob,
   startMonthlySettlementJob,
+  startProxyKeepaliveJob,
   startUsageLimitResetJob,
   stopAllSchedulers,
   stopBalanceCheckJob,
@@ -269,5 +319,6 @@ module.exports = {
   stopLogCleanupJob,
   stopLogStatsFlushJob,
   stopMonthlySettlementJob,
+  stopProxyKeepaliveJob,
   stopUsageLimitResetJob,
 };

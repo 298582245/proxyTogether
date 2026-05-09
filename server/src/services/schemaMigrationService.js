@@ -105,11 +105,46 @@ const ensureProxyLogRemarkDailyStatsTable = async () => {
   );
 };
 
+const ensureSystemConfigDefault = async (key, value, description) => {
+  await sequelize.query(
+    `
+      INSERT INTO system_configs (config_key, config_value, description, created_at, updated_at)
+      VALUES (:configKey, :configValue, :description, NOW(), NOW())
+      ON DUPLICATE KEY UPDATE
+        description = VALUES(description),
+        updated_at = updated_at
+    `,
+    {
+      replacements: {
+        configKey: key,
+        configValue: value,
+        description,
+      },
+      type: QueryTypes.INSERT,
+    },
+  );
+};
+
+const ensureProxyKeepaliveConfigDefaults = async () => {
+  const defaults = [
+    { key: 'proxy_keepalive_enabled', value: '1', description: '代理白名单保活任务开关(1启用 0禁用)' },
+    { key: 'proxy_keepalive_interval_days', value: '7', description: '代理白名单保活检测间隔(天)' },
+    { key: 'proxy_keepalive_check_hour', value: '3', description: '代理白名单保活检测小时(0-23)' },
+    { key: 'proxy_keepalive_check_minute', value: '20', description: '代理白名单保活检测分钟(0-59)' },
+    { key: 'proxy_keepalive_target_url', value: 'http://example.com', description: '代理白名单保活访问目标URL' },
+  ];
+
+  for (const item of defaults) {
+    await ensureSystemConfigDefault(item.key, item.value, item.description);
+  }
+};
+
 const runSchemaMigrations = async () => {
   await ensureProxyLogsRequestId();
   await ensureProxyLogRequestDailyStatsTable();
   await ensureProxyLogHourlyStatsTable();
   await ensureProxyLogRemarkDailyStatsTable();
+  await ensureProxyKeepaliveConfigDefaults();
 };
 
 module.exports = {

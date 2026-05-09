@@ -12,6 +12,10 @@ const LOG_SCHEDULER_KEYS = [
   'log_cleanup_hour',
   'log_cleanup_minute',
 ];
+const PROXY_KEEPALIVE_SCHEDULER_KEYS = [
+  'proxy_keepalive_check_hour',
+  'proxy_keepalive_check_minute',
+];
 
 const normalizeInteger = (value) => {
   const parsedValue = Number.parseInt(value, 10);
@@ -27,6 +31,17 @@ const createValidationError = (message) => {
 const assertIntegerRange = (value, minValue, maxValue, message) => {
   const parsedValue = normalizeInteger(value);
   if (parsedValue === null || parsedValue < minValue || parsedValue > maxValue) {
+    throw createValidationError(message);
+  }
+};
+
+const assertHttpUrl = (value, message) => {
+  try {
+    const url = new URL(String(value));
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error('invalid protocol');
+    }
+  } catch {
     throw createValidationError(message);
   }
 };
@@ -106,6 +121,31 @@ const validateAndNormalizeConfigValue = async (key, value) => {
     return String(normalizeInteger(value));
   }
 
+  if (key === 'proxy_keepalive_enabled') {
+    const normalizedValue = String(value) === '1' || value === true ? '1' : '0';
+    return normalizedValue;
+  }
+
+  if (key === 'proxy_keepalive_interval_days') {
+    assertIntegerRange(value, 1, 365, '代理白名单保活间隔必须是1到365之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'proxy_keepalive_check_hour') {
+    assertIntegerRange(value, 0, 23, '代理白名单保活小时必须是0到23之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'proxy_keepalive_check_minute') {
+    assertIntegerRange(value, 0, 59, '代理白名单保活分钟必须是0到59之间的整数');
+    return String(normalizeInteger(value));
+  }
+
+  if (key === 'proxy_keepalive_target_url') {
+    assertHttpUrl(value, '代理白名单保活访问地址必须是有效的HTTP/HTTPS URL');
+    return String(value).trim();
+  }
+
   if (value === undefined || value === null) {
     return '';
   }
@@ -175,6 +215,10 @@ const updateConfig = async (req, res) => {
       await scheduler.restartLogStatsJobs();
     }
 
+    if (updatedKeys.some((key) => PROXY_KEEPALIVE_SCHEDULER_KEYS.includes(key))) {
+      await scheduler.restartProxyKeepaliveJob();
+    }
+
     res.json({
       success: true,
       message: '配置更新成功',
@@ -215,4 +259,3 @@ module.exports = {
   updateConfig,
   getConfigValue,
 };
-
