@@ -103,14 +103,19 @@
             <a-table-column
               title="到期时间"
               data-index="expireAt"
-              :width="170"
+              :width="90"
               align="center"
             >
               <template #cell="{ record }">
                 <template v-if="record.expireAt">
-                  <span :class="{ expired: isExpired(record.expireAt) }">
-                    {{ formatDate(record.expireAt) }}
-                  </span>
+                  <a-tooltip :content="formatFullDateTime(record.expireAt)">
+                    <span
+                      class="compact-time"
+                      :class="{ expired: isExpired(record.expireAt) }"
+                    >
+                      {{ formatMonthDay(record.expireAt) }}
+                    </span>
+                  </a-tooltip>
                 </template>
                 <span v-else>-</span>
               </template>
@@ -153,11 +158,18 @@
             <a-table-column
               title="余额更新"
               data-index="balanceUpdatedAt"
-              :width="170"
+              :width="100"
               align="center"
             >
               <template #cell="{ record }">
-                {{ formatDate(record.balanceUpdatedAt) }}
+                <template v-if="record.balanceUpdatedAt">
+                  <a-tooltip :content="formatFullDateTime(record.balanceUpdatedAt)">
+                    <span class="compact-time">
+                      {{ formatTimeOnly(record.balanceUpdatedAt) }}
+                    </span>
+                  </a-tooltip>
+                </template>
+                <span v-else>-</span>
               </template>
             </a-table-column>
             <a-table-column
@@ -187,7 +199,7 @@
             </a-table-column>
             <a-table-column
               title="操作"
-              :width="260"
+              :width="340"
               fixed="right"
               align="center"
             >
@@ -265,9 +277,10 @@
               <div class="card-row" v-if="item.expireAt">
                 <span class="card-label">到期时间:</span>
                 <span
-                  class="card-value"
+                  class="card-value clickable-time"
                   :class="{ expired: isExpired(item.expireAt) }"
-                  >{{ formatDate(item.expireAt) }}</span
+                  @click="showTimeDetail(item.expireAt, '到期时间')"
+                  >{{ formatMonthDay(item.expireAt) }}</span
                 >
               </div>
               <div class="card-row">
@@ -293,9 +306,12 @@
               </div>
               <div class="card-row">
                 <span class="card-label">更新时间:</span>
-                <span class="card-value">{{
-                  formatDate(item.balanceUpdatedAt)
-                }}</span>
+                <span
+                  class="card-value"
+                  :class="{ 'clickable-time': item.balanceUpdatedAt }"
+                  @click="showTimeDetail(item.balanceUpdatedAt, '余额更新时间')"
+                  >{{ formatTimeOnly(item.balanceUpdatedAt) }}</span
+                >
               </div>
             </div>
             <div class="card-actions">
@@ -936,6 +952,34 @@ const testDialog = reactive({
 });
 
 const formatDate = (date) => formatLocalizedDateTime(date);
+
+const formatFullDateTime = (date) => formatDate(date) || "-";
+
+const formatMonthDay = (date) => {
+  const parsedDate = parseLocalDateTime(date);
+  if (!parsedDate) return "-";
+
+  return `${parsedDate.getMonth() + 1}月${parsedDate.getDate()}日`;
+};
+
+const formatTimeOnly = (date) => {
+  const parsedDate = parseLocalDateTime(date);
+  if (!parsedDate) return "-";
+
+  const hour = String(parsedDate.getHours()).padStart(2, "0");
+  const minute = String(parsedDate.getMinutes()).padStart(2, "0");
+  const second = String(parsedDate.getSeconds()).padStart(2, "0");
+  return `${hour}:${minute}:${second}`;
+};
+
+const showTimeDetail = (date, title) => {
+  if (!date) return;
+
+  Modal.info({
+    title,
+    content: formatFullDateTime(date),
+  });
+};
 
 // 格式化成功次数显示
 const formatCount = (count) => {
@@ -1757,6 +1801,15 @@ onUnmounted(() => {
   color: var(--color-text-1);
 }
 
+.compact-time {
+  display: inline-block;
+  max-width: 84px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
 .expired {
   color: #f56c6c;
 }
@@ -1833,6 +1886,12 @@ onUnmounted(() => {
   color: #606266;
   font-size: 13px;
   word-break: break-all;
+}
+
+.clickable-time {
+  cursor: pointer;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
 }
 
 .card-actions {
