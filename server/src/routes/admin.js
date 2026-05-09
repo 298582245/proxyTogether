@@ -37,6 +37,7 @@ router.put('/accounts/:id', authMiddleware, accountController.update);
 router.delete('/accounts/:id', authMiddleware, accountController.remove);
 router.put('/accounts/:id/toggle', authMiddleware, accountController.toggleStatus);
 router.post('/accounts/:id/refresh-balance', authMiddleware, accountController.refreshBalance);
+router.post('/accounts/:id/test', authMiddleware, accountController.testAccount);
 router.post('/accounts/refresh-all-balance', authMiddleware, accountController.refreshAllBalance);
 
 // 系统配置

@@ -377,18 +377,31 @@ const visitTargetByProxy = async (proxyEndpoint, targetUrl) => {
   }
 };
 
-const keepaliveAccount = async (account, targetUrl) => {
+const testAccountProxy = async (account, targetUrl, options = {}) => {
   const site = account.site;
   const durationValue = chooseDurationValue(account, site);
+  if (!durationValue) {
+    return {
+      accountId: account.id,
+      accountName: account.name,
+      success: false,
+      message: '账号未配置可用时长',
+      stage: 'resolve_duration',
+      targetUrl,
+    };
+  }
+
   const formatValue = chooseFormatValue(account, site);
   const requestId = createRequestId();
+  const remark = options.remark || KEEPALIVE_REMARK;
+  const clientIp = options.clientIp || 'scheduler:proxy-keepalive';
 
   const extractResult = await proxyService.getProxyByAccount(
     account.id,
     durationValue,
     formatValue,
-    'scheduler:proxy-keepalive',
-    KEEPALIVE_REMARK,
+    clientIp,
+    remark,
     requestId
   );
 
@@ -399,6 +412,7 @@ const keepaliveAccount = async (account, targetUrl) => {
       success: false,
       message: extractResult.message,
       stage: 'extract',
+      targetUrl,
     };
   }
 
@@ -417,6 +431,7 @@ const keepaliveAccount = async (account, targetUrl) => {
       success: false,
       message: visitResult.message,
       stage: 'parse_proxy',
+      targetUrl,
     };
   }
 
@@ -431,7 +446,38 @@ const keepaliveAccount = async (account, targetUrl) => {
     stage: 'visit_target',
     proxy: `${proxyEndpoint.host}:${proxyEndpoint.port}`,
     targetUrl,
+    logId: extractResult.data.logId,
   };
+};
+
+const testAccountById = async (accountId, options = {}) => {
+  await ensureProxyKeepaliveConfigDefaults();
+  const config = await getConfig();
+  const account = await Account.findByPk(accountId, {
+    include: [
+      {
+        model: Site,
+        as: 'site',
+        required: false,
+      },
+    ],
+  });
+
+  if (!account) {
+    return {
+      accountId: Number(accountId),
+      accountName: null,
+      success: false,
+      message: '账号不存在',
+      stage: 'load_account',
+      targetUrl: options.targetUrl || config.targetUrl,
+    };
+  }
+
+  return testAccountProxy(account, options.targetUrl || config.targetUrl, {
+    clientIp: options.clientIp || 'admin:account-test',
+    remark: options.remark || '账号手动测试',
+  });
 };
 
 const runProxyKeepalive = async (options = {}) => {
@@ -459,7 +505,7 @@ const runProxyKeepalive = async (options = {}) => {
 
     for (const account of inactiveAccounts) {
       try {
-        const result = await keepaliveAccount(account, config.targetUrl);
+        const result = await testAccountProxy(account, config.targetUrl);
         details.push(result);
         logger.info(`代理白名单保活账号完成: account=${account.name}, success=${result.success}, stage=${result.stage}, message=${result.message}`);
       } catch (error) {
@@ -497,4 +543,5 @@ module.exports = {
   ensureProxyKeepaliveConfigDefaults,
   getConfig,
   runProxyKeepalive,
+  testAccountById,
 };

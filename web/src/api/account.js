@@ -40,6 +40,11 @@ export const refreshAccountBalance = (id) => {
   return request.post(`/admin/accounts/${id}/refresh-balance`)
 }
 
+// 测试账号是否能正常提取并访问网站
+export const testAccount = (id) => {
+  return request.post(`/admin/accounts/${id}/test`)
+}
+
 // 批量刷新余额
 export const refreshAllBalance = () => {
   return request.post('/admin/accounts/refresh-all-balance')

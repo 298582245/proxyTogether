@@ -1,4 +1,4 @@
-# Operations Log (UTC+8)
+﻿# Operations Log (UTC+8)
 
 - 2026-03-17 16:05 | 工具: sequential-thinking | 输入: 任务理解、方案评估、风险、步骤 | 摘要: 明确需查找会话ID并建立`.claude`目录
 - 2026-03-17 16:06 | 工具: shell_command | 命令: `Get-ChildItem` | 摘要: 获取仓库根目录文件列表
@@ -92,3 +92,6 @@
 - 2026-05-10 01:42 | 工具: apply_patch | 目标: `server/src/controllers/configController.js`, `server/src/services/schemaMigrationService.js`, `web/src/views/settings/SystemConfig.vue` | 摘要: 增加保活开关、间隔、执行时间、访问URL配置及默认值迁移，修改执行时间后自动重启保活调度
 - 2026-05-10 01:43 | 工具: node | 命令: `node --check server/src/services/proxyService.js && node --check server/src/services/proxyKeepaliveService.js && node --check server/src/schedulers/balanceScheduler.js && node --check server/src/controllers/configController.js && node --check server/src/services/schemaMigrationService.js` | 摘要: 后端变更文件语法校验通过
 - 2026-05-10 01:44 | 工具: npm | 命令: `cd web && npm run build` | 摘要: 前端生产构建通过，更新 `web/dist` 构建产物；Vite 仅提示既有大 chunk 警告
+- 2026-05-10 02:03 | 工具: apply_patch | 目标: server/src/services/proxyKeepaliveService.js, server/src/controllers/accountController.js, server/src/routes/admin.js, web/src/api/account.js, web/src/views/accounts/AccountList.vue | 摘要: 为账号列表新增“测试”按钮，后端执行定向提取IP并通过该代理访问保活目标URL，前端弹窗展示阶段、结果、代理IP、日志ID
+- 2026-05-10 02:03 | 工具: node/npm | 命令:
+ode --check ...、cd web && npm run build | 摘要: 后端语法检查通过，前端生产构建通过并更新 web/dist；Vite 仅提示既有大 chunk 警告

@@ -3,6 +3,7 @@ const Site = require('../models/Site');
 const ProxyLog = require('../models/ProxyLog');
 const cacheService = require('../services/cacheService');
 const balanceService = require('../services/balanceService');
+const proxyKeepaliveService = require('../services/proxyKeepaliveService');
 const logger = require('../utils/logger');
 const { Op } = require('sequelize');
 const { sequelize } = require('../config/database');
@@ -407,6 +408,27 @@ const refreshAllBalance = async (req, res) => {
   }
 };
 
+const testAccount = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await proxyKeepaliveService.testAccountById(id, {
+      clientIp: req.ip || req.connection?.remoteAddress || 'admin:account-test',
+    });
+
+    res.json({
+      success: true,
+      message: result.success ? '账号测试通过' : '账号测试完成，请查看结果',
+      data: result,
+    });
+  } catch (error) {
+    logger.error('测试账号失败:', error);
+    res.status(500).json({
+      success: false,
+      message: '测试账号失败',
+    });
+  }
+};
+
 /**
  * 获取账号统计
  */
@@ -436,5 +458,6 @@ module.exports = {
   toggleStatus,
   refreshBalance,
   refreshAllBalance,
+  testAccount,
   getStats,
 };

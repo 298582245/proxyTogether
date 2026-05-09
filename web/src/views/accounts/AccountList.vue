@@ -195,6 +195,12 @@
                 <a-space>
                   <a-link @click="handleEdit(record)">编辑</a-link>
                   <a-link
+                    status="normal"
+                    @click="handleTestAccount(record)"
+                    :loading="record.testing"
+                    >测试</a-link
+                  >
+                  <a-link
                     v-if="isMonthlyAccount(record)"
                     status="normal"
                     @click="handleUsageLimit(record)"
@@ -296,6 +302,14 @@
               <a-button type="primary" size="small" @click="handleEdit(item)"
                 >编辑</a-button
               >
+              <a-button
+                status="normal"
+                size="small"
+                @click="handleTestAccount(item)"
+                :loading="item.testing"
+              >
+                测试
+              </a-button>
               <a-button
                 v-if="isMonthlyAccount(item)"
                 status="normal"
@@ -653,6 +667,43 @@
       </a-form>
     </a-modal>
 
+    <!-- 账号测试结果 -->
+    <a-modal
+      v-model:visible="testDialog.visible"
+      title="账号测试结果"
+      :width="isMobile ? '95%' : 560"
+      :footer="false"
+    >
+      <a-descriptions :column="1" bordered size="small">
+        <a-descriptions-item label="账号">
+          {{ testDialog.data.accountName || "-" }}
+        </a-descriptions-item>
+        <a-descriptions-item label="状态">
+          <a-tag :color="testDialog.data.success ? 'green' : 'red'">
+            {{ testDialog.data.success ? "正常" : "异常" }}
+          </a-tag>
+        </a-descriptions-item>
+        <a-descriptions-item label="阶段">
+          {{ getTestStageLabel(testDialog.data.stage) }}
+        </a-descriptions-item>
+        <a-descriptions-item label="结果">
+          {{ testDialog.data.message || "-" }}
+        </a-descriptions-item>
+        <a-descriptions-item label="代理IP">
+          {{ testDialog.data.proxy || "-" }}
+        </a-descriptions-item>
+        <a-descriptions-item label="访问地址">
+          {{ testDialog.data.targetUrl || "-" }}
+        </a-descriptions-item>
+        <a-descriptions-item label="日志ID">
+          {{ testDialog.data.logId || "-" }}
+        </a-descriptions-item>
+      </a-descriptions>
+      <div class="test-dialog-tip">
+        测试会真实提取一次IP，并用该IP访问系统设置里的“保活访问地址”。可在日志中搜索“账号手动测试”查看详情。
+      </div>
+    </a-modal>
+
     <!-- 使用限制对话框 -->
     <a-modal
       v-model:visible="usageLimitDialog.visible"
@@ -766,6 +817,7 @@ import {
   toggleAccountStatus,
   refreshAccountBalance,
   refreshAllBalance,
+  testAccount,
 } from "@/api/account";
 import { getAllActiveSites, getSiteParamHints } from "@/api/site";
 import {
@@ -878,6 +930,11 @@ const usageLimitDialog = reactive({
   },
 });
 
+const testDialog = reactive({
+  visible: false,
+  data: {},
+});
+
 const formatDate = (date) => formatLocalizedDateTime(date);
 
 // 格式化成功次数显示
@@ -925,6 +982,19 @@ const isMonthlyAccount = (row) => {
 // 判断是否为独立包月账号
 const isStandaloneMonthly = (row) => {
   return !row.siteId && row.extractUrlTemplate;
+};
+
+const getTestStageLabel = (stage) => {
+  const stageMap = {
+    load_account: "读取账号",
+    resolve_duration: "解析时长",
+    extract: "提取IP",
+    parse_proxy: "解析代理",
+    visit_target: "访问网站",
+    unknown: "未知阶段",
+  };
+
+  return stageMap[stage] || stage || "-";
 };
 
 const loadSites = async () => {
@@ -1364,6 +1434,31 @@ const handleRefreshAllBalance = async () => {
   }
 };
 
+const handleTestAccount = async (row) => {
+  row.testing = true;
+  try {
+    const res = await testAccount(row.id);
+    testDialog.data = res.data || {
+      accountId: row.id,
+      accountName: row.name,
+      success: Boolean(res.success),
+      message: res.message,
+    };
+    testDialog.visible = true;
+
+    if (testDialog.data.success) {
+      Message.success("账号测试通过");
+    } else {
+      Message.warning(testDialog.data.message || "账号测试未通过");
+    }
+    loadData();
+  } catch (error) {
+    // 错误已处理
+  } finally {
+    row.testing = false;
+  }
+};
+
 // 格式化限制日期
 const formatLimitDate = (date) => {
   if (!date) return "-";
@@ -1751,6 +1846,13 @@ onUnmounted(() => {
 .card-actions .arco-btn {
   flex: 1;
   min-width: 60px;
+}
+
+.test-dialog-tip {
+  margin-top: 12px;
+  color: #86909c;
+  font-size: 13px;
+  line-height: 1.6;
 }
 
 /* 移动端适配 */
