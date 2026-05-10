@@ -827,29 +827,6 @@ const dailySettlement = async (dateStr) => {
     const dayStart = `${targetDate} 00:00:00`;
     const dayEnd = `${targetDate} 23:59:59`;
 
-    // 检查 proxy_logs 中是否有该日期的数据
-    const [logCountResult] = await sequelize.query(
-      `
-      SELECT COUNT(*) as count
-      FROM proxy_logs
-      WHERE created_at >= :dayStart AND created_at <= :dayEnd
-      `,
-      {
-        replacements: { dayStart, dayEnd },
-        type: QueryTypes.SELECT,
-      },
-    );
-
-    const logCount = toInteger(logCountResult?.count);
-
-    // 如果没有原始日志数据,跳过该日期,保留已有的统计数据
-    if (logCount === 0) {
-      logger.warn(`日期 ${targetDate} 没有原始日志数据,跳过结算以保留已有统计数据`);
-      return targetDate;
-    }
-
-    logger.info(`日期 ${targetDate} 有 ${logCount} 条原始日志,开始结算`);
-
     // 将指定日期的数据从 proxy_logs 刷新到 daily_stats
     // 注意：created_at 已经是本地时间，不需要 CONVERT_TZ
     // 注意：使用 COALESCE 将 NULL 转换为 0，确保唯一键正常工作
