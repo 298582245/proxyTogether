@@ -193,6 +193,95 @@ const getUpstreamProxy = async (clientIp, targetLabel) => {
   return proxyEndpoint;
 };
 
+const formatAuthorityHost = (hostname) => hostname.includes(':') ? `[${hostname}]` : hostname;
+
+const createTargetFromUrl = (targetUrl) => {
+  const port = Number.parseInt(targetUrl.port || '80', 10);
+  return {
+    host: targetUrl.hostname,
+    port,
+    authority: `${formatAuthorityHost(targetUrl.hostname)}:${port}`,
+  };
+};
+
+const buildConnectRequest = (target, upstreamProxy) => {
+  const headers = [
+    `CONNECT ${target.authority} HTTP/1.1`,
+    `Host: ${target.authority}`,
+    'Proxy-Connection: Keep-Alive',
+  ];
+  const upstreamAuthHeader = buildUpstreamProxyAuthHeader(upstreamProxy);
+  if (upstreamAuthHeader) {
+    headers.push(`Proxy-Authorization: ${upstreamAuthHeader}`);
+  }
+
+  return `${headers.join('\r\n')}\r\n\r\n`;
+};
+
+const connectThroughUpstreamProxy = (target, upstreamProxy) => new Promise((resolve, reject) => {
+  let responseBuffer = Buffer.alloc(0);
+  let settled = false;
+  const upstreamSocket = net.connect(upstreamProxy.port, upstreamProxy.host);
+
+  const rejectTunnel = (error) => {
+    if (settled) {
+      return;
+    }
+
+    settled = true;
+    upstreamSocket.destroy();
+    reject(error);
+  };
+
+  const onData = (chunk) => {
+    if (settled) {
+      return;
+    }
+
+    responseBuffer = Buffer.concat([responseBuffer, chunk]);
+    const headerEndIndex = responseBuffer.indexOf('\r\n\r\n');
+    if (headerEndIndex < 0) {
+      if (responseBuffer.length > 8192) {
+        rejectTunnel(new Error('上游代理 CONNECT 响应过大'));
+      }
+      return;
+    }
+
+    const headerText = responseBuffer.subarray(0, headerEndIndex).toString('latin1');
+    const statusMatch = headerText.match(/^HTTP\/1\.[01]\s+(\d{3})/i);
+    const statusCode = statusMatch ? Number.parseInt(statusMatch[1], 10) : 0;
+    if (statusCode !== 200) {
+      rejectTunnel(new Error(`上游代理 CONNECT 失败: HTTP ${statusCode || 'unknown'}`));
+      return;
+    }
+
+    settled = true;
+    upstreamSocket.removeListener('data', onData);
+    upstreamSocket.removeListener('error', rejectTunnel);
+    upstreamSocket.removeListener('timeout', onTimeout);
+    const restData = responseBuffer.subarray(headerEndIndex + 4);
+    if (restData.length > 0) {
+      upstreamSocket.unshift(restData);
+    }
+    resolve(upstreamSocket);
+  };
+
+  const onTimeout = () => rejectTunnel(new Error('上游代理连接超时'));
+
+  upstreamSocket.setTimeout(config.forwardProxy.timeout);
+  upstreamSocket.once('connect', () => {
+    upstreamSocket.write(buildConnectRequest(target, upstreamProxy));
+  });
+  upstreamSocket.on('data', onData);
+  upstreamSocket.once('timeout', onTimeout);
+  upstreamSocket.once('error', rejectTunnel);
+  upstreamSocket.once('close', () => {
+    if (!settled) {
+      rejectTunnel(new Error('上游代理连接已关闭'));
+    }
+  });
+});
+
 const handleHttpProxyRequest = async (req, res) => {
   const clientIp = getClientIp(req);
   if (!isAuthorized(req.headers)) {
@@ -223,18 +312,24 @@ const handleHttpProxyRequest = async (req, res) => {
     return;
   }
 
-  const headers = cleanHeaders(req.headers);
-  headers.host = targetUrl.host;
-  const upstreamAuthHeader = buildUpstreamProxyAuthHeader(upstreamProxy);
-  if (upstreamAuthHeader) {
-    headers['Proxy-Authorization'] = upstreamAuthHeader;
+  let tunnelSocket;
+  try {
+    tunnelSocket = await connectThroughUpstreamProxy(createTargetFromUrl(targetUrl), upstreamProxy);
+  } catch (error) {
+    logger.warn(`正向代理 HTTP 建立隧道失败: target=${targetUrl.host}, error=${error.message}`);
+    sendHttpError(res, 502, error.message || 'Bad Gateway');
+    return;
   }
 
+  const headers = cleanHeaders(req.headers);
+  headers.host = targetUrl.host;
+
   const upstreamRequest = http.request({
-    host: upstreamProxy.host,
-    port: upstreamProxy.port,
+    createConnection: () => tunnelSocket,
+    host: targetUrl.hostname,
+    port: Number.parseInt(targetUrl.port || '80', 10),
     method: req.method,
-    path: targetUrl.href,
+    path: `${targetUrl.pathname}${targetUrl.search}` || '/',
     headers,
     timeout: config.forwardProxy.timeout,
   }, (upstreamResponse) => {
@@ -306,25 +401,8 @@ const parseConnectTarget = (requestUrl) => {
   };
 };
 
-const buildConnectRequest = (target, upstreamProxy) => {
-  const headers = [
-    `CONNECT ${target.authority} HTTP/1.1`,
-    `Host: ${target.authority}`,
-    'Proxy-Connection: Keep-Alive',
-  ];
-  const upstreamAuthHeader = buildUpstreamProxyAuthHeader(upstreamProxy);
-  if (upstreamAuthHeader) {
-    headers.push(`Proxy-Authorization: ${upstreamAuthHeader}`);
-  }
-
-  return `${headers.join('\r\n')}\r\n\r\n`;
-};
-
-const establishTunnel = (clientSocket, upstreamSocket, head, bufferedData) => {
+const establishTunnel = (clientSocket, upstreamSocket, head) => {
   clientSocket.write('HTTP/1.1 200 Connection Established\r\nProxy-Agent: proxyTogether\r\n\r\n');
-  if (bufferedData.length > 0) {
-    clientSocket.write(bufferedData);
-  }
   if (head && head.length > 0) {
     upstreamSocket.write(head);
   }
@@ -363,9 +441,14 @@ const handleConnect = async (req, clientSocket, head) => {
     return;
   }
 
-  let responseBuffer = Buffer.alloc(0);
-  let completed = false;
-  const upstreamSocket = net.connect(upstreamProxy.port, upstreamProxy.host);
+  let upstreamSocket;
+  try {
+    upstreamSocket = await connectThroughUpstreamProxy(target, upstreamProxy);
+  } catch (error) {
+    logger.warn(`正向代理 CONNECT 转发失败: target=${target.authority}, error=${error.message}`);
+    writeSocketResponse(clientSocket, 502, 'Bad Gateway', {}, error.message || 'Bad Gateway');
+    return;
+  }
 
   const closeBothSockets = () => {
     if (!clientSocket.destroyed) {
@@ -376,60 +459,11 @@ const handleConnect = async (req, clientSocket, head) => {
     }
   };
 
-  const failTunnel = (error) => {
-    if (completed) {
-      closeBothSockets();
-      return;
-    }
-
-    completed = true;
-    logger.warn(`正向代理 CONNECT 转发失败: target=${target.authority}, error=${error.message}`);
-    writeSocketResponse(clientSocket, 502, 'Bad Gateway', {}, error.message || 'Bad Gateway');
-    upstreamSocket.destroy();
-  };
-
-  upstreamSocket.setTimeout(config.forwardProxy.timeout);
-  upstreamSocket.once('connect', () => {
-    upstreamSocket.write(buildConnectRequest(target, upstreamProxy));
-  });
-
-  upstreamSocket.on('data', (chunk) => {
-    if (completed) {
-      return;
-    }
-
-    responseBuffer = Buffer.concat([responseBuffer, chunk]);
-    const headerEndIndex = responseBuffer.indexOf('\r\n\r\n');
-    if (headerEndIndex < 0) {
-      if (responseBuffer.length > 8192) {
-        failTunnel(new Error('上游代理 CONNECT 响应过大'));
-      }
-      return;
-    }
-
-    const headerText = responseBuffer.subarray(0, headerEndIndex).toString('latin1');
-    const statusMatch = headerText.match(/^HTTP\/1\.[01]\s+(\d{3})/i);
-    const statusCode = statusMatch ? Number.parseInt(statusMatch[1], 10) : 0;
-    if (statusCode !== 200) {
-      failTunnel(new Error(`上游代理 CONNECT 失败: HTTP ${statusCode || 'unknown'}`));
-      return;
-    }
-
-    completed = true;
-    upstreamSocket.removeAllListeners('data');
-    const restData = responseBuffer.subarray(headerEndIndex + 4);
-    establishTunnel(clientSocket, upstreamSocket, head, restData);
-  });
-
-  upstreamSocket.once('timeout', () => failTunnel(new Error('上游代理连接超时')));
-  upstreamSocket.once('error', failTunnel);
-  upstreamSocket.once('close', () => {
-    if (!completed) {
-      failTunnel(new Error('上游代理连接已关闭'));
-    }
-  });
+  establishTunnel(clientSocket, upstreamSocket, head);
   clientSocket.once('error', closeBothSockets);
+  upstreamSocket.once('error', closeBothSockets);
   clientSocket.once('close', () => upstreamSocket.destroy());
+  upstreamSocket.once('close', () => clientSocket.destroy());
 };
 
 const attach = (server) => {
