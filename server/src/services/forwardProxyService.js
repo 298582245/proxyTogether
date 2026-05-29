@@ -171,16 +171,19 @@ const buildUpstreamProxyAuthHeader = (proxyEndpoint) => {
   return `Basic ${token}`;
 };
 
+const isProxyCacheEnabled = () => config.forwardProxy.cacheEnabled !== false;
+
 const getProxyCacheTtlMs = () => {
-  if (config.forwardProxy.cacheTtlSeconds > 0) {
-    return config.forwardProxy.cacheTtlSeconds * 1000;
+  const configuredTtlSeconds = Number.parseInt(config.forwardProxy.cacheTtlSeconds, 10);
+  if (configuredTtlSeconds > 0) {
+    return configuredTtlSeconds * 1000;
   }
 
   return Math.max(30, (config.forwardProxy.duration * 60) - 15) * 1000;
 };
 
 const getCachedProxy = (triedProxyKeys = []) => {
-  if (!config.forwardProxy.cacheEnabled) {
+  if (!isProxyCacheEnabled()) {
     return null;
   }
 
@@ -205,21 +208,23 @@ const getCachedProxy = (triedProxyKeys = []) => {
 };
 
 const cacheProxy = (proxy) => {
-  if (!config.forwardProxy.cacheEnabled) {
+  if (!isProxyCacheEnabled()) {
     return;
   }
 
   const key = formatProxyEndpoint(proxy.endpoint);
   const now = Date.now();
   proxyCacheSequence += 1;
+  const ttlMs = getProxyCacheTtlMs();
   proxyCache.set(key, {
     key,
     proxy,
     createdAt: now,
     lastUsedAt: now,
-    expiresAt: now + getProxyCacheTtlMs(),
+    expiresAt: now + ttlMs,
     sequence: proxyCacheSequence,
   });
+  logger.info(`正向代理缓存上游: proxy=${key}, ttlSeconds=${Math.floor(ttlMs / 1000)}`);
 };
 
 const invalidateCachedProxy = (proxy, reason) => {
@@ -596,9 +601,10 @@ const handleConnect = async (req, clientSocket, head) => {
     return;
   }
 
+  const triedProxyKeys = [];
   let upstreamProxy;
   try {
-    upstreamProxy = await getUpstreamProxy(clientIp, target.authority);
+    upstreamProxy = await getUpstreamProxy(clientIp, target.authority, [], triedProxyKeys);
   } catch (error) {
     logger.warn(`正向代理 CONNECT 获取上游失败: ip=${clientIp}, target=${target.authority}, error=${error.message}`);
     writeSocketResponse(clientSocket, 502, 'Bad Gateway', {}, error.message || 'Bad Gateway');
