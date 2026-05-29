@@ -22,5 +22,13 @@
     "description": "会话ID查询",
     "status": "not_found",
     "notes": "未找到对应conversationId"
+  },
+  {
+    "task_marker": "20260528-FORWARD-PROXY",
+    "conversation_id": null,
+    "timestamp": "2026-05-28T16:45:58+08:00",
+    "description": "正向代理实现前分析",
+    "status": "not_found",
+    "notes": "未找到对应 conversationId；Codex 后续审查接口返回 503"
   }
 ]

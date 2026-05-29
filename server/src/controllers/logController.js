@@ -167,8 +167,8 @@ const getList = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('鑾峰彇鏃ュ織鍒楄〃澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織鍒楄〃澶辫触' });
+    logger.error('获取日志列表失败:', error);
+    res.status(500).json({ success: false, message: '获取日志列表失败' });
   }
 };
 
@@ -194,7 +194,7 @@ const getDetail = async (req, res) => {
     });
 
     if (!log) {
-      return res.status(404).json({ success: false, message: '鏃ュ織涓嶅瓨鍦?' });
+      return res.status(404).json({ success: false, message: '日志不存在' });
     }
 
     const logJson = log.toJSON();
@@ -206,8 +206,8 @@ const getDetail = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('鑾峰彇鏃ュ織璇︽儏澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織璇︽儏澶辫触' });
+    logger.error('获取日志详情失败:', error);
+    res.status(500).json({ success: false, message: '获取日志详情失败' });
   }
 };
 
@@ -217,8 +217,8 @@ const getStats = async (req, res) => {
     const data = await logStatsService.getLogStatsData(startDate, endDate);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇鏃ュ織缁熻澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鏃ュ織缁熻澶辫触' });
+    logger.error('获取日志统计失败:', error);
+    res.status(500).json({ success: false, message: '获取日志统计失败' });
   }
 };
 
@@ -228,8 +228,8 @@ const getChartData = async (req, res) => {
     const data = await logStatsService.getLogChartData(type);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇鍥捐〃鏁版嵁澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鍥捐〃鏁版嵁澶辫触' });
+    logger.error('获取图表数据失败:', error);
+    res.status(500).json({ success: false, message: '获取图表数据失败' });
   }
 };
 
@@ -321,8 +321,8 @@ const getDurationConfig = async (req, res) => {
       },
     });
   } catch (error) {
-    logger.error('鑾峰彇鏃堕暱鍙傛暟閰嶇疆澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鏃堕暱鍙傛暟閰嶇疆澶辫触' });
+    logger.error('获取时长参数配置失败:', error);
+    res.status(500).json({ success: false, message: '获取时长参数配置失败' });
   }
 };
 

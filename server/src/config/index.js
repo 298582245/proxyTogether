@@ -24,4 +24,15 @@ module.exports = {
   jwt: {
     expiresIn: process.env.JWT_EXPIRES_IN || '7d',
   },
+
+  // 同端口正向代理配置
+  forwardProxy: {
+    enabled: process.env.FORWARD_PROXY_ENABLED === 'true',
+    username: process.env.FORWARD_PROXY_USERNAME || '',
+    password: process.env.FORWARD_PROXY_PASSWORD || '',
+    duration: parseInt(process.env.FORWARD_PROXY_DURATION, 10) || 5,
+    format: process.env.FORWARD_PROXY_FORMAT || 'txt',
+    remark: process.env.FORWARD_PROXY_REMARK || '正向代理',
+    timeout: parseInt(process.env.FORWARD_PROXY_TIMEOUT, 10) || 30000,
+  },
 };

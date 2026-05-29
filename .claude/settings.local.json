@@ -5,7 +5,8 @@
       "mcp__codex-cli__codex",
       "Bash(npm run:*)",
       "Bash(node:*)",
-      "mcp__codex-cli__review"
+      "mcp__codex-cli__review",
+      "Bash(git:*)"
     ]
   }
 }

@@ -1,6 +1,7 @@
 process.env.TZ = 'Asia/Shanghai';
 
 require('dotenv').config();
+const http = require('http');
 const express = require('express');
 const cors = require('cors');
 const config = require('./config');
@@ -11,13 +12,17 @@ const authController = require('./controllers/authController');
 const routes = require('./routes');
 const { errorHandler, notFoundHandler } = require('./middlewares/errorHandler');
 const scheduler = require('./schedulers/balanceScheduler');
+const forwardProxyService = require('./services/forwardProxyService');
 const logger = require('./utils/logger');
 const { formatChinaDateTime } = require('./utils/statsTime');
 
 const app = express();
+const server = http.createServer(app);
+forwardProxyService.attach(server);
 
 app.set('trust proxy', ['loopback', 'linklocal', 'uniquelocal']);
 
+app.use(forwardProxyService.handleHttpRequest);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -43,10 +48,13 @@ const startServer = async () => {
     await authController.initJwtKeys();
     await scheduler.initSchedulers();
 
-    app.listen(config.port, '0.0.0.0', () => {
+    server.listen(config.port, '0.0.0.0', () => {
       logger.info(`服务器已启动，端口: ${config.port}`);
       logger.info(`代理接口地址: http://localhost:${config.port}/api/proxy/get`);
       logger.info(`后台管理地址: http://localhost:${config.port}/api/admin`);
+      if (config.forwardProxy.enabled) {
+        logger.info(`正向代理已启用: http://localhost:${config.port}`);
+      }
     });
   } catch (error) {
     logger.error('服务器启动失败:', error);

@@ -11,8 +11,8 @@ const getAccountSuccessRanking = async (req, res) => {
     const data = await logStatsService.getAccountSuccessRankingData(type, limitNum);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇璐﹀彿鎴愬姛鎺掕澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇璐﹀彿鎴愬姛鎺掕澶辫触' });
+    logger.error('获取账号成功排行失败:', error);
+    res.status(500).json({ success: false, message: '获取账号成功排行失败' });
   }
 };
 
@@ -23,8 +23,8 @@ const getAccountFailRanking = async (req, res) => {
     const data = await logStatsService.getAccountFailRankingData(type, limitNum);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇璐﹀彿澶辫触鎺掕澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇璐﹀彿澶辫触鎺掕澶辫触' });
+    logger.error('获取账号失败排行失败:', error);
+    res.status(500).json({ success: false, message: '获取账号失败排行失败' });
   }
 };
 
@@ -34,8 +34,8 @@ const getSiteDistribution = async (req, res) => {
     const data = await logStatsService.getSiteDistributionData(type);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇缃戠珯鍒嗗竷澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇缃戠珯鍒嗗竷澶辫触' });
+    logger.error('获取网站分布失败:', error);
+    res.status(500).json({ success: false, message: '获取网站分布失败' });
   }
 };
 
@@ -45,8 +45,8 @@ const getHourlyDistribution = async (req, res) => {
     const data = await logStatsService.getHourlyDistributionData(type);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇姣忓皬鏃跺垎甯冨け璐?:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇姣忓皬鏃跺垎甯冨け璐?' });
+    logger.error('获取每小时分布失败:', error);
+    res.status(500).json({ success: false, message: '获取每小时分布失败' });
   }
 };
 
@@ -84,8 +84,8 @@ const getAbnormalAccounts = async (req, res) => {
 
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇寮傚父璐﹀彿澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇寮傚父璐﹀彿澶辫触' });
+    logger.error('获取异常账号失败:', error);
+    res.status(500).json({ success: false, message: '获取异常账号失败' });
   }
 };
 
@@ -126,8 +126,8 @@ const getLowBalanceAccounts = async (req, res) => {
 
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇浣庝綑棰濊处鍙峰け璐?:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇浣庝綑棰濊处鍙峰け璐?' });
+    logger.error('获取低余额账号失败:', error);
+    res.status(500).json({ success: false, message: '获取低余额账号失败' });
   }
 };
 
@@ -174,8 +174,8 @@ const getExpiringAccounts = async (req, res) => {
 
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇鍗冲皢杩囨湡璐﹀彿澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇鍗冲皢杩囨湡璐﹀彿澶辫触' });
+    logger.error('获取即将过期账号失败:', error);
+    res.status(500).json({ success: false, message: '获取即将过期账号失败' });
   }
 };
 
@@ -184,18 +184,18 @@ const getOverview = async (req, res) => {
     const data = await logStatsService.getOverviewData();
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇缁熻姒傝澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇缁熻姒傝澶辫触' });
+    logger.error('获取统计概览失败:', error);
+    res.status(500).json({ success: false, message: '获取统计概览失败' });
   }
 };
 
 const clearStatsCache = async (req, res) => {
   try {
     await logStatsService.clearStatsCache();
-    res.json({ success: true, message: '缂撳瓨宸叉竻闄?' });
+    res.json({ success: true, message: '缓存已清除' });
   } catch (error) {
-    logger.error('娓呴櫎缁熻缂撳瓨澶辫触:', error);
-    res.status(500).json({ success: false, message: '娓呴櫎缂撳瓨澶辫触' });
+    logger.error('清除统计缓存失败:', error);
+    res.status(500).json({ success: false, message: '清除缓存失败' });
   }
 };
 
@@ -206,8 +206,8 @@ const getRemarkRequestRanking = async (req, res) => {
     const data = await logStatsService.getRemarkRequestRankingData(type, limitNum);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇澶囨敞璇锋眰鎺掕澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇澶囨敞璇锋眰鎺掕澶辫触' });
+    logger.error('获取备注请求排行失败:', error);
+    res.status(500).json({ success: false, message: '获取备注请求排行失败' });
   }
 };
 
@@ -218,8 +218,8 @@ const getRemarkCostRanking = async (req, res) => {
     const data = await logStatsService.getRemarkCostRankingData(type, limitNum);
     res.json({ success: true, data });
   } catch (error) {
-    logger.error('鑾峰彇澶囨敞娑堣垂鎺掕澶辫触:', error);
-    res.status(500).json({ success: false, message: '鑾峰彇澶囨敞娑堣垂鎺掕澶辫触' });
+    logger.error('获取备注消费排行失败:', error);
+    res.status(500).json({ success: false, message: '获取备注消费排行失败' });
   }
 };
 

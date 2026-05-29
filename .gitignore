@@ -2,7 +2,9 @@
 node_modules/
 */node_modules/
 
-
+.claude
+AGENTS.md
+CLAUDE.md
 
 # 环境配置
 .env
