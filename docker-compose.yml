@@ -64,6 +64,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    env_file:
+      - ./.env
+      - ./server/.env
     environment:
       - PORT=3000
       - DB_HOST=mysql

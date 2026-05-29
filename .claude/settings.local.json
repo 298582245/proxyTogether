@@ -6,7 +6,8 @@
       "Bash(npm run:*)",
       "Bash(node:*)",
       "mcp__codex-cli__review",
-      "Bash(git:*)"
+      "Bash(git:*)",
+      "Bash(docker compose:*)"
     ]
   }
 }
