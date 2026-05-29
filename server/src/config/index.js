@@ -35,5 +35,7 @@ module.exports = {
     remark: process.env.FORWARD_PROXY_REMARK || '正向代理',
     timeout: parseInt(process.env.FORWARD_PROXY_TIMEOUT, 10) || 30000,
     maxAttempts: parseInt(process.env.FORWARD_PROXY_MAX_ATTEMPTS, 10) || 3,
+    cacheEnabled: process.env.FORWARD_PROXY_CACHE_ENABLED !== 'false',
+    cacheTtlSeconds: parseInt(process.env.FORWARD_PROXY_CACHE_TTL_SECONDS, 10) || 0,
   },
 };

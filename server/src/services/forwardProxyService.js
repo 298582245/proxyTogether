@@ -18,6 +18,8 @@ const HOP_BY_HOP_HEADERS = new Set([
   'transfer-encoding',
   'upgrade',
 ]);
+const proxyCache = new Map();
+let proxyCacheSequence = 0;
 
 const createRequestId = () => {
   if (typeof crypto.randomUUID === 'function') {
@@ -169,7 +171,74 @@ const buildUpstreamProxyAuthHeader = (proxyEndpoint) => {
   return `Basic ${token}`;
 };
 
-const getUpstreamProxy = async (clientIp, targetLabel, triedAccountIds = []) => {
+const getProxyCacheTtlMs = () => {
+  if (config.forwardProxy.cacheTtlSeconds > 0) {
+    return config.forwardProxy.cacheTtlSeconds * 1000;
+  }
+
+  return Math.max(30, (config.forwardProxy.duration * 60) - 15) * 1000;
+};
+
+const getCachedProxy = (triedProxyKeys = []) => {
+  if (!config.forwardProxy.cacheEnabled) {
+    return null;
+  }
+
+  const now = Date.now();
+  for (const [key, item] of proxyCache.entries()) {
+    if (item.expiresAt <= now) {
+      proxyCache.delete(key);
+    }
+  }
+
+  const skippedKeys = new Set(triedProxyKeys);
+  const availableItems = [...proxyCache.values()].filter((item) => !skippedKeys.has(item.key));
+  if (availableItems.length === 0) {
+    return null;
+  }
+
+  availableItems.sort((a, b) => a.lastUsedAt - b.lastUsedAt);
+  const item = availableItems[0];
+  item.lastUsedAt = now;
+  logger.info(`正向代理复用上游: proxy=${item.key}`);
+  return item.proxy;
+};
+
+const cacheProxy = (proxy) => {
+  if (!config.forwardProxy.cacheEnabled) {
+    return;
+  }
+
+  const key = formatProxyEndpoint(proxy.endpoint);
+  const now = Date.now();
+  proxyCacheSequence += 1;
+  proxyCache.set(key, {
+    key,
+    proxy,
+    createdAt: now,
+    lastUsedAt: now,
+    expiresAt: now + getProxyCacheTtlMs(),
+    sequence: proxyCacheSequence,
+  });
+};
+
+const invalidateCachedProxy = (proxy, reason) => {
+  if (!proxy || !proxy.endpoint) {
+    return;
+  }
+
+  const key = formatProxyEndpoint(proxy.endpoint);
+  if (proxyCache.delete(key)) {
+    logger.warn(`正向代理上游已失效: proxy=${key}, reason=${reason}`);
+  }
+};
+
+const getUpstreamProxy = async (clientIp, targetLabel, triedAccountIds = [], triedProxyKeys = []) => {
+  const cachedProxy = getCachedProxy(triedProxyKeys);
+  if (cachedProxy) {
+    return cachedProxy;
+  }
+
   const requestId = createRequestId();
   const result = await proxyService.getProxy(
     config.forwardProxy.duration,
@@ -190,10 +259,12 @@ const getUpstreamProxy = async (clientIp, targetLabel, triedAccountIds = []) => 
   }
 
   logger.info(`正向代理上游已选择: target=${targetLabel}, proxy=${formatProxyEndpoint(proxyEndpoint)}`);
-  return {
+  const proxy = {
     endpoint: proxyEndpoint,
     accountId: result.data.account ? result.data.account.id : null,
   };
+  cacheProxy(proxy);
+  return proxy;
 };
 
 const formatAuthorityHost = (hostname) => hostname.includes(':') ? `[${hostname}]` : hostname;
@@ -399,12 +470,13 @@ const handleHttpProxyRequest = async (req, res) => {
 
   const maxAttempts = Math.max(1, config.forwardProxy.maxAttempts || 1);
   const triedAccountIds = [];
+  const triedProxyKeys = [];
   let lastError = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     let upstreamProxyResult;
     try {
-      upstreamProxyResult = await getUpstreamProxy(clientIp, targetUrl.host, triedAccountIds);
+      upstreamProxyResult = await getUpstreamProxy(clientIp, targetUrl.host, triedAccountIds, triedProxyKeys);
     } catch (error) {
       logger.warn(`正向代理获取上游失败: ip=${clientIp}, target=${targetUrl.host}, error=${error.message}`);
       lastError = error;
@@ -412,6 +484,7 @@ const handleHttpProxyRequest = async (req, res) => {
     }
 
     const upstreamProxy = upstreamProxyResult.endpoint;
+    triedProxyKeys.push(formatProxyEndpoint(upstreamProxy));
     if (upstreamProxyResult.accountId) {
       triedAccountIds.push(upstreamProxyResult.accountId);
     }
@@ -421,6 +494,7 @@ const handleHttpProxyRequest = async (req, res) => {
       return;
     } catch (absoluteError) {
       logger.warn(`正向代理 HTTP 普通转发失败，尝试隧道模式: target=${targetUrl.host}, attempt=${attempt}, error=${absoluteError.message}`);
+      invalidateCachedProxy(upstreamProxyResult, absoluteError.message);
       lastError = absoluteError;
       if (res.headersSent || hasRequestBody(req)) {
         break;
@@ -432,6 +506,7 @@ const handleHttpProxyRequest = async (req, res) => {
       return;
     } catch (tunnelError) {
       logger.warn(`正向代理 HTTP 隧道转发失败: target=${targetUrl.host}, attempt=${attempt}, error=${tunnelError.message}`);
+      invalidateCachedProxy(upstreamProxyResult, tunnelError.message);
       lastError = tunnelError;
       if (res.headersSent || hasRequestBody(req)) {
         break;
@@ -532,9 +607,10 @@ const handleConnect = async (req, clientSocket, head) => {
 
   let upstreamSocket;
   try {
-    upstreamSocket = await connectThroughUpstreamProxy(target, upstreamProxy);
+    upstreamSocket = await connectThroughUpstreamProxy(target, upstreamProxy.endpoint);
   } catch (error) {
     logger.warn(`正向代理 CONNECT 转发失败: target=${target.authority}, error=${error.message}`);
+    invalidateCachedProxy(upstreamProxy, error.message);
     writeSocketResponse(clientSocket, 502, 'Bad Gateway', {}, error.message || 'Bad Gateway');
     return;
   }
