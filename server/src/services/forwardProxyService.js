@@ -282,6 +282,97 @@ const connectThroughUpstreamProxy = (target, upstreamProxy) => new Promise((reso
   });
 });
 
+const getOriginPath = (targetUrl) => `${targetUrl.pathname}${targetUrl.search}` || '/';
+
+const hasRequestBody = (req) => {
+  const method = String(req.method || '').toUpperCase();
+  if (method === 'GET' || method === 'HEAD') {
+    return false;
+  }
+
+  const contentLength = Number.parseInt(req.headers['content-length'] || '0', 10);
+  return contentLength > 0 || Boolean(req.headers['transfer-encoding']);
+};
+
+const sendRequestToUpstream = (req, upstreamRequest) => {
+  if (hasRequestBody(req)) {
+    req.pipe(upstreamRequest);
+    return;
+  }
+
+  upstreamRequest.end();
+};
+
+const pipeUpstreamResponse = (upstreamResponse, res) => {
+  res.writeHead(
+    upstreamResponse.statusCode || 502,
+    upstreamResponse.statusMessage,
+    cleanHeaders(upstreamResponse.headers)
+  );
+  upstreamResponse.pipe(res);
+};
+
+const forwardHttpByAbsoluteForm = (req, res, targetUrl, upstreamProxy) => new Promise((resolve, reject) => {
+  const headers = cleanHeaders(req.headers);
+  headers.host = targetUrl.host;
+  const upstreamAuthHeader = buildUpstreamProxyAuthHeader(upstreamProxy);
+  if (upstreamAuthHeader) {
+    headers['Proxy-Authorization'] = upstreamAuthHeader;
+  }
+
+  const upstreamRequest = http.request({
+    host: upstreamProxy.host,
+    port: upstreamProxy.port,
+    method: req.method,
+    path: targetUrl.href,
+    headers,
+    timeout: config.forwardProxy.timeout,
+  }, (upstreamResponse) => {
+    pipeUpstreamResponse(upstreamResponse, res);
+    resolve();
+  });
+
+  upstreamRequest.on('timeout', () => {
+    upstreamRequest.destroy(new Error('上游代理请求超时'));
+  });
+
+  upstreamRequest.on('error', reject);
+  req.on('aborted', () => upstreamRequest.destroy());
+  sendRequestToUpstream(req, upstreamRequest);
+});
+
+const forwardHttpByConnectTunnel = async (req, res, targetUrl, upstreamProxy) => {
+  const tunnelSocket = await connectThroughUpstreamProxy(createTargetFromUrl(targetUrl), upstreamProxy);
+  const headers = cleanHeaders(req.headers);
+  headers.host = targetUrl.host;
+
+  return new Promise((resolve, reject) => {
+    const upstreamRequest = http.request({
+      createConnection: () => tunnelSocket,
+      host: targetUrl.hostname,
+      port: Number.parseInt(targetUrl.port || '80', 10),
+      method: req.method,
+      path: getOriginPath(targetUrl),
+      headers,
+      timeout: config.forwardProxy.timeout,
+    }, (upstreamResponse) => {
+      pipeUpstreamResponse(upstreamResponse, res);
+      resolve();
+    });
+
+    upstreamRequest.on('timeout', () => {
+      upstreamRequest.destroy(new Error('上游代理请求超时'));
+    });
+
+    upstreamRequest.on('error', (error) => {
+      tunnelSocket.destroy();
+      reject(error);
+    });
+    req.on('aborted', () => upstreamRequest.destroy());
+    sendRequestToUpstream(req, upstreamRequest);
+  });
+};
+
 const handleHttpProxyRequest = async (req, res) => {
   const clientIp = getClientIp(req);
   if (!isAuthorized(req.headers)) {
@@ -312,50 +403,27 @@ const handleHttpProxyRequest = async (req, res) => {
     return;
   }
 
-  let tunnelSocket;
   try {
-    tunnelSocket = await connectThroughUpstreamProxy(createTargetFromUrl(targetUrl), upstreamProxy);
-  } catch (error) {
-    logger.warn(`正向代理 HTTP 建立隧道失败: target=${targetUrl.host}, error=${error.message}`);
-    sendHttpError(res, 502, error.message || 'Bad Gateway');
+    await forwardHttpByAbsoluteForm(req, res, targetUrl, upstreamProxy);
     return;
-  }
-
-  const headers = cleanHeaders(req.headers);
-  headers.host = targetUrl.host;
-
-  const upstreamRequest = http.request({
-    createConnection: () => tunnelSocket,
-    host: targetUrl.hostname,
-    port: Number.parseInt(targetUrl.port || '80', 10),
-    method: req.method,
-    path: `${targetUrl.pathname}${targetUrl.search}` || '/',
-    headers,
-    timeout: config.forwardProxy.timeout,
-  }, (upstreamResponse) => {
-    res.writeHead(
-      upstreamResponse.statusCode || 502,
-      upstreamResponse.statusMessage,
-      cleanHeaders(upstreamResponse.headers)
-    );
-    upstreamResponse.pipe(res);
-  });
-
-  upstreamRequest.on('timeout', () => {
-    upstreamRequest.destroy(new Error('上游代理请求超时'));
-  });
-
-  upstreamRequest.on('error', (error) => {
-    logger.warn(`正向代理 HTTP 转发失败: target=${targetUrl.host}, error=${error.message}`);
-    if (res.headersSent) {
-      res.destroy(error);
+  } catch (absoluteError) {
+    logger.warn(`正向代理 HTTP 普通转发失败，尝试隧道模式: target=${targetUrl.host}, error=${absoluteError.message}`);
+    if (res.headersSent || hasRequestBody(req)) {
+      sendHttpError(res, 502, absoluteError.message || 'Bad Gateway');
       return;
     }
-    sendHttpError(res, 502, error.message || 'Bad Gateway');
-  });
+  }
 
-  req.on('aborted', () => upstreamRequest.destroy());
-  req.pipe(upstreamRequest);
+  try {
+    await forwardHttpByConnectTunnel(req, res, targetUrl, upstreamProxy);
+  } catch (tunnelError) {
+    logger.warn(`正向代理 HTTP 隧道转发失败: target=${targetUrl.host}, error=${tunnelError.message}`);
+    if (res.headersSent) {
+      res.destroy(tunnelError);
+      return;
+    }
+    sendHttpError(res, 502, tunnelError.message || 'Bad Gateway');
+  }
 };
 
 const handleHttpRequest = (req, res, next) => {

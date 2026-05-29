@@ -59,6 +59,8 @@ services:
       dockerfile: Dockerfile
     container_name: proxy-together-server
     restart: unless-stopped
+    ports:
+      - "12306:3000"
     depends_on:
       mysql:
         condition: service_healthy
