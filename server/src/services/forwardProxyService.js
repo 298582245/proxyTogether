@@ -169,13 +169,13 @@ const buildUpstreamProxyAuthHeader = (proxyEndpoint) => {
   return `Basic ${token}`;
 };
 
-const getUpstreamProxy = async (clientIp, targetLabel) => {
+const getUpstreamProxy = async (clientIp, targetLabel, triedAccountIds = []) => {
   const requestId = createRequestId();
   const result = await proxyService.getProxy(
     config.forwardProxy.duration,
     config.forwardProxy.format,
     clientIp,
-    [],
+    triedAccountIds,
     config.forwardProxy.remark,
     requestId
   );
@@ -190,7 +190,10 @@ const getUpstreamProxy = async (clientIp, targetLabel) => {
   }
 
   logger.info(`正向代理上游已选择: target=${targetLabel}, proxy=${formatProxyEndpoint(proxyEndpoint)}`);
-  return proxyEndpoint;
+  return {
+    endpoint: proxyEndpoint,
+    accountId: result.data.account ? result.data.account.id : null,
+  };
 };
 
 const formatAuthorityHost = (hostname) => hostname.includes(':') ? `[${hostname}]` : hostname;
@@ -394,36 +397,54 @@ const handleHttpProxyRequest = async (req, res) => {
     return;
   }
 
-  let upstreamProxy;
-  try {
-    upstreamProxy = await getUpstreamProxy(clientIp, targetUrl.host);
-  } catch (error) {
-    logger.warn(`正向代理获取上游失败: ip=${clientIp}, target=${targetUrl.host}, error=${error.message}`);
-    sendHttpError(res, 502, error.message || 'Bad Gateway');
-    return;
-  }
+  const maxAttempts = Math.max(1, config.forwardProxy.maxAttempts || 1);
+  const triedAccountIds = [];
+  let lastError = null;
 
-  try {
-    await forwardHttpByAbsoluteForm(req, res, targetUrl, upstreamProxy);
-    return;
-  } catch (absoluteError) {
-    logger.warn(`正向代理 HTTP 普通转发失败，尝试隧道模式: target=${targetUrl.host}, error=${absoluteError.message}`);
-    if (res.headersSent || hasRequestBody(req)) {
-      sendHttpError(res, 502, absoluteError.message || 'Bad Gateway');
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let upstreamProxyResult;
+    try {
+      upstreamProxyResult = await getUpstreamProxy(clientIp, targetUrl.host, triedAccountIds);
+    } catch (error) {
+      logger.warn(`正向代理获取上游失败: ip=${clientIp}, target=${targetUrl.host}, error=${error.message}`);
+      lastError = error;
+      break;
+    }
+
+    const upstreamProxy = upstreamProxyResult.endpoint;
+    if (upstreamProxyResult.accountId) {
+      triedAccountIds.push(upstreamProxyResult.accountId);
+    }
+
+    try {
+      await forwardHttpByAbsoluteForm(req, res, targetUrl, upstreamProxy);
       return;
+    } catch (absoluteError) {
+      logger.warn(`正向代理 HTTP 普通转发失败，尝试隧道模式: target=${targetUrl.host}, attempt=${attempt}, error=${absoluteError.message}`);
+      lastError = absoluteError;
+      if (res.headersSent || hasRequestBody(req)) {
+        break;
+      }
+    }
+
+    try {
+      await forwardHttpByConnectTunnel(req, res, targetUrl, upstreamProxy);
+      return;
+    } catch (tunnelError) {
+      logger.warn(`正向代理 HTTP 隧道转发失败: target=${targetUrl.host}, attempt=${attempt}, error=${tunnelError.message}`);
+      lastError = tunnelError;
+      if (res.headersSent || hasRequestBody(req)) {
+        break;
+      }
     }
   }
 
-  try {
-    await forwardHttpByConnectTunnel(req, res, targetUrl, upstreamProxy);
-  } catch (tunnelError) {
-    logger.warn(`正向代理 HTTP 隧道转发失败: target=${targetUrl.host}, error=${tunnelError.message}`);
-    if (res.headersSent) {
-      res.destroy(tunnelError);
-      return;
-    }
-    sendHttpError(res, 502, tunnelError.message || 'Bad Gateway');
+  if (res.headersSent) {
+    res.destroy(lastError || new Error('Bad Gateway'));
+    return;
   }
+
+  sendHttpError(res, 502, lastError ? lastError.message : 'Bad Gateway');
 };
 
 const handleHttpRequest = (req, res, next) => {
