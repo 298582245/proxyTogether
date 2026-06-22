@@ -1,4 +1,5 @@
 const express = require('express');
+const multer = require('multer');
 const authMiddleware = require('../middlewares/auth');
 const authController = require('../controllers/authController');
 const siteController = require('../controllers/siteController');
@@ -8,8 +9,32 @@ const logController = require('../controllers/logController');
 const statsController = require('../controllers/statsController');
 const statsSnapshotController = require('../controllers/statsSnapshotController');
 const usageLimitController = require('../controllers/usageLimitController');
+const databaseController = require('../controllers/databaseController');
+const databaseBackupService = require('../services/databaseBackupService');
 
 const router = express.Router();
+
+const databaseImportUpload = async (req, res, next) => {
+  try {
+    const maxUploadBytes = await databaseBackupService.getMaxUploadBytes();
+    const uploadSingle = multer({
+      dest: databaseBackupService.getUploadDirectory(),
+      limits: { fileSize: maxUploadBytes },
+    }).single('file');
+
+    uploadSingle(req, res, (error) => {
+      if (error) {
+        if (error.code === 'LIMIT_FILE_SIZE') {
+          return res.status(413).json({ success: false, message: '上传文件超过配置的大小限制' });
+        }
+        return next(error);
+      }
+      return next();
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 // 认证相关
 router.get('/auth/init', authController.checkPasswordInit);
@@ -87,6 +112,17 @@ router.delete('/stats-snapshot/all-new-stats', authMiddleware, statsSnapshotCont
 router.post('/stats-snapshot/daily-settlement', authMiddleware, statsSnapshotController.triggerDailySettlement);
 router.post('/stats-snapshot/batch-settlement', authMiddleware, statsSnapshotController.triggerBatchSettlement);
 router.post('/stats-snapshot/monthly-settlement', authMiddleware, statsSnapshotController.triggerMonthlySettlement);
+
+// 数据库维护
+router.get('/database/backup/config', authMiddleware, databaseController.getBackupConfig);
+router.put('/database/backup/config', authMiddleware, databaseController.updateBackupConfig);
+router.post('/database/backups/run', authMiddleware, databaseController.runBackup);
+router.post('/database/export', authMiddleware, databaseController.exportDatabase);
+router.get('/database/backups', authMiddleware, databaseController.listBackups);
+router.get('/database/backups/:fileName/download', authMiddleware, databaseController.downloadBackup);
+router.delete('/database/backups/:fileName', authMiddleware, databaseController.deleteBackup);
+router.post('/database/import', authMiddleware, databaseImportUpload, databaseController.importDatabase);
+router.get('/database/operation/status', authMiddleware, databaseController.getOperationStatus);
 
 // 使用限制管理
 router.get('/usage-limits', authMiddleware, usageLimitController.getLimitedAccounts);

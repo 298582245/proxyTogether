@@ -34,6 +34,11 @@ const routes = [
         component: () => import('@/views/settings/SystemConfig.vue')
       },
       {
+        path: 'database-maintenance',
+        name: 'DatabaseMaintenance',
+        component: () => import('@/views/settings/DatabaseMaintenance.vue')
+      },
+      {
         path: 'logs',
         name: 'Logs',
         component: () => import('@/views/logs/LogList.vue')

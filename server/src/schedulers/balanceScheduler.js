@@ -3,6 +3,7 @@ const SystemConfig = require('../models/SystemConfig');
 const balanceService = require('../services/balanceService');
 const logStatsService = require('../services/logStatsService');
 const proxyKeepaliveService = require('../services/proxyKeepaliveService');
+const databaseBackupService = require('../services/databaseBackupService');
 const statsNewService = require('../services/statsNewService');
 const usageLimitService = require('../services/usageLimitService');
 const logger = require('../utils/logger');
@@ -14,6 +15,7 @@ let logCleanupJob = null;
 let dailySettlementJob = null;
 let monthlySettlementJob = null;
 let proxyKeepaliveJob = null;
+let databaseBackupJob = null;
 
 const normalizeInteger = (value, defaultValue, minValue, maxValue) => {
   const parsedValue = Number.parseInt(value, 10);
@@ -183,6 +185,44 @@ const stopProxyKeepaliveJob = () => {
   }
 };
 
+const startDatabaseBackupJob = async () => {
+  stopDatabaseBackupJob();
+  const backupConfig = await databaseBackupService.getBackupConfig();
+
+  if (!backupConfig.enabled) {
+    logger.info('database backup job disabled');
+    return null;
+  }
+
+  const cronExpression = backupConfig.mode === 'interval'
+    ? `${backupConfig.minute} * * * *`
+    : `${backupConfig.minute} ${backupConfig.hour} * * *`;
+
+  databaseBackupJob = cron.schedule(cronExpression, async () => {
+    try {
+      if (!(await databaseBackupService.shouldRunAutoBackup())) {
+        logger.info('database auto backup skipped: interval not reached');
+        return;
+      }
+      const result = await databaseBackupService.runAutoBackup();
+      logger.info(`database auto backup completed: ${result.fileName}`);
+    } catch (error) {
+      logger.error('database auto backup failed:', error);
+    }
+  });
+
+  logger.info(`database backup job started, cron=${cronExpression}`);
+  return databaseBackupJob;
+};
+
+const stopDatabaseBackupJob = () => {
+  if (databaseBackupJob) {
+    databaseBackupJob.stop();
+    databaseBackupJob = null;
+    logger.info('database backup job stopped');
+  }
+};
+
 const startDailySettlementJob = async () => {
   stopDailySettlementJob();
 
@@ -253,6 +293,11 @@ const restartProxyKeepaliveJob = async () => {
   return startProxyKeepaliveJob();
 };
 
+const restartDatabaseBackupJob = async () => {
+  stopDatabaseBackupJob();
+  return startDatabaseBackupJob();
+};
+
 const initSchedulers = async () => {
   await startBalanceCheckJob();
   await startUsageLimitResetJob();
@@ -287,6 +332,12 @@ const initSchedulers = async () => {
     logger.error('proxy keepalive job init failed:', error);
   }
 
+  try {
+    await startDatabaseBackupJob();
+  } catch (error) {
+    logger.error('database backup job init failed:', error);
+  }
+
   logger.info('all scheduler jobs initialized');
 };
 
@@ -298,6 +349,7 @@ const stopAllSchedulers = () => {
   stopDailySettlementJob();
   stopMonthlySettlementJob();
   stopProxyKeepaliveJob();
+  stopDatabaseBackupJob();
   logger.info('all scheduler jobs stopped');
 };
 
@@ -306,8 +358,10 @@ module.exports = {
   restartBalanceCheckJob,
   restartLogStatsJobs,
   restartProxyKeepaliveJob,
+  restartDatabaseBackupJob,
   startBalanceCheckJob,
   startDailySettlementJob,
+  startDatabaseBackupJob,
   startLogCleanupJob,
   startLogStatsFlushJob,
   startMonthlySettlementJob,
@@ -316,6 +370,7 @@ module.exports = {
   stopAllSchedulers,
   stopBalanceCheckJob,
   stopDailySettlementJob,
+  stopDatabaseBackupJob,
   stopLogCleanupJob,
   stopLogStatsFlushJob,
   stopMonthlySettlementJob,

@@ -52,6 +52,10 @@
             <template #icon><icon-settings /></template>
             系统设置
           </a-menu-item>
+          <a-menu-item key="/database-maintenance">
+            <template #icon><icon-file /></template>
+            数据库维护
+          </a-menu-item>
         </a-menu>
         <!-- 折叠按钮 -->
         <div class="collapse-btn" @click="sidebarCollapsed = !sidebarCollapsed">
@@ -103,6 +107,10 @@
             <a-menu-item key="/settings">
               <template #icon><icon-settings /></template>
               系统设置
+            </a-menu-item>
+            <a-menu-item key="/database-maintenance">
+              <template #icon><icon-file /></template>
+              数据库维护
             </a-menu-item>
           </a-menu>
         </div>

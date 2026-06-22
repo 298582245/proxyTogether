@@ -1,6 +1,7 @@
 const { QueryTypes } = require('sequelize');
 const { sequelize } = require('../config/database');
 const logger = require('../utils/logger');
+const databaseBackupService = require('./databaseBackupService');
 
 const hasColumn = async (tableName, columnName) => {
   try {
@@ -139,12 +140,19 @@ const ensureProxyKeepaliveConfigDefaults = async () => {
   }
 };
 
+const ensureDatabaseBackupConfigDefaults = async () => {
+  for (const item of databaseBackupService.CONFIG_DEFAULTS) {
+    await ensureSystemConfigDefault(item.key, item.value, item.description);
+  }
+};
+
 const runSchemaMigrations = async () => {
   await ensureProxyLogsRequestId();
   await ensureProxyLogRequestDailyStatsTable();
   await ensureProxyLogHourlyStatsTable();
   await ensureProxyLogRemarkDailyStatsTable();
   await ensureProxyKeepaliveConfigDefaults();
+  await ensureDatabaseBackupConfigDefaults();
 };
 
 module.exports = {
